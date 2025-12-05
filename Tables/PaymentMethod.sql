@@ -1,0 +1,8 @@
+CREATE TABLE CustomerPaymentMethod (
+  Id int(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
+  UserId LONGTEXT NOT NULL,
+  PaymentMethod LONGTEXT NOT NULL,
+  StripeCustomerId LONGTEXT NOT NULL,
+  DateAdded LONGTEXT NOT NULL,
+  TimeAdded LONGTEXT NOT NULL
+);

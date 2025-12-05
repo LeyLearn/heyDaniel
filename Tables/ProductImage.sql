@@ -1,0 +1,9 @@
+CREATE TABLE ItemReview (
+  Id int(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
+  PrimaryPicture LONGTEXT NOT NULL,
+  SecondaryPicture LONGTEXT NOT NULL,
+  ThirdPicture LONGTEXT NOT NULL,
+  FourthPicture LONGTEXT NOT NULL,
+  FithPicture LONGTEXT NOT NULL,
+  SithPicture LONGTEXT NOT NULL
+);
