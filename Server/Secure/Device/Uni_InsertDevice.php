@@ -2,56 +2,39 @@
 
 include_once "../connect.php";
 
-header('Content-Type: application/json; charset=utf-8');
-
-$rawInput = file_get_contents('php://input');
-
 $response = [
     'success'           => false,
     'same_day_eligible' => false,
     'error'             => null
 ];
 
-if ($rawInput === false || $rawInput === '' || strlen($rawInput) > 1024) {
-    http_response_code(400);
-    $response['error'] = 'Invalid request body';
-    echo json_encode($response);
-    exit;
-}
+include_once "../../Function/Auth/ArrayAuth.php";
 
-$input = json_decode($rawInput, true);
-
-if (json_last_error() !== JSON_ERROR_NONE) {
-    http_response_code(400);
-    $response['error'] = 'Bad JSON';
-    echo json_encode($response);
-    exit;
-}
 if (
-    count($input) !== 5
-    || !isset($input['device_signature'])
-    || !is_string($input['device_signature'])
-    || $input['device_signature'] === ''
-    || strlen($input['device_signature']) > 128
-    || !preg_match('/^[a-zA-Z0-9-]+$/', $input['device_signature'])
-    || !isset($input['device_type'])
-    || !is_string($input['device_type'])
-    || $input['device_type'] === ''
-    || strlen($input['device_type']) > 32
-    || !in_array($input['device_type'], ['Apple', 'Android', 'Web'])
-    || !isset($input['zipcode'])
-    || !is_string($input['zipcode'])
-    || $input['zipcode'] === ''
-    || strlen($input['zipcode']) > 16
-    || !preg_match('/^[a-zA-Z0-9\- ]+$/', $input['zipcode'])
-    || !isset($input['user_address'])
-    || !is_string($input['user_address'])
-    || $input['user_address'] === ''
-    || strlen($input['user_address']) > 256
-    || !isset($input['user_id'])
-    || !is_int($input['user_id'])
-    || $input['user_id'] === ''
-    || strlen($input['user_id']) > 64
+    count($data) !== 5
+    || !isset($data['device_signature'])
+    || !is_string($data['device_signature'])
+    || $data['device_signature'] === ''
+    || strlen($data['device_signature']) > 128
+    || !preg_match('/^[a-zA-Z0-9-]+$/', $data['device_signature'])
+    || !isset($data['device_type'])
+    || !is_string($data['device_type'])
+    || $data['device_type'] === ''
+    || strlen($data['device_type']) > 32
+    || !in_array($data['device_type'], ['Apple', 'Android', 'Web'])
+    || !isset($data['zipcode'])
+    || !is_string($data['zipcode'])
+    || $data['zipcode'] === ''
+    || strlen($data['zipcode']) > 16
+    || !preg_match('/^[a-zA-Z0-9\- ]+$/', $data['zipcode'])
+    || !isset($data['user_address'])
+    || !is_string($data['user_address'])
+    || $data['user_address'] === ''
+    || strlen($data['user_address']) > 256
+    || !isset($data['user_id'])
+    || !is_int($data['user_id'])
+    || $data['user_id'] === ''
+    || strlen($data['user_id']) > 64
 ) {
     http_response_code(400);
     $response['error'] = 'Invalid or missing parameters.';
@@ -59,11 +42,11 @@ if (
     exit;
 }
 
-$userId = (Int)$input['user_id'];
-$userAddress = htmlentities($input['user_address']);
-$userZip = htmlentities($input['zipcode']);
-$userDevice = htmlentities($input['device_signature']);
-$deviceType = htmlentities($input['device_type']);
+$userId = (Int)$data['user_id'];
+$userAddress = htmlentities($data['user_address']);
+$userZip = htmlentities($data['zipcode']);
+$userDevice = htmlentities($data['device_signature']);
+$deviceType = htmlentities($data['device_type']);
 
 $isActive = true;
 $userTimeRegister = date("Y-m-d H:i:s");
@@ -79,7 +62,8 @@ $column = $columnMap[$deviceType] ?? null;
 if (!$column) {
     // This should never happen — but defense in depth
     http_response_code(400);
-    echo json_encode(['error' => 'invalid_device_type']);
+    $response['error'] = 'invalid device type';
+    echo json_encode($response);
     exit;
 }
 // check if device exists in Devices table
@@ -136,16 +120,6 @@ else {
             $stmt->execute([$userDevice, $deviceType, $userZip, $userAddress]);
         }
     }
-}
-
-if($userZip !== null) {
-    $stmt = $pdo->prepare("
-        SELECT 1 FROM AllowedZip WHERE Zipcode = ? LIMIT 1
-    ");
-
-    $stmt->execute([$userZip]);
-    $response['success'] = true;
-    $response['same_day_eligible'] = (bool) $stmt->fetchColumn() === 1;
 }
 
 echo json_encode($response);

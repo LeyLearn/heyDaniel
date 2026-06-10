@@ -2,33 +2,15 @@
 
 include_once "../connect.php";
 
-header('Content-Type: application/json; charset=utf-8');
-
 $response = [
     "success" => false,
     "error" => null
 ];
 
-$rawInput = file_get_contents('php://input');
-
-if ($rawInput === false || $rawInput === '' || strlen($rawInput) > 2048) {
-    http_response_code(400);
-    $response['error'] = 'Invalid request';
-    echo json_encode($response);
-    exit;
-}
-
-$input = json_decode($rawInput, true);
-
-if (json_last_error() !== JSON_ERROR_NONE) {
-    http_response_code(400);
-    $response['error'] = 'Malformed JSON';
-    echo json_encode($response);
-    exit;
-}
+include_once "../../Function/Auth/ArrayAuth.php";
 
 // === STRICT INPUT VALIDATION ===
-$required = ['UserName', 'UserEmail', 'UserPass', 'Device', 'DeviceType'];
+$required = ['user_name', 'user_email', 'user_pass', 'device', 'device_type'];
 foreach ($required as $field) {
     if (!isset($input[$field]) || !is_string($input[$field]) || trim($input[$field]) === '') {
         http_response_code(400);
@@ -38,11 +20,11 @@ foreach ($required as $field) {
     }
 }
 
-$userName = trim($input['UserName']);
-$userEmail = strtolower(trim($input['UserEmail']));
-$userPass = $input['UserPass'];
-$device = trim($input['Device']);
-$deviceType = trim($input['DeviceType']);
+$userName = trim($input['user_name']);
+$userEmail = strtolower(trim($input['user_email']));
+$userPass = $input['user_pass'];
+$device = trim($input['device']);
+$deviceType = trim($input['device_type']);
 
 if (strlen($device) > 128 || strlen($deviceType) > 50 || strlen($userName) > 100) {
     http_response_code(400);

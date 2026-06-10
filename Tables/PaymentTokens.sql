@@ -3,3 +3,5 @@ CREATE TABLE Tokens (
   UserId LONGTEXT NOT NULL,
   Token LONGTEXT NOT NULL
 );
+
+-- i am not too sure on this. this table will probably be changed in the future.

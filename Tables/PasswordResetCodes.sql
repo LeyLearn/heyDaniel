@@ -5,3 +5,4 @@ CREATE TABLE PassWordResetCode (
   SentIn LONGTEXT NOT NULL,
   ExpiredAt LONGTEXT NOT NULL
 );
+-- self-explanatory, tracks password reset codes sent to users. can be used for validating password reset requests, ensuring security, and managing the password reset process.

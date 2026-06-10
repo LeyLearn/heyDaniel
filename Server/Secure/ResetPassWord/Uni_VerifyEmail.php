@@ -1,44 +1,32 @@
 <?php
 
 include_once "../connect.php";
-header('Content-Type: application/json; charset=utf-8');
 
 $response = [
     "success" => false,
-    "message" => null
+    "error" => null
 ];
-$rawInput = file_get_contents('php://input');   
-if ($rawInput === false || $rawInput === '' || strlen($rawInput) > 2048) {
+
+include_once "../../Function/Auth/ArrayAuth.php";
+
+if (!is_array($data) || !isset($data['user_email']) || !isset($data['unique_code']) || count($data) !== 2) {
     http_response_code(400);
-    $response['message'] = 'Invalid request';
-    echo json_encode($response);
-    exit;
-}   
-$data = json_decode($rawInput, true);
-if (json_last_error() !== JSON_ERROR_NONE) {
-    http_response_code(400);
-    $response['message'] = 'Malformed JSON';
+    $response['error'] = 'Invalid request';
     echo json_encode($response);
     exit;
 }
-if (!is_array($data) || !isset($data['userEmail']) || !isset($data['uniqueCode']) || count($data) !== 2) {
-    http_response_code(400);
-    $response['message'] = 'Invalid request';
-    echo json_encode($response);
-    exit;
-}
-$userEmail = strtolower(trim($data['userEmail']));
-$uniqueCode = trim($data['uniqueCode']);
+$userEmail = strtolower(trim($data['user_email']));
+$uniqueCode = trim($data['unique_code']);
 
 if ($userEmail === "" || !filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
     http_response_code(400);
-    $response['message'] = 'Invalid email format';
+    $response['error'] = 'Invalid email format';
     echo json_encode($response);
     exit;
 }
 if ($uniqueCode === null || !preg_match('/^\d{6}$/', $uniqueCode)) {
     http_response_code(400);
-    $response['message'] = 'Invalid code format';
+    $response['error'] = 'Invalid code format';
     echo json_encode($response);
     exit;
 }
@@ -48,18 +36,18 @@ $stmt = $pdo->prepare("SELECT Code, ExpiredAt FROM PasswordResetCodes WHERE Emai
 $stmt->execute([$userEmail]);
 $row = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$row) {
-    $response['message'] = 'No code was sent to this email. Please request a code first.';
+    $response['error'] = 'No code was sent to this email. Please request a code first.';
     echo json_encode($response);
     exit;
 }
 $dbCode = $row['Code'];
 $expiredAt = $row['ExpiredAt'];
 if ($uniqueCode !== $dbCode) {
-    $response['message'] = 'The code entered was not valid.';
+    $response['error'] = 'The code entered was not valid.';
     echo json_encode($response);
     exit;
 } else if ($currentTime > $expiredAt) {
-    $response['message'] = 'The code has expired. Please request a new one.';
+    $response['error'] = 'The code has expired. Please request a new one.';
     // delete the expired code from the database here
     $deleteStmt = $pdo->prepare("DELETE FROM PasswordResetCodes WHERE Email = ?");
     $deleteStmt->execute([$userEmail]);
@@ -67,7 +55,6 @@ if ($uniqueCode !== $dbCode) {
     exit;
 } else {
     $response['success'] = true;
-    $response['message'] = 'Success';
     echo json_encode($response);
     exit;
 }

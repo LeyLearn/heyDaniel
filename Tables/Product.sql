@@ -12,5 +12,32 @@ CREATE TABLE Products (
   SalePrice LONGTEXT NOT NULL,
   isBogo LONGTEXT NOT NULL,
   inStock LONGTEXT NOT NULL,
+  Picture LONGTEXT NOT NULL,
   Description LONGTEXT NOT NULL
 );
+
+-- new version.
+CREATE TABLE Products (
+  Id          INT AUTO_INCREMENT PRIMARY KEY NOT NULL,
+  Brand       VARCHAR(255)   NOT NULL,
+  Name        VARCHAR(500)   NOT NULL,
+  Oz          DECIMAL(8,3)   NOT NULL,
+  Price       DECIMAL(10,2)  NOT NULL,
+  isOnSale    TINYINT(1)     NOT NULL DEFAULT 0,
+  SalePrice   DECIMAL(10,2)  NOT NULL DEFAULT 0.00,
+  isBogo      TINYINT(1)     NOT NULL DEFAULT 0,
+  inStock     TINYINT(1)     NOT NULL DEFAULT 1,
+  Picture     TEXT           NOT NULL,
+  Description LONGTEXT       NOT NULL
+);
+
+CREATE TABLE ProductCategories (
+  Id int(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
+  ProductId INT NOT NULL,
+  MainCategory VARCHAR(255) NOT NULL,
+  SubCategory VARCHAR(255) NOT NULL,
+  ThirdCategory VARCHAR(255) NOT NULL,
+  Ext_Category VARCHAR(255) NOT NULL,
+  FOREIGN KEY (ProductId) REFERENCES Products(Id) ON DELETE CASCADE
+);
+

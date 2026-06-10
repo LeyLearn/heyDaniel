@@ -1,63 +1,33 @@
 <?php
 include_once "../connect.php";
-date_default_timezone_set('America/New_York');
+include_once "../../Function/Func_Total.php";
 
-header('Content-Type: application/json; charset=utf-8');
-$rawInput = file_get_contents('php://input');
 $response = [
-    'isSaved' => null,
-    'savedCount' => 0,
+    'is-saved' => null,
+    'saved_count' => 0,
     'error' => null
 ];
 
-$userId = 0;
+include_once "../../Function/Auth/ArrayAuth.php";
 
-if ($rawInput === false || $rawInput === "" || strlen($rawInput) > 1000) {
+$deviceTypeData = authDeviceType($data);
+if (!empty($deviceTypeData['error'])) {
     http_response_code(400);
-    $response['error'] = "Invalid request payload size or empty content.";
+    $response['error'] = $deviceTypeData['error'];
     echo json_encode($response);
     exit;
 }
-$data = json_decode($rawInput, true);
+$userId = $deviceTypeData['user_id'];
 
-if (json_last_error() !== JSON_ERROR_NONE) {
-    http_response_code(400);
-    $response['error'] = "Malformed JSON.";
-    echo json_encode($response);
-    exit;
-}
 
-if (!isset($data['ProductId']) || !isset($data['device_type']) || !is_int($data['ProductId']) || $data['ProductId'] <= 0 || $data['device_type'] === "") {
+if (!isset($data['product_id']) || !is_int($data['product_id']) || $data['product_id'] <= 0) {
     http_response_code(400);
     $response['error'] = "invalid or Missing Product information.";
     echo json_encode($response);
     exit;
 }
 
-$productId = $data['ProductId'];
-$viewedDate = date('Y-m-d H:i:s'); // store as proper DATETIME
-$deviceType = $data['device_type'];
-
-$allowedDevices = ['Web', 'iOS', 'Android'];
-if (!in_array($deviceType, $allowedDevices, true)) {
-    http_response_code(400);
-    $response['error'] = "Invalid device type.";
-    echo json_encode($response);
-    exit;
-}
-
-if ($deviceType === "Web") {
-    session_start();
-    $userId = $_SESSION['UserId'] ?? 0;
-}else{
-    if (!isset($data['UserId']) || !is_int($data['UserId'])) {
-        http_response_code(400);
-        $response['error'] = "UserId required for mobile devices.";
-        echo json_encode($response);
-        exit;
-    }
-    $userId = (int)$data['UserId'] ?? 0;
-}
+$productId = $data['product_id'];
 
 if ($userId <= 0) {
     http_response_code(400);
@@ -78,19 +48,19 @@ try {
         // remove from Saved
         $stmt = $pdo->prepare("DELETE FROM Saved WHERE UserId = ? AND ProductId = ?");
         $stmt->execute([$userId, $productId]);
-        $response['isSaved'] = false;
+        $response['is_saved'] = false;
     } else {
         // add to Saved (DateAdded is stored using $viewedDate)
-        $stmt = $pdo->prepare("INSERT INTO Saved (UserId, ProductId, DateAdded) VALUES (?, ?, ?)");
-        $stmt->execute([$userId, $productId, $viewedDate]);
-        $response['isSaved'] = true;
+        $stmt = $pdo->prepare("INSERT INTO Saved (UserId, ProductId, DateAdded) VALUES (?, ?, NOW())");
+        $stmt->execute([$userId, $productId]);
+        $response['is_saved'] = true;
     }
 
     // 5.2. Get updated count
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM Saved WHERE UserId = ?");
     $stmt->execute([$userId]);
     $savedCount = $stmt->fetchColumn();
-    $response['savedCount'] = (int)$savedCount;
+    $response['saved_count'] = (int)$savedCount;
     
     $pdo->commit();
 

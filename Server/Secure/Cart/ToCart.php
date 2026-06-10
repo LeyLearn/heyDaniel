@@ -1,57 +1,32 @@
 <?php
 include_once '../Connect.php';
-header('Content-Type: application/json; charset=utf-8');
-$rawInput = file_get_contents('php://input');
+include_once "../../Function/Func_Total.php";
+
 $response = [
-    'isInCart' => null,
-    'cartCount' => 0,
-    'cartTotal' => 0.0,
+   'is_in_cart' => null,
+    'cart_count' => 0,
+    'cart_total' => 0.0,
     'error' => null
 ];
 
-$userId = 0;
-if ($rawInput === false || $rawInput === "" || strlen($rawInput) > 1000) {
-    http_response_code(400);
-    $response['error'] = "Invalid request payload size or empty content.";
-    echo json_encode($response);
-    exit;
-}
-$data = json_decode($rawInput, true);
-if (json_last_error() !== JSON_ERROR_NONE) {
-    http_response_code(400);
-    $response['error'] = "Malformed JSON.";
-    echo json_encode($response);
-    exit;
-}
-if (!isset($data['ProductId']) || !isset($data['device_type']) || !is_int($data['ProductId']) || $data['ProductId'] <= 0 || $data['device_type'] === "") {
-    http_response_code(400);
-    $response['error'] = "invalid or Missing Product information.";
-    echo json_encode($response);
-    exit;
-}
-$productId = $data['ProductId'];
-$deviceType = $data['device_type'];
+include_once "../../Function/Auth/ArrayAuth.php";
 
-$allowedDevices = ['Web', 'iOS', 'Android'];
-if (!in_array($deviceType, $allowedDevices, true)) {
+if (!isset($data['product_id']) || !is_int($data['product_id']) || $data['product_id'] <= 0) {
     http_response_code(400);
-    $response['error'] = "Invalid device type.";
+    $response['error'] = "Invalid or Missing Product information.";
     echo json_encode($response);
     exit;
 }
+$productId = $data['product_id'];
 
-if ($deviceType === "Web") {
-    session_start();
-    $userId = $_SESSION['UserId'] ?? 0;
-} else {
-    if (!isset($data['UserId']) || !is_int($data['UserId'])) {
-        http_response_code(400);
-        $response['error'] = "UserId required for mobile devices.";
-        echo json_encode($response);
-        exit;
-    }
-    $userId = (int)$data['UserId'] ?? 0;
+$deviceTypeData = authDeviceType($data);
+if (!empty($deviceTypeData['error'])) {
+    http_response_code(400);
+    $response['error'] = $deviceTypeData['error'];
+    echo json_encode($response);
+    exit;
 }
+$userId = $deviceTypeData['user_id'];
 
 if ($userId <= 0) {
     http_response_code(400);
@@ -90,11 +65,11 @@ try {
     $countStmt->execute([$userId]);
     $cartData = $countStmt->fetch(PDO::FETCH_ASSOC);
 
-    $response['cartCount'] = (int)$cartData['ItemCount'];
-    $response['cartTotal'] = round((float)$cartData['TotalAmount'], 2);
+    $response['cart_count'] = (int)$cartData['ItemCount'];
+    $response['cart_total'] = round((float)$cartData['TotalAmount'], 2);
 
     $pdo->commit();
-    $response['isInCart'] = true;
+    $response['is_in_cart'] = true;
 } catch (Exception $e) {
     $pdo->rollBack();
     http_response_code(500);

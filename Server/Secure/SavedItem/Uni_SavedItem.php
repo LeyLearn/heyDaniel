@@ -2,59 +2,23 @@
 include_once "../connect.php";
 include_once "../Function/Func_Total.php";
 
-header('Content-Type: application/json; charset=utf-8');
-$rawInput = file_get_contents('php://input');
-
 $response = [
   'success'         => false,
   'error'           => null,
   'data'            => [],
-  'tableSource'     => null
+  'table_source'     => null
 ];
 
-$userId = 0;
+include_once "../../Function/Auth/ArrayAuth.php";
 
-if ($rawInput === false || $rawInput === "" || strlen($rawInput) > 256) {
+$deviceTypeData = authDeviceType($data);
+if (!empty($deviceTypeData['error'])) {
   http_response_code(400);
-  $response["error"] = "Invalid request payload size or empty content.";
+  $response['error'] = $deviceTypeData['error'];
   echo json_encode($response);
   exit;
 }
-$data = json_decode($rawInput, true);
-if (json_last_error() !== JSON_ERROR_NONE) {
-  http_response_code(400);
-  $response["error"] = "Malformed JSON.";
-  echo json_encode($response);
-  exit;
-}
-
-if (!isset($data['device_type']) || !is_string($data['device_type']) || $data['device_type'] === "") {
-  http_response_code(400);
-  $response["error"] = "Missing device type.";
-  echo json_encode($response);
-  exit;
-}
-$deviceType = $data['device_type'];
-
-$allowedDevices = ['Web', 'iOS', 'Android'];
-if (!in_array($deviceType, $allowedDevices, true)) {
-  http_response_code(400);
-  $response["error"] = "Invalid device type.";
-  echo json_encode($response);
-  exit;
-}
-if ($deviceType === "Web") {
-  session_start();
-  $userId = isset($_SESSION['UserId']) ? (int)$_SESSION['UserId'] : 0;
-} else {
-  if (!isset($data['UserId']) || !is_int($data['UserId'])) {
-    http_response_code(400);
-    $response["error"] = "UserId required for mobile devices.";
-    echo json_encode($response);
-    exit;
-  }
-  $userId = (int)$data['UserId'] ?? 0;
-}
+$userId = $deviceTypeData['user_id'];
 
 $funcData = authenticateUser($pdo, $userId);
 
@@ -65,7 +29,7 @@ if (!empty($funcData['error'])) {
   exit;
 }
 
-$sourceTable = $funcData['tableSource'];
+$sourceTable = $funcData['table_source'];
 
 
 if ($sourceTable === "Process") {
@@ -128,20 +92,20 @@ try {
       : "No ratings yet";
 
     $productData[] = [
-      'ProductId'    => $row['ProductId'],
-      'Brand'        => $row['Brand'],
-      'Name'         => $row['Name'],
-      'Oz'           => $row['Oz'],
-      'Price'        => $row['Price'],
+      'product_id'    => $row['ProductId'],
+      'brand'        => $row['Brand'],
+      'name'         => $row['Name'],
+      'oz'           => $row['Oz'],
+      'price'        => $row['Price'],
       'Picture'      => $row['Picture'],
-      'isOnSale'     => (bool)$row['isOnSale'],
-      'SalePrice'    => $row['SalePrice'],
-      'isBogo'       => (bool)$row['isBogo'],
-      'isSaved'      => (int)$row['isSaved'],
-      'isInCart'     => $row['ItemQuantity'] > 0 ? 1 : 0,
-      'Quantity'     => (int)$row['ItemQuantity'],
-      'tableSource'  => $sourceTable,
-      'Ratings'      => $rating,
+      'is_on_sale'     => (bool)$row['isOnSale'],
+      'sale_price'    => $row['SalePrice'],
+      'is_bogo'       => (bool)$row['isBogo'],
+      'is_saved'      => (int)$row['isSaved'],
+      'is_in_cart'     => $row['ItemQuantity'] > 0 ? 1 : 0,
+      'quantity'     => (int)$row['ItemQuantity'],
+      'table_source'  => $sourceTable,
+      'ratings'      => $rating,
       'review_count' => (int)$row['review_count']
     ];
   }

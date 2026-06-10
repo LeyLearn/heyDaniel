@@ -1,9 +1,8 @@
-CREATE TABLE ItemReview (
-  Id int(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
-  PrimaryPicture LONGTEXT NOT NULL,
-  SecondaryPicture LONGTEXT NOT NULL,
-  ThirdPicture LONGTEXT NOT NULL,
-  FourthPicture LONGTEXT NOT NULL,
-  FithPicture LONGTEXT NOT NULL,
-  SithPicture LONGTEXT NOT NULL
+CREATE TABLE ProductImages (
+    Id        INT(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
+    ProductId INT NOT NULL,
+    ImageUrl  LONGTEXT NOT NULL,
+    INDEX(ProductsId)
 );
+
+-- self-explanatory, stores the images associated with each product. can be used to display product images on the website, manage product listings, etc.

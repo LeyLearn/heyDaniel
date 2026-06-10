@@ -1,0 +1,61 @@
+
+On App Open:
+
+1. Generate device signature
+
+2. Check signature in DB
+   ├── Found
+   │   ├── Same Day Eligible
+   │   │   ├── Logged in (userId known)
+   │   │   │   ├── Product in open same day order (shopper shopping)
+   │   │   │   │   ├── heart red if in wishlist, normal otherwise
+   │   │   │   │   └── button displays "Add to Order" with quantity
+   │   │   │   │
+   │   │   │   ├── Product in cart
+   │   │   │   │   ├── heart red if in wishlist, normal otherwise
+   │   │   │   │   └── button displays quantity in cart
+   │   │   │   │
+   │   │   │   ├── Product in wishlist only
+   │   │   │   │   ├── heart red
+   │   │   │   │   └── button displays "Add to Cart"
+   │   │   │   │
+   │   │   │   └── Product not in cart, order, nor wishlist
+   │   │   │       ├── heart normal
+   │   │   │       └── button displays "Add to Cart"
+   │   │   │
+   │   │   │   Personalization (userId anchored)
+   │   │   │   ├── Recently bought
+   │   │   │   ├── Often reordered
+   │   │   │   ├── Wishlist
+   │   │   │   └── Recently seen (device signature fallback)
+   │   │   │
+   │   │   └── Not Logged In (device signature only)
+   │   │       ├── heart normal
+   │   │       ├── button displays "Add to Cart"
+   │   │       └── Personalization (signature anchored)
+   │   │           ├── Recently seen
+   │   │           └── Popular by zip/region
+   │   │
+   │   └── Not Eligible (3-day delivery)
+   │       ├── Hide grocery, frozen, produce
+   │       └── Show all non-perishables (electronics, furniture, water, etc.)
+   │           ├── Logged in (userId known)
+   │           │   ├── Personalization (userId anchored)
+   │           │   │   ├── Recently bought
+   │           │   │   ├── Often reordered
+   │           │   │   ├── Wishlist
+   │           │   │   └── Recently seen (device signature fallback)
+   │           │   └── Order locked on placement, tracking available
+   │           │
+   │           └── Not Logged In (device signature only)
+   │               ├── Personalization (signature anchored)
+   │               │   ├── Recently seen
+   │               │   └── Popular by zip/region
+   │               └── Order locked on placement, tracking available
+   │
+   └── Not Found
+       ├── Prompt zip ("Let's personalize your experience")
+       ├── Check zip against coverage list
+       ├── Insert signature + zip into DB
+       ├── Eligible → set true → load all categories
+       └── Not Eligible → set false → hide grocery, frozen, produce

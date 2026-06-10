@@ -4,3 +4,4 @@ CREATE TABLE ItemView (
   ProductId LONGTEXT NOT NULL,
   DateAdded LONGTEXT NOT NULL
 );
+-- self-explanatory, tracks when a user views an item. can be used for analytics, recommendations, etc.
