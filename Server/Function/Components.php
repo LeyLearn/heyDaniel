@@ -54,7 +54,8 @@ function isSameDayEligible(\PDO $db, string $deviceSignature, int $userId): arra
     return $response;
 }
 
-function generateDeviceSignature(): string {
+function generateDeviceSignature(): string
+{
     $payload = implode('|', [
         $_SERVER['HTTP_USER_AGENT'] ?? '',
         $_SERVER['REMOTE_ADDR'] ?? '',
@@ -236,7 +237,7 @@ function cartContent(\PDO $db, int $userId, float $taxRate): array
                 'ratings'      => $rating,
                 'review_count' => (int)$row['review_count'],
                 'total_price'   => (float)round(
-                    ($row['isOnSale'] ? $row['SalePrice'] : $row['Price']) * (1 + $taxRate) * (int)$row['ItemQuantity'], 
+                    ($row['isOnSale'] ? $row['SalePrice'] : $row['Price']) * (1 + $taxRate) * (int)$row['ItemQuantity'],
                     2
                 )
             ];
@@ -252,6 +253,11 @@ function cartContent(\PDO $db, int $userId, float $taxRate): array
 function clearCart(\PDO $db, int $userId): array
 {
     $response = ['error' => null];
+
+    if ($userId <= 0) {
+        $response['error'] = "User not authenticated. Please log in.";
+        return $response;
+    }
 
     try {
         $stmt = $db->prepare("DELETE FROM Cart WHERE UserId = ?");
@@ -394,10 +400,10 @@ function decrementProduct(\PDO $db, int $productId, int $userId, bool $hasActive
     return $response;
 }
 
-function wishListCount(\PDO $db, int $userId): array
+function savedCount(\PDO $db, int $userId): array
 {
     $response = [
-        'wishlist_count' => 0,
+        'saved_count' => 0,
         'error' => null
     ];
 
@@ -417,11 +423,12 @@ function wishListCount(\PDO $db, int $userId): array
     return $response;
 }
 
-function addWishlist(\PDO $db, int $productId, int $userId): array
+function addSaved(\PDO $db, int $productId, int $userId): array
 {
     $response = [
-        'wishlist_count' => 0,
-        'error' => null
+        'is_saved'       => false,
+        'saved_count' => 0,
+        'error'          => null
     ];
 
     if ($userId <= 0) {
@@ -435,14 +442,29 @@ function addWishlist(\PDO $db, int $productId, int $userId): array
     }
 
     try {
-        $stmt = $db->prepare("INSERT INTO Saved (UserId, ProductId, DateAdded) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE DateAdded = NOW()");
+        // Check if already saved
+        $stmt = $db->prepare("SELECT 1 FROM Saved WHERE UserId = ? AND ProductId = ? LIMIT 1");
         $stmt->execute([$userId, $productId]);
+
+        if ($stmt->fetchColumn()) {
+            // Already saved — remove it
+            $stmt = $db->prepare("DELETE FROM Saved WHERE UserId = ? AND ProductId = ?");
+            $stmt->execute([$userId, $productId]);
+            $response['is_saved'] = false;
+        } else {
+            // Not saved — add it
+            $stmt = $db->prepare("INSERT INTO Saved (UserId, ProductId, DateAdded) VALUES (?, ?, NOW())");
+            $stmt->execute([$userId, $productId]);
+            $response['is_saved'] = true;
+        }
+
+        // Get updated count
         $stmt = $db->prepare("SELECT COUNT(*) FROM Saved WHERE UserId = ?");
         $stmt->execute([$userId]);
-        $response['wishlist_count'] = (int)$stmt->fetchColumn();
+        $response['saved_count'] = (int)$stmt->fetchColumn();
     } catch (\PDOException $e) {
-        error_log("DB Error in addWishlist: " . $e->getMessage());
-        $response['error'] = "Internal server error during wishlist addition.";
+        error_log("DB Error in addSaved: " . $e->getMessage());
+        $response['error'] = "Internal server error during wishlist toggle.";
     }
 
     return $response;
@@ -523,10 +545,10 @@ function savedContent(\PDO $db, int $userId, bool $hasActiveOrder, float $taxRat
     return $response;
 }
 
-function headerConclusion(\PDO $db, int $userId, bool $hasActiveOrder, float $taxRate): array
+function Summary(\PDO $db, int $userId, bool $hasActiveOrder, float $taxRate): array
 {
     $response = [
-        'location' => 'Cart',
+        'table_source' => 'Cart',
         'subtotal' => 0.00,
         'error' => null
     ];
@@ -558,10 +580,10 @@ function headerConclusion(\PDO $db, int $userId, bool $hasActiveOrder, float $ta
         $totaltax = (float)$cartData['TotalAmount'] * $taxRate;
 
         $response['subtotal'] = round($cartData['TotalAmount'] + $totaltax, 2);
-        $response['location'] = $table;
+        $response['table_source'] = $table;
     } catch (\PDOException $e) {
-        error_log("DB Error in headerConclusion: " . $e->getMessage());
-        $response['error'] = "Internal server error during header conclusion.";
+        error_log("DB Error in Summary: " . $e->getMessage());
+        $response['error'] = "Internal server error during summary.";
     }
 
     return $response;
@@ -1006,7 +1028,6 @@ function productDetails(\PDO $db, int $productId, int $userId, bool $hasActiveOr
                 : "No ratings yet",
             'review_count'   => (int)$product['review_count']
         ];
-
     } catch (\PDOException $e) {
         error_log("DB Error in productDetails: " . $e->getMessage());
         $response['error'] = "Internal server error during product fetch.";
@@ -1083,7 +1104,6 @@ function loginUser(\PDO $db, string $email, string $password): array
             'user_phone'    => $user['Phone'],
             'credits'       => (float)$user['Credits'],
             'is_member'     => (bool)$user['isMember'],
-            'is_active'     => (bool)$user['isActive'],
             'time_register' => $user['TimeRegister'],
         ];
     } catch (\PDOException $e) {
@@ -1146,7 +1166,7 @@ function mainCategories(\PDO $db, bool $isSameDayEligible): array
 function subCategories(\PDO $db, string $mainCategory, bool $isSameDayEligible): array
 {
     $response = [
-        'subcategories' => [],
+        'sub_categories' => [],
         'error'         => null
     ];
 
@@ -1161,7 +1181,7 @@ function subCategories(\PDO $db, string $mainCategory, bool $isSameDayEligible):
 
         foreach ($subcategories as $subcategory) {
             if ($subcategory['SubCategory'] !== null) {
-                $response['subcategories'][] = [
+                $response['sub_categories'][] = [
                     'name' => $subcategory['SubCategory']
                 ];
             }
@@ -1205,6 +1225,11 @@ function thirdCategories(\PDO $db, string $subCategory, bool $isSameDayEligible)
     return $response;
 }
 
+function filterStore(\PDO $db, int $userId, bool $hasActiveOrder, bool $isSameDayEligible, float $taxRate, array $filter, int $limit): array
+{
+    return store($db, $userId, $hasActiveOrder, $isSameDayEligible, $taxRate, $filter, $limit);
+}
+
 function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, float $tipAmount, string $paymentMethodId, array $address): array
 {
     $response = [
@@ -1223,7 +1248,7 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
     }
 
     // Validate address
-    $requiredAddressFields = ['Address', 'City', 'State', 'ZipCode', 'Phone', 'LatnLong'];
+    $requiredAddressFields = ['Address', 'City', 'State', 'ZipCode', 'Phone'];
     foreach ($requiredAddressFields as $field) {
         if (empty($address[$field])) {
             $response['error'] = "Missing address field: {$field}.";
@@ -1392,7 +1417,6 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
         $db->commit();
 
         $response['order_id'] = $orderId;
-
     } catch (\Stripe\Exception\ApiErrorException $e) {
         $db->rollBack();
         error_log("Stripe Error in submitCheckout: " . $e->getMessage());
@@ -1491,7 +1515,6 @@ function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): a
         $stmt->execute([$userId]);
 
         $response['success'] = true;
-
     } catch (\Stripe\Exception\ApiErrorException $e) {
         error_log("Stripe Error in finalizeOrder: " . $e->getMessage());
         $response['error'] = "Payment capture failed.";
@@ -1503,3 +1526,206 @@ function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): a
     return $response;
 }
 
+function itemPush(\PDO $db, int $userId, string $deviceSignature, int $productId, string $table): array
+{
+    $response = ['error' => null];
+
+    $allowedTables = ['RecentlyViewed', 'SearchHistory'];
+    if (!in_array($table, $allowedTables, true)) {
+        $response['error'] = "Invalid table.";
+        return $response;
+    }
+
+    if ($productId <= 0) {
+        $response['error'] = "Invalid product ID.";
+        return $response;
+    }
+
+    if ($deviceSignature === "" || strlen($deviceSignature) > 128 || !preg_match('/^[a-zA-Z0-9-]+$/', $deviceSignature)) {
+        $response['error'] = "Invalid device signature.";
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("INSERT INTO {$table} (UserId, ProductId, DeviceSignature, DateViewed) VALUES (?, ?, ?, NOW())");
+        $stmt->execute([$userId, $productId, $deviceSignature]);
+    } catch (\PDOException $e) {
+        error_log("DB Error in itemPush: " . $e->getMessage());
+        $response['error'] = "Internal server error during item view logging.";
+    }
+
+    return $response;
+}
+
+function collectEmail(\PDO $db, string $userEmail, bool $isUpdatingPassword): array
+{
+    $response = [
+        "is_registered" => false,
+        "email" => null,
+        "message" => null,
+        "error" => null
+    ];
+
+    if (!filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+        $response['error'] = 'Invalid email format';
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("SELECT 1 FROM Users WHERE Email = ? LIMIT 1");
+        $stmt->execute([$userEmail]);
+        $exists = $stmt->fetchColumn();
+
+        if ($exists) {
+            if ($isUpdatingPassword) {
+                $uniqueCode = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+                date_default_timezone_set('America/New_York');
+
+                $codeExpiry = date('Y-m-d H:i:s', strtotime('+10 minutes'));
+
+                $stmt = $db->prepare("
+                    INSERT INTO PasswordResetCodes (Email, UniqueCode, SentIn, ExpiredAt)
+                    VALUES (?, ?, NOW(), ?)
+                    ON DUPLICATE KEY UPDATE UniqueCode = ?, SentIn = NOW(), ExpiredAt = ?
+                ");
+                $stmt->execute([$userEmail, $uniqueCode, $codeExpiry, $uniqueCode, $codeExpiry]);
+
+                $response['is_registered'] = true;
+
+                $subject = "Your HeyDaniel Password Reset Code";
+                $body    = "Hi,\n\nYour password reset code is: {$uniqueCode}\n\nThis code expires in 10 minutes.\n\nIf you did not request this, please ignore this email.\n\n— The HeyDaniel Team";
+                $headers = implode("\r\n", [
+                    "From: HeyDaniel <no-reply@heydaniel.com>",
+                    "Reply-To: no-reply@heydaniel.com",
+                    "Content-Type: text/plain; charset=UTF-8",
+                    "X-Mailer: PHP/" . phpversion()
+                ]);
+
+                mail($userEmail, $subject, $body, $headers);
+
+                $response['message'] = "Password reset code sent to your email.";
+                $response['email'] = $userEmail;
+                return $response;
+            } else {
+                $response['error'] = "Email is already registered. try logging in or use a different email.";
+                return $response;
+            }
+        } else {
+            if ($isUpdatingPassword) {
+                $response['error'] = "Email not found. Please check the email or register for a new account.";
+                return $response;
+            } else {
+                $response['email'] = $userEmail;
+                $response['message'] = "Enter your name and password to register";
+                $response['is_registered'] = false;
+                return $response;
+            }
+        }
+    } catch (\PDOException $e) {
+        error_log("DB Error in collectEmail: " . $e->getMessage());
+        $response['error'] = "Internal server error during email collection.";
+    }
+
+    return $response;
+}
+
+function verifyCode(\PDO $db, string $userEmail, string $uniqueCode): array
+{
+    $response = [
+        'success' => false,
+        'error'   => null
+    ];
+
+    if (!filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+        $response['error'] = 'Invalid email format.';
+        return $response;
+    }
+
+    if (!preg_match('/^\d{6}$/', $uniqueCode)) {
+        $response['error'] = 'Invalid code format.';
+        return $response;
+    }
+
+    try {
+        date_default_timezone_set('America/New_York');
+        $currentTime = date('Y-m-d H:i:s');
+
+        $stmt = $db->prepare("SELECT UniqueCode, ExpiredAt FROM PasswordResetCodes WHERE Email = ? LIMIT 1");
+        $stmt->execute([$userEmail]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            $response['error'] = 'No code was sent to this email. Please request a code first.';
+            return $response;
+        }
+
+        if ($currentTime > $row['ExpiredAt']) {
+            $stmt = $db->prepare("DELETE FROM PasswordResetCodes WHERE Email = ?");
+            $stmt->execute([$userEmail]);
+            $response['error'] = 'The code has expired. Please request a new one.';
+            return $response;
+        }
+
+        if ($uniqueCode !== $row['UniqueCode']) {
+            $response['error'] = 'The code entered was not valid.';
+            return $response;
+        }
+
+        $response['success'] = true;
+
+    } catch (\PDOException $e) {
+        error_log("DB Error in verifyCode: " . $e->getMessage());
+        $response['error'] = "Internal server error during code verification.";
+    }
+
+    return $response;
+}
+
+function updatePassword(\PDO $db, string $userEmail, string $password, string $confirmPassword): array
+{
+    $response = [
+        "error" => null
+    ];
+
+    if ($userEmail === "" || !filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+        $response['error'] = 'Invalid email format.';
+        return $response;
+    }
+    if (
+        strlen($password) < 8 ||
+        !preg_match('/[A-Z]/', $password) ||     // at least one uppercase
+        !preg_match('/[a-z]/', $password) ||     // at least one lowercase
+        !preg_match('/[0-9]/', $password) ||     // at least one digit
+        !preg_match('/[^A-Za-z0-9]/', $password)
+    ) {
+        $response['error'] = 'Password did not match the criteria. Must be 8+ chars with uppercase, lowercase, number, and symbol.';
+        return $response;
+    }
+
+    if ($password !== $confirmPassword) {
+        $response['error'] = 'Passwords do not match';
+        return $response;
+    }
+
+    try{
+        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+        $stmt = $db->prepare("UPDATE Users SET Password = ? WHERE Email = ?");
+        $success = $stmt->execute([$hashedPassword, $userEmail]);
+        if (!$success) {
+            $response['error'] = 'Failed to update password. Please try again later.';
+            return $response;
+        } else {
+            // delete any existing reset codes for this email
+            $deleteStmt = $db->prepare("DELETE FROM PasswordResetCodes WHERE Email = ?");
+            $deleteStmt->execute([$userEmail]);
+            $response['success'] = true;
+        }
+
+    }
+    catch (\PDOException $e) {
+        error_log("DB Error in updating passoword: " . $e->getMessage());
+        $response['error'] = "Internal server error during password update.";
+    }
+
+    return $response;
+}

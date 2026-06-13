@@ -1,0 +1,71 @@
+<?php
+include_once "../connect.php";
+include_once "../../Function/Components.php";
+
+$response = [
+    'products'          => [],
+    'similar_products'  => [],
+    'available_filters' => [],
+    'error'             => null
+];
+
+include_once "../../Function/Auth/ArrayAuth.php";
+
+if (!isset($data['device_type'])) {
+    http_response_code(400);
+    $response['error'] = "Device type is required.";
+    echo json_encode($response);
+    exit;
+}
+
+if (!isset($data['filter']) || !is_array($data['filter'])) {
+    http_response_code(400);
+    $response['error'] = "Filter is required.";
+    echo json_encode($response);
+    exit;
+}
+
+$userDeviceType    = $data['device_type'];
+$validDeviceTypes  = ['iOS', 'Android', 'Web'];
+$userId            = 0;
+$taxRate           = 0.00;
+$isSameDayEligible = false;
+$hasActiveOrder    = false;
+$filter            = $data['filter'];
+$limit             = (int)($data['limit'] ?? 16);
+
+if (!in_array($userDeviceType, $validDeviceTypes, true)) {
+    http_response_code(400);
+    $response['error'] = "Invalid device type.";
+    echo json_encode($response);
+    exit;
+}
+
+if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
+    $userId            = (int)($data['user_id'] ?? 0);
+    $taxRate           = (float)($data['tax_rate'] ?? 0.00);
+    $isSameDayEligible = (bool)($data['same_day_eligible'] ?? false);
+    $hasActiveOrder    = (bool)($data['has_active_order'] ?? false);
+} else {
+    session_start();
+    $userId            = (int)($_SESSION['user_id'] ?? 0);
+    $taxRate           = (float)($_SESSION['tax_rate'] ?? 0.00);
+    $isSameDayEligible = (bool)($_SESSION['same_day_eligible'] ?? false);
+    $hasActiveOrder    = (bool)($_SESSION['has_active_order'] ?? false);
+}
+
+$store = store($pdo, $userId, $hasActiveOrder, $isSameDayEligible, $taxRate, $filter, $limit);
+
+if (!empty($store['error'])) {
+    http_response_code(400);
+    $response['error'] = $store['error'];
+    echo json_encode($response);
+    exit;
+}
+
+$response['products']          = $store['products'];
+$response['similar_products']  = $store['similar_products'];
+$response['available_filters'] = $store['available_filters'];
+
+echo json_encode($response);
+exit;

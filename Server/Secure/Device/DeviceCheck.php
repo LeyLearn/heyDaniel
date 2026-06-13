@@ -12,7 +12,7 @@ $response = [
 ];
 
 include_once "../../Function/Auth/ArrayAuth.php";
-    
+
 if (!isset($data['device_type'])) {
     http_response_code(400);
     $response['error'] = "Device type is required.";
@@ -38,6 +38,7 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
     session_start();
     $userId              = (int)($_SESSION['user_id'] ?? 0);
     $userDeviceSignature = generateDeviceSignature();
+    $_SESSION['device_signature'] = $userDeviceSignature;
 }
 
 $isSameDayEligible = isSameDayEligible($pdo, $userDeviceSignature, $userId);
@@ -54,7 +55,15 @@ $response['is_device_known'] = $isSameDayEligible['is_device_known'];
 $response['tax_rate'] = $isSameDayEligible['tax_rate'];
 $response['has_active_order'] = $isSameDayEligible['has_active_order'];
 
-$_SESSION['tax_rate'] = $response['tax_rate'];
+// Store values in session for later use
+if ($response['tax_rate'] !== 0.00) {
+    $_SESSION['tax_rate'] = $response['tax_rate'];
+}
+
+$_SESSION['same_day_eligible'] = $response['same_day_eligible'];
+
+$_SESSION['has_active_order'] = $response['has_active_order'];
+
 
 echo json_encode($response);
 exit;

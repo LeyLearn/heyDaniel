@@ -1,6 +1,14 @@
 <?php
 declare(strict_types=1);
 
+$envFile = __DIR__ . '/../.env';
+if (file_exists($envFile)) {
+    $env = parse_ini_file($envFile);
+    foreach ($env as $key => $value) {
+        $_ENV[$key] = $value;
+    }
+}
+
 try {
     $pdo = new PDO(
         'mysql:host=localhost;dbname=heydaniel;charset=utf8mb4',
