@@ -4,5 +4,6 @@ CREATE TABLE ProductImages (
   ImageUrl VARCHAR(500) NOT NULL,
   DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (ProductId) REFERENCES Products(Id) ON DELETE CASCADE,
-  INDEX idx_product_id (ProductId)
+  INDEX idx_product_id (ProductId),
+  INDEX idx_date_added (DateAdded)
 );

@@ -15,7 +15,10 @@ CREATE TABLE OrderSent (
   isTipped TINYINT(1) NOT NULL DEFAULT 0,
   isSameDay TINYINT(1) NOT NULL DEFAULT 0,
   isClosed TINYINT(1) NOT NULL DEFAULT 0,
-  FOREIGN KEY (UserId) REFERENCES Users(Id)
+  FOREIGN KEY (UserId) REFERENCES Users(Id),
+  INDEX idx_user_id (UserId),
+  INDEX idx_order_status (OrderStatus),
+  INDEX idx_date_added (DateAdded)
 );
 
 CREATE TABLE Process (
@@ -28,7 +31,9 @@ CREATE TABLE Process (
   isMissing TINYINT(1) NOT NULL DEFAULT 0,
   HandlerId INT(11) NOT NULL DEFAULT 0,
   FOREIGN KEY (UserId) REFERENCES Users(Id),
-  FOREIGN KEY (ProductId) REFERENCES Products(Id)
+  FOREIGN KEY (ProductId) REFERENCES Products(Id),
+  INDEX idx_user_id (UserId),
+  INDEX idx_product_id (ProductId)
 );
 
 CREATE TABLE OrderTracking (
@@ -41,5 +46,8 @@ CREATE TABLE OrderTracking (
   isMissing TINYINT(1) NOT NULL DEFAULT 0,
   TrackingStatus VARCHAR(50) NOT NULL DEFAULT 'pending',
   FOREIGN KEY (UserId) REFERENCES Users(Id),
-  FOREIGN KEY (ProductId) REFERENCES Products(Id)
+  FOREIGN KEY (ProductId) REFERENCES Products(Id),
+  INDEX idx_user_id (UserId),
+  INDEX idx_product_id (ProductId),
+  INDEX idx_tracking_status (TrackingStatus)
 );

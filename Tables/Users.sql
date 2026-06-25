@@ -8,5 +8,7 @@ CREATE TABLE Users (
   IsMember TINYINT(1) NOT NULL DEFAULT 0,
   TimeRegister DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   TimeMembership DATETIME NULL,
-  IsActive TINYINT(1) NOT NULL DEFAULT 1
+  IsActive TINYINT(1) NOT NULL DEFAULT 1,
+  INDEX idx_email (Email),
+  INDEX idx_is_active (IsActive)
 );

@@ -12,5 +12,7 @@ CREATE TABLE UserAddresses (
   Note       TEXT         NOT NULL DEFAULT '',
   Phone      VARCHAR(20)  NOT NULL DEFAULT '',
   DateAdded  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (UserId) REFERENCES Users(Id)
+  FOREIGN KEY (UserId) REFERENCES Users(Id),
+  INDEX idx_user_id (UserId),
+  INDEX idx_zipcode (ZipCode)
 );

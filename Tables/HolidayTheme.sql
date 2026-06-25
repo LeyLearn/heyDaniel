@@ -4,7 +4,10 @@ CREATE TABLE Themes (
   StartDate DATETIME NOT NULL,
   EndDate DATETIME NOT NULL,
   DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  IsActive TINYINT(1) NOT NULL DEFAULT 1
+  IsActive TINYINT(1) NOT NULL DEFAULT 1,
+  INDEX idx_is_active (IsActive),
+  INDEX idx_start_date (StartDate),
+  INDEX idx_end_date (EndDate)
 );
 
 CREATE TABLE ThemeAssets (
@@ -14,5 +17,7 @@ CREATE TABLE ThemeAssets (
   AssetValue TEXT NOT NULL,
   DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY unique_theme_key (ThemeId, AssetKey),
-  FOREIGN KEY (ThemeId) REFERENCES Themes(Id) ON DELETE CASCADE
+  FOREIGN KEY (ThemeId) REFERENCES Themes(Id) ON DELETE CASCADE,
+  INDEX idx_theme_id (ThemeId),
+  INDEX idx_asset_key (AssetKey)
 );

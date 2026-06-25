@@ -10,5 +10,8 @@ CREATE TABLE ItemReviews (
   ReviewStatus VARCHAR(20)  NOT NULL DEFAULT 'pending',
   DateAdded    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (UserId)    REFERENCES Users(Id),
-  FOREIGN KEY (ProductId) REFERENCES Products(Id)
+  FOREIGN KEY (ProductId) REFERENCES Products(Id),
+  INDEX idx_product_id (ProductId),
+  INDEX idx_user_id (UserId),
+  INDEX idx_stars (Stars)
 );

@@ -5,5 +5,7 @@ CREATE TABLE Saved (
   DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY unique_user_product (UserId, ProductId),
   FOREIGN KEY (UserId) REFERENCES Users(Id) ON DELETE CASCADE,
-  FOREIGN KEY (ProductId) REFERENCES Products(Id) ON DELETE CASCADE
+  FOREIGN KEY (ProductId) REFERENCES Products(Id) ON DELETE CASCADE,
+  INDEX idx_user_id (UserId),
+  INDEX idx_product_id (ProductId)
 );

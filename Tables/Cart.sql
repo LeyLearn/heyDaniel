@@ -4,5 +4,7 @@ CREATE TABLE Cart (
   ProductId INT(11) NOT NULL,
   Quantity INT(11) NOT NULL DEFAULT 1,
   DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY unique_user_product (UserId, ProductId)
+  UNIQUE KEY unique_user_product (UserId, ProductId),
+  INDEX idx_user_id (UserId),
+  INDEX idx_product_id (ProductId)
 );

@@ -5,5 +5,7 @@ CREATE TABLE Tokens (
   Type      VARCHAR(50) NOT NULL,
   ExpiresAt DATETIME    NOT NULL,
   DateAdded DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (UserId) REFERENCES Users(Id)
+  FOREIGN KEY (UserId) REFERENCES Users(Id),
+  INDEX idx_user_id (UserId),
+  INDEX idx_expires_at (ExpiresAt)
 );

@@ -10,7 +10,9 @@ CREATE TABLE Products (
   inStock TINYINT(1) NOT NULL DEFAULT 1,
   Picture TEXT NOT NULL,
   Description LONGTEXT NOT NULL,
-  DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_brand (Brand),
+  INDEX idx_name (Name)
 );
 
 CREATE TABLE ProductCategories (

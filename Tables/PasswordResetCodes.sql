@@ -3,5 +3,7 @@ CREATE TABLE PasswordResetCodes (
   Email      VARCHAR(255) NOT NULL UNIQUE,
   UniqueCode CHAR(6)      NOT NULL,
   SentIn     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  ExpiredAt  DATETIME     NOT NULL
+  ExpiredAt  DATETIME     NOT NULL,
+  INDEX idx_email (Email),
+  INDEX idx_expired_at (ExpiredAt)
 );
