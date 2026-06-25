@@ -3,7 +3,6 @@ CREATE TABLE ItemBoughtHistory (
   UserId INT(11) NOT NULL,
   ProductId INT(11) NOT NULL,
   Quantity INT(11) NOT NULL,
-  HandlerId INT(11) NOT NULL,
   DateAdded DATETIME NOT NULL,
   TimeAdded DATETIME NOT NULL
 );

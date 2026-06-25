@@ -1,7 +1,9 @@
 CREATE TABLE Tokens (
-  Id int(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
-  UserId LONGTEXT NOT NULL,
-  Token LONGTEXT NOT NULL
+  Id        INT(11)     AUTO_INCREMENT PRIMARY KEY NOT NULL,
+  UserId    INT(11)     NOT NULL,
+  Token     TEXT        NOT NULL,
+  Type      VARCHAR(50) NOT NULL,
+  ExpiresAt DATETIME    NOT NULL,
+  DateAdded DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (UserId) REFERENCES Users(Id)
 );
-
--- i am not too sure on this. this table will probably be changed in the future.

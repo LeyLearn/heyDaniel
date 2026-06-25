@@ -19,6 +19,7 @@ class ComposerStaticInit0ccb89bba268cb8096009ffa580cb404
         'b6b991a57620e2fb6b2f66f03fe9ddc2' => __DIR__ . '/..' . '/symfony/string/Resources/functions.php',
         '6cd5651c4fef5ed6b63e8d8b8ffbf3cc' => __DIR__ . '/..' . '/amphp/byte-stream/lib/functions.php',
         '9b38cf48e83f5d8f60375221cd213eee' => __DIR__ . '/..' . '/phpstan/phpstan/bootstrap.php',
+        'd92f49fe138fde4e7a3ec6f988960524' => __DIR__ . '/..' . '/stripe/stripe-php/lib/version_check.php',
     );
 
     public static $prefixLengthsPsr4 = array (
@@ -46,6 +47,7 @@ class ComposerStaticInit0ccb89bba268cb8096009ffa580cb404
             'Symfony\\Component\\String\\' => 25,
             'Symfony\\Component\\Filesystem\\' => 29,
             'Symfony\\Component\\Console\\' => 26,
+            'Stripe\\' => 7,
             'Spatie\\ArrayToXml\\' => 18,
         ),
         'P' => 
@@ -136,6 +138,10 @@ class ComposerStaticInit0ccb89bba268cb8096009ffa580cb404
         'Symfony\\Component\\Console\\' => 
         array (
             0 => __DIR__ . '/..' . '/symfony/console',
+        ),
+        'Stripe\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/stripe/stripe-php/lib',
         ),
         'Spatie\\ArrayToXml\\' => 
         array (

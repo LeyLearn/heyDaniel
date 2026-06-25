@@ -1,0 +1,740 @@
+/* COLOR PALETTE
+PRIMARY = #7a0d0d (dark maroon)
+PRIMARY_LIGHT = #8B1111
+PRIMARY_ACCENT = #D4A5A5 (soft coral/pink)
+SECONDARY COLOR = #013A52 (navy blue)
+SECONDARY_LIGHT = #064863
+TEXT_DARK = #333
+TEXT_LIGHT = #fff
+BG_LIGHT = #f5f5f5
+*/
+
+:root {
+  --primary: #7a0d0d;
+  --primary-light: #8B1111;
+  --primary-accent: #D4A5A5;
+  --secondary: #013A52;
+  --secondary-light: #064863;
+  --text-dark: #333;
+  --text-light: #fff;
+  --bg-light: #f5f5f5;
+}
+
+/* BASE BUTTON STYLES */
+button {
+  cursor: pointer;
+  font-size: 1.5rem;
+  transition: all 0.3s ease-in-out;
+  border-radius: 5px;
+}
+
+/* PRIMARY BUTTONS */
+.Primary_Btn {
+  position: relative;
+  width: 100%;
+  height: 45px;
+  color: var(--text-light);
+  background: var(--primary);
+  border: none;
+  font-weight: bold;
+}
+
+.Primary_Btn:hover {
+  background: var(--primary-light);
+}
+
+.Primary_Light_Btn {
+  position: relative;
+  width: 100%;
+  height: 45px;
+  color: var(--primary);
+  background: none;
+  border: 2px solid var(--primary);
+}
+
+.Primary_Light_Btn:hover {
+  background: var(--primary-accent);
+}
+
+/* SECONDARY BUTTONS */
+.Secondary_Btn {
+  position: relative;
+  border: none;
+  background: var(--secondary);
+  color: var(--text-light);
+  margin: 10px 0;
+  font-weight: bold;
+  padding: 8px 15px;
+}
+
+.Secondary_Btn:hover {
+  background: var(--secondary-light);
+}
+
+.Secondary_Light_Btn {
+  position: relative;
+  color: var(--secondary);
+  background: none;
+  border: 2px solid var(--secondary);
+  padding: 8px 15px;
+}
+
+.Secondary_Light_Btn:hover {
+  background: var(--primary-accent);
+}
+
+/* TEXT BUTTON */
+.Text_Btn {
+  position: relative;
+  background: none;
+  padding: 5px;
+  border: none;
+  font-weight: bold;
+  color: var(--primary);
+}
+
+.Text_Btn:hover {
+  color: var(--primary-light);
+}
+
+/* DELETE BUTTON */
+.Delete_Btn {
+  position: absolute;
+  right: 15px;
+  top: 15px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  font-size: 1.5rem;
+  box-shadow: 1px 1px 5px rgba(0,0,0,0.2);
+  z-index: 1;
+  background: var(--text-light);
+  border: none;
+  color: var(--text-dark);
+}
+
+.Delete_Btn:hover {
+  background: var(--bg-light);
+}
+
+.Search .Delete_Btn {
+  background: none;
+  right: 10px;
+  top: 10px;
+  box-shadow: none;
+  display: none;
+}
+
+/* CART & QUANTITY BUTTONS */
+.Add_To_Cart_Btn {
+  position: relative;
+  width: 100%;
+  height: 45px;
+  color: var(--text-light);
+  background: var(--primary);
+  border: none;
+  font-weight: bold;
+}
+
+.Add_To_Cart_Btn:hover {
+  background: var(--primary-light);
+}
+
+.Qty_Btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  color: var(--text-light);
+  background: var(--secondary);
+  border: none;
+  font-weight: bold;
+}
+
+.Qty_Btn:hover {
+  background: var(--secondary-light);
+}
+
+.Qty_Decrement_Btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  color: var(--text-light);
+  background: var(--primary);
+  border: none;
+  font-weight: bold;
+}
+
+.Qty_Decrement_Btn:hover {
+  background: var(--primary-light);
+}
+
+/* SAVE & WISHLIST BUTTONS */
+.Save_Btn {
+  position: relative;
+  width: 100%;
+  height: 45px;
+  color: var(--secondary);
+  background: var(--bg-light);
+  border: 2px solid var(--secondary);
+  font-weight: bold;
+}
+
+.Save_Btn:hover {
+  background: var(--primary-accent);
+}
+
+.Save_Btn.saved {
+  color: var(--text-light);
+  background: var(--secondary);
+  border-color: var(--secondary);
+}
+
+.Save_Btn.saved:hover {
+  background: var(--secondary-light);
+}
+
+/* REVIEW BUTTONS */
+.Review_Btn {
+  position: relative;
+  width: 100%;
+  height: 45px;
+  color: var(--text-light);
+  background: var(--primary);
+  border: none;
+  font-weight: bold;
+}
+
+.Review_Btn:hover {
+  background: var(--primary-light);
+}
+
+.Star_Btn {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  color: #ffc107;
+  background: none;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+}
+
+.Star_Btn:hover {
+  transform: scale(1.2);
+}
+
+.Star_Btn.selected {
+  color: #ffc107;
+  font-weight: bold;
+}
+
+.Submit_Review_Btn {
+  position: relative;
+  width: 100%;
+  height: 45px;
+  color: var(--text-light);
+  background: var(--secondary);
+  border: none;
+  font-weight: bold;
+}
+
+.Submit_Review_Btn:hover {
+  background: var(--secondary-light);
+}
+
+.Cancel_Review_Btn {
+  position: relative;
+  width: 100%;
+  height: 45px;
+  color: var(--secondary);
+  background: var(--bg-light);
+  border: 2px solid var(--secondary);
+  font-weight: bold;
+}
+
+.Cancel_Review_Btn:hover {
+  background: var(--primary-accent);
+}
+
+/* PAGINATION BUTTONS */
+.Prev_Btn,
+.Next_Btn {
+  position: relative;
+  width: 45px;
+  height: 45px;
+  color: var(--text-light);
+  background: var(--secondary);
+  border: none;
+  font-weight: bold;
+}
+
+.Prev_Btn:hover,
+.Next_Btn:hover {
+  background: var(--secondary-light);
+}
+
+.Prev_Btn:disabled,
+.Next_Btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* CHECKOUT BUTTONS */
+.Checkout_Btn {
+  position: relative;
+  width: 100%;
+  height: 50px;
+  color: var(--text-light);
+  background: var(--secondary);
+  border: none;
+  font-weight: bold;
+}
+
+.Checkout_Btn:hover {
+  background: var(--secondary-light);
+}
+
+.Continue_Shopping_Btn {
+  position: relative;
+  width: 100%;
+  height: 45px;
+  color: var(--secondary);
+  background: var(--bg-light);
+  border: 2px solid var(--secondary);
+  font-weight: bold;
+}
+
+.Continue_Shopping_Btn:hover {
+  background: var(--primary-accent);
+}
+
+.Place_Order_Btn {
+  position: relative;
+  width: 100%;
+  height: 50px;
+  color: var(--text-light);
+  background: var(--primary);
+  border: none;
+  font-weight: bold;
+}
+
+.Place_Order_Btn:hover {
+  background: var(--primary-light);
+}
+
+.Finalize_Order_Btn {
+  position: relative;
+  width: 100%;
+  height: 50px;
+  color: var(--text-light);
+  background: var(--secondary);
+  border: none;
+  font-weight: bold;
+}
+
+.Finalize_Order_Btn:hover {
+  background: var(--secondary-light);
+}
+
+/* FILTER BUTTONS */
+.Filter_Btn {
+  position: relative;
+  height: 40px;
+  padding: 0 15px;
+  color: var(--secondary);
+  background: var(--bg-light);
+  border: 1px solid var(--secondary);
+  font-weight: bold;
+}
+
+.Filter_Btn:hover {
+  background: var(--primary-accent);
+}
+
+.Filter_Btn.active {
+  color: var(--text-light);
+  background: var(--secondary);
+  border-color: var(--secondary);
+}
+
+.Filter_Btn.active:hover {
+  background: var(--secondary-light);
+}
+
+.Clear_Filters_Btn {
+  position: relative;
+  height: 40px;
+  padding: 0 15px;
+  color: var(--primary);
+  background: none;
+  border: none;
+  font-weight: bold;
+  text-decoration: underline;
+}
+
+.Clear_Filters_Btn:hover {
+  color: var(--primary-light);
+}
+
+/* ORDER HISTORY BUTTONS */
+.View_Order_Btn {
+  position: relative;
+  height: 40px;
+  padding: 0 20px;
+  color: var(--text-light);
+  background: var(--secondary);
+  border: none;
+  font-weight: bold;
+}
+
+.View_Order_Btn:hover {
+  background: var(--secondary-light);
+}
+
+.Reorder_Btn {
+  position: relative;
+  height: 40px;
+  padding: 0 20px;
+  color: var(--text-light);
+  background: var(--primary);
+  border: none;
+  font-weight: bold;
+}
+
+.Reorder_Btn:hover {
+  background: var(--primary-light);
+}
+
+.Download_Invoice_Btn {
+  position: relative;
+  height: 40px;
+  padding: 0 20px;
+  color: var(--secondary);
+  background: var(--bg-light);
+  border: 1px solid var(--secondary);
+  font-weight: bold;
+}
+
+.Download_Invoice_Btn:hover {
+  background: var(--primary-accent);
+}
+
+/* CLEAR HISTORY BUTTON */
+.Clear_History_Btn {
+  position: relative;
+  height: 40px;
+  padding: 0 20px;
+  color: var(--text-light);
+  background: var(--primary);
+  border: none;
+  font-weight: bold;
+}
+
+.Clear_History_Btn:hover {
+  background: var(--primary-light);
+}
+
+/* AUTH BUTTONS */
+.Login_Btn {
+  position: relative;
+  width: 100%;
+  height: 45px;
+  color: var(--text-light);
+  background: var(--secondary);
+  border: none;
+  font-weight: bold;
+}
+
+.Login_Btn:hover {
+  background: var(--secondary-light);
+}
+
+.Register_Btn {
+  position: relative;
+  width: 100%;
+  height: 45px;
+  color: var(--text-light);
+  background: var(--primary);
+  border: none;
+  font-weight: bold;
+}
+
+.Register_Btn:hover {
+  background: var(--primary-light);
+}
+
+.Logout_Btn {
+  position: relative;
+  height: 40px;
+  padding: 0 20px;
+  color: var(--text-light);
+  background: var(--primary);
+  border: none;
+  font-weight: bold;
+}
+
+.Logout_Btn:hover {
+  background: var(--primary-light);
+}
+
+.Forgot_Password_Btn {
+  position: relative;
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-weight: bold;
+  text-decoration: underline;
+}
+
+.Forgot_Password_Btn:hover {
+  color: var(--primary-light);
+}
+
+/* DISABLED STATE */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* BUTTON GROUP */
+.Btn_Group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+}
+
+.Btn_Group button {
+  flex: 1;
+  min-width: 100px;
+}
+
+/* RESPONSIVE DESIGN */
+
+/* MOBILE (320px - 480px) */
+@media (max-width: 480px) {
+  button {
+    font-size: 1rem;
+  }
+
+  .Primary_Btn,
+  .Primary_Light_Btn,
+  .Add_To_Cart_Btn,
+  .Review_Btn,
+  .Save_Btn,
+  .Submit_Review_Btn,
+  .Cancel_Review_Btn,
+  .Checkout_Btn,
+  .Continue_Shopping_Btn,
+  .Place_Order_Btn,
+  .Finalize_Order_Btn,
+  .Login_Btn,
+  .Register_Btn {
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  .Checkout_Btn,
+  .Place_Order_Btn,
+  .Finalize_Order_Btn {
+    height: 45px;
+  }
+
+  .Qty_Btn,
+  .Qty_Decrement_Btn {
+    width: 35px;
+    height: 35px;
+    font-size: 1rem;
+  }
+
+  .Star_Btn {
+    width: 40px;
+    height: 40px;
+    font-size: 1.5rem;
+  }
+
+  .Prev_Btn,
+  .Next_Btn {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  .Filter_Btn,
+  .View_Order_Btn,
+  .Reorder_Btn,
+  .Download_Invoice_Btn,
+  .Clear_History_Btn,
+  .Logout_Btn {
+    height: 35px;
+    padding: 0 12px;
+    font-size: 0.9rem;
+  }
+
+  .Delete_Btn {
+    width: 36px;
+    height: 36px;
+    font-size: 1.2rem;
+  }
+
+  .Btn_Group {
+    gap: 8px;
+  }
+}
+
+/* TABLET (481px - 768px) */
+@media (min-width: 481px) and (max-width: 768px) {
+  button {
+    font-size: 1.2rem;
+  }
+
+  .Primary_Btn,
+  .Primary_Light_Btn,
+  .Add_To_Cart_Btn,
+  .Review_Btn,
+  .Save_Btn,
+  .Submit_Review_Btn,
+  .Cancel_Review_Btn,
+  .Checkout_Btn,
+  .Continue_Shopping_Btn,
+  .Place_Order_Btn,
+  .Finalize_Order_Btn,
+  .Login_Btn,
+  .Register_Btn {
+    height: 42px;
+    font-size: 1.1rem;
+  }
+
+  .Qty_Btn,
+  .Qty_Decrement_Btn {
+    width: 38px;
+    height: 38px;
+    font-size: 1.1rem;
+  }
+
+  .Star_Btn {
+    width: 45px;
+    height: 45px;
+    font-size: 1.8rem;
+  }
+
+  .Filter_Btn,
+  .View_Order_Btn,
+  .Reorder_Btn,
+  .Download_Invoice_Btn,
+  .Clear_History_Btn,
+  .Logout_Btn {
+    height: 38px;
+    padding: 0 14px;
+    font-size: 1rem;
+  }
+
+  .Btn_Group {
+    gap: 12px;
+  }
+}
+
+/* DESKTOP (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  button {
+    font-size: 1.3rem;
+  }
+
+  .Primary_Btn,
+  .Primary_Light_Btn,
+  .Add_To_Cart_Btn,
+  .Review_Btn,
+  .Save_Btn,
+  .Submit_Review_Btn,
+  .Cancel_Review_Btn,
+  .Checkout_Btn,
+  .Continue_Shopping_Btn,
+  .Place_Order_Btn,
+  .Finalize_Order_Btn,
+  .Login_Btn,
+  .Register_Btn {
+    height: 45px;
+    font-size: 1.2rem;
+  }
+
+  .Qty_Btn,
+  .Qty_Decrement_Btn {
+    width: 42px;
+    height: 42px;
+    font-size: 1.2rem;
+  }
+
+  .Star_Btn {
+    width: 50px;
+    height: 50px;
+    font-size: 2rem;
+  }
+
+  .Filter_Btn,
+  .View_Order_Btn,
+  .Reorder_Btn,
+  .Download_Invoice_Btn,
+  .Clear_History_Btn,
+  .Logout_Btn {
+    height: 40px;
+    padding: 0 16px;
+    font-size: 1rem;
+  }
+
+  .Btn_Group {
+    gap: 15px;
+  }
+}
+
+/* LAPTOP & LARGE SCREENS (1025px+) */
+@media (min-width: 1025px) {
+  button {
+    font-size: 1.4rem;
+  }
+
+  .Primary_Btn,
+  .Primary_Light_Btn,
+  .Add_To_Cart_Btn,
+  .Review_Btn,
+  .Save_Btn,
+  .Submit_Review_Btn,
+  .Cancel_Review_Btn,
+  .Checkout_Btn,
+  .Continue_Shopping_Btn,
+  .Place_Order_Btn,
+  .Finalize_Order_Btn,
+  .Login_Btn,
+  .Register_Btn {
+    height: 48px;
+    font-size: 1.3rem;
+  }
+
+  .Qty_Btn,
+  .Qty_Decrement_Btn {
+    width: 45px;
+    height: 45px;
+    font-size: 1.3rem;
+  }
+
+  .Star_Btn {
+    width: 55px;
+    height: 55px;
+    font-size: 2.2rem;
+  }
+
+  .Filter_Btn,
+  .View_Order_Btn,
+  .Reorder_Btn,
+  .Download_Invoice_Btn,
+  .Clear_History_Btn,
+  .Logout_Btn {
+    height: 42px;
+    padding: 0 20px;
+    font-size: 1.1rem;
+  }
+
+  .Btn_Group {
+    gap: 20px;
+  }
+}
+

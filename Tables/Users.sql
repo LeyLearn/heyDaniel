@@ -6,7 +6,6 @@ CREATE TABLE Users (
   Phone VARCHAR(20) NOT NULL,
   Credits DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   IsMember TINYINT(1) NOT NULL DEFAULT 0,
-  DeviceType TEXT NOT NULL,
   TimeRegister  TINYTEXT NOT NULL,
   TimeMembership  TINYTEXT NOT NULL,
   IsActive TINYINT(1) NOT NULL DEFAULT 1
@@ -18,8 +17,7 @@ CREATE TABLE Tokens (
     Token TEXT NOT NULL,
     Type TEXT NOT NULL,
     ExpiresAt DATETIME NOT NULL,
-    DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (UserId) REFERENCES Users(Id)
+    DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- self-explanatory, stores user information. can be used for authentication, personalization, order processing, etc.
@@ -32,9 +30,7 @@ CREATE TABLE UserAddresses (
   City VARCHAR(100) NOT NULL,
   State VARCHAR(100) NOT NULL,
   ZipCode TEXT NOT NULL,
-  LatnLong TEXT NOT NULL,
+  Coordinate TEXT NOT NULL,
   GateCode TEXT NOT NULL,
   Note LONGTEXT NOT NULL,
-  Phone VARCHAR(20) NOT NULL,
-  FOREIGN KEY (UserId) REFERENCES Users(Id)
 );

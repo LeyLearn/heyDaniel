@@ -43,7 +43,7 @@ $user = loginUser($pdo, $userEmail, $userPassword);
 
 if (!empty($user['error'])) {
   http_response_code(400);
-  $response['error'] = $user['error'];
+  $response['message'] = "Invalid email or password";
   echo json_encode($response);
   exit;
 }

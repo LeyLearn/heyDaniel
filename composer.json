@@ -3,5 +3,8 @@
         "phpstan/phpstan": "^2.1",
         "vimeo/psalm": "^5.26",
         "squizlabs/php_codesniffer": "^4.0"
+    },
+    "require": {
+        "stripe/stripe-php": "^20.2"
     }
 }

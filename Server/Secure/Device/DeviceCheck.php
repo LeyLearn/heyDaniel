@@ -4,31 +4,28 @@ include_once "../../Function/Components.php";
 
 
 $response = [
-    'is_device_known' => false,
+    'is_device_known'   => false,
     'same_day_eligible' => false,
     'tax_rate'          => 0.00,
     'has_active_order'  => false,
+    'message'           => null,
     'error'             => null
 ];
 
 include_once "../../Function/Auth/ArrayAuth.php";
 
 if (!isset($data['device_type'])) {
-    http_response_code(400);
-    $response['error'] = "Device type is required.";
-    echo json_encode($response);
-    exit;
+    respondWithMsg("Device type is required.");
 }
+
 $userDeviceType = $data['device_type'];
 $validDeviceTypes = ['iOS', 'Android', 'Web'];
 $userId = 0;
 $userDeviceSignature = null;
 
+// SECURITY: SQL injection prevention (Vulnerability #15)
 if (!in_array($userDeviceType, $validDeviceTypes, true)) {
-    http_response_code(400);
-    $response['error'] = "Invalid device type.";
-    echo json_encode($response);
-    exit;
+    respondWithMsg("Invalid device type.");
 }
 
 if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
@@ -43,11 +40,13 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
 
 $isSameDayEligible = isSameDayEligible($pdo, $userDeviceSignature, $userId);
 
+// SECURITY: Error handling (Vulnerability #14)
 if (!empty($isSameDayEligible['error'])) {
-    http_response_code(400);
-    $response['error'] = $isSameDayEligible['error'];
-    echo json_encode($response);
-    exit;
+    respondWithError($isSameDayEligible['error'], 500);
+}
+
+if (!empty($isSameDayEligible['message'])) {
+    respondWithMsg($isSameDayEligible['message']);
 }
 
 $response['same_day_eligible'] = $isSameDayEligible['same_day_eligible'];
@@ -61,9 +60,6 @@ if ($response['tax_rate'] !== 0.00) {
 }
 
 $_SESSION['same_day_eligible'] = $response['same_day_eligible'];
-
 $_SESSION['has_active_order'] = $response['has_active_order'];
 
-
-echo json_encode($response);
-exit;
+respondSuccess($response);

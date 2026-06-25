@@ -1,8 +1,8 @@
-CREATE TABLE AllowedZip (
-  Id int(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
-  Zipcode LONGTEXT NOT NULL,
-  SpotName LONGTEXT NOT NULL
+CREATE TABLE ZipcodeAllowed (
+  Id                INT(11)      AUTO_INCREMENT PRIMARY KEY NOT NULL,
+  Zipcode           VARCHAR(16)  NOT NULL UNIQUE,
+  City              VARCHAR(16)  NOT NULL,
+  State             VARCHAR(16)  NOT NULL,
+  isSameDayEligible TINYINT(1)   NOT NULL DEFAULT 0,
+  TaxRate           DECIMAL(6,4) NOT NULL DEFAULT 0.10
 );
-
--- This table is used to store allowed zip codes and their corresponding spot names. It can be used for various purposes such as validating user input, providing location-based services, or managing delivery areas.
--- i don't really recall what's the need for spot name.

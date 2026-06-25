@@ -3,7 +3,7 @@
         'name' => '__root__',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => 'b07c9b04ca058a4ed60faae0dfde73f453070045',
+        'reference' => 'c817a0f5a9ef740a4b2c2a065767125053318747',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -13,7 +13,7 @@
         '__root__' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => 'b07c9b04ca058a4ed60faae0dfde73f453070045',
+            'reference' => 'c817a0f5a9ef740a4b2c2a065767125053318747',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -228,6 +228,15 @@
             'install_path' => __DIR__ . '/../squizlabs/php_codesniffer',
             'aliases' => array(),
             'dev_requirement' => true,
+        ),
+        'stripe/stripe-php' => array(
+            'pretty_version' => 'v20.2.1',
+            'version' => '20.2.1.0',
+            'reference' => 'c628cfa0b3de4ef5110b2c2bfbf881a33a52fdd5',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../stripe/stripe-php',
+            'aliases' => array(),
+            'dev_requirement' => false,
         ),
         'symfony/console' => array(
             'pretty_version' => 'v5.4.47',

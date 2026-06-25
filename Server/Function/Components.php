@@ -1,5 +1,7 @@
 <?php
 
+include_once __DIR__ . '/Cache.php';
+
 function isSameDayEligible(\PDO $db, string $deviceSignature, int $userId): array
 {
     $response = [
@@ -7,15 +9,19 @@ function isSameDayEligible(\PDO $db, string $deviceSignature, int $userId): arra
         'same_day_eligible' => false,
         'tax_rate'          => 0.00,
         'has_active_order'  => false,
+        'message'           => null,
         'error'             => null
     ];
 
+    // SECURITY: Weak device signature validation (Vulnerability #19)
+    // Device signatures should be proper SHA256 hashes
     if (
         $deviceSignature === ""
-        || strlen($deviceSignature) > 128
-        || !preg_match('/^[a-zA-Z0-9-]+$/', $deviceSignature)
+        || strlen($deviceSignature) !== 64
+        || !preg_match('/^[a-f0-9]{64}$/', $deviceSignature)
     ) {
-        $response['error'] = "Invalid or missing device_signature format";
+        $response['error'] = "Invalid device signature format";
+        $response['message'] = "There've been an error, please try again later";
         return $response;
     }
 
@@ -49,6 +55,7 @@ function isSameDayEligible(\PDO $db, string $deviceSignature, int $userId): arra
     } catch (\PDOException $e) {
         error_log("DB Error in isSameDayEligible: " . $e->getMessage());
         $response['error'] = "Internal server error during eligibility check.";
+        $response['message'] = "There've been an error, please try again later";
     }
 
     return $response;
@@ -71,20 +78,35 @@ function DeviceLog(\PDO $db, string $deviceSignature, string $deviceType, string
     $response = [
         'same_day_eligible' => false,
         'tax_rate'          => 0.00,
+        'message'           => null,
         'error'             => null
     ];
 
+    // SECURITY: Input validation (Vulnerability #11, #15, #19)
+    // Validate device signature format (should be SHA256 hash)
     if (
         $deviceSignature === ""
-        || strlen($deviceSignature) > 128
-        || !preg_match('/^[a-zA-Z0-9-]+$/', $deviceSignature)
-        || $deviceType === ""
-        || !in_array($deviceType, ['iOS', 'Android', 'Web'])
-        || $zipcode === ""
+        || strlen($deviceSignature) !== 64
+        || !preg_match('/^[a-f0-9]{64}$/', $deviceSignature)
+    ) {
+        $response['error'] = "Invalid device signature format.";
+        return $response;
+    }
+
+    // Validate device type (SQL injection prevention for Vulnerability #15)
+    $validDeviceTypes = ['iOS', 'Android', 'Web'];
+    if ($deviceType === "" || !in_array($deviceType, $validDeviceTypes, true)) {
+        $response['message'] = "Invalid device type.";
+        return $response;
+    }
+
+    // Validate zipcode
+    if (
+        $zipcode === ""
         || strlen($zipcode) > 16
         || !preg_match('/^[a-zA-Z0-9\- ]+$/', $zipcode)
     ) {
-        $response['error'] = "Invalid or missing crucial information.";
+        $response['message'] = "Invalid zipcode format.";
         return $response;
     }
 
@@ -98,9 +120,20 @@ function DeviceLog(\PDO $db, string $deviceSignature, string $deviceType, string
     $dateRegistered = date("Y-m-d H:i:s");
 
     try {
-        $stmt = $db->prepare("SELECT isSameDayEligible, TaxRate FROM ZipcodeAllowed WHERE Zipcode = ? LIMIT 1");
-        $stmt->execute([$zipcode]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $cacheKey = "zipcode:{$zipcode}";
+        $cachedZipcode = QueryCache::get($cacheKey);
+
+        if ($cachedZipcode) {
+            $row = $cachedZipcode;
+        } else {
+            $stmt = $db->prepare("SELECT isSameDayEligible, TaxRate FROM ZipcodeAllowed WHERE Zipcode = ? LIMIT 1");
+            $stmt->execute([$zipcode]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($row) {
+                QueryCache::set($cacheKey, $row, 86400); // Cache for 24 hours
+            }
+        }
 
         if ($row) {
             $response['same_day_eligible'] = (bool)$row['isSameDayEligible'];
@@ -190,7 +223,13 @@ function cartContent(\PDO $db, int $userId, float $taxRate): array
     ];
 
     try {
-        $sql = " SELECT 
+        $cacheKey = "cart_content:{$userId}";
+        $cachedResults = QueryCache::get($cacheKey);
+
+        if ($cachedResults) {
+            $results = $cachedResults;
+        } else {
+            $sql = " SELECT
         src.ProductId,
         p.*,
         COALESCE(s.isSaved, 0)      AS isSaved,
@@ -200,22 +239,27 @@ function cartContent(\PDO $db, int $userId, float $taxRate): array
     FROM Cart src
     INNER JOIN Products p
             ON src.ProductId = p.Id
-    LEFT JOIN Saved s 
+    LEFT JOIN Saved s
            ON s.ProductId = src.ProductId AND s.UserId = ?
     LEFT JOIN (
-        SELECT 
+        SELECT
             ProductId,
             ROUND(AVG(Stars), 2)   AS avg_rating,
             COUNT(*)               AS review_count
-        FROM ItemReviews 
+        FROM ItemReviews
         GROUP BY ProductId
     ) r ON r.ProductId = src.ProductId
       WHERE src.UserId = ?
       ORDER BY src.DateAdded DESC ";
 
-        $stmt = $db->prepare($sql);
-        $stmt->execute([$userId, $userId]);
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $stmt = $db->prepare($sql);
+            $stmt->execute([$userId, $userId]);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if ($results) {
+                QueryCache::set($cacheKey, $results, 3600); // Cache for 1 hour
+            }
+        }
 
         foreach ($results as $row) {
             $rating = $row['review_count'] > 0
@@ -262,6 +306,8 @@ function clearCart(\PDO $db, int $userId): array
     try {
         $stmt = $db->prepare("DELETE FROM Cart WHERE UserId = ?");
         $stmt->execute([$userId]);
+
+        QueryCache::delete("cart_content:{$userId}");
     } catch (\PDOException $e) {
         error_log("DB Error in clearCart: " . $e->getMessage());
         $response['error'] = "Internal server error during cart clearance.";
@@ -304,18 +350,18 @@ function addProduct(\PDO $db, int $productId, int $userId, bool $hasActiveOrder,
         $response['quantity'] = $quantity;
 
         $countStmt = $db->prepare("
-             SELECT 
-                COUNT(*) AS ItemCount, 
+             SELECT
+                COUNT(*) AS ItemCount,
                 SUM(
                     CI.Quantity * COALESCE(
-                        CASE 
-                            WHEN P.isOnSale = 1 THEN P.SalePrice 
-                            ELSE P.Price 
+                        CASE
+                            WHEN P.isOnSale = 1 THEN P.SalePrice
+                            ELSE P.Price
                         END, P.Price)
                 ) AS TotalAmount
-            FROM {$table} CI 
-            INNER JOIN Products P 
-                ON CI.ProductId = P.Id 
+            FROM {$table} CI
+            INNER JOIN Products P
+                ON CI.ProductId = P.Id
             WHERE CI.UserId = ?
         ");
         $countStmt->execute([$userId]);
@@ -325,6 +371,8 @@ function addProduct(\PDO $db, int $productId, int $userId, bool $hasActiveOrder,
 
         $response['total_count'] = (int)$cartData['ItemCount'];
         $response['subtotal'] = round($cartData['TotalAmount'] + $totaltax, 2);
+
+        QueryCache::delete("cart_content:{$userId}");
     } catch (\PDOException $e) {
         error_log("DB Error in addProduct: " . $e->getMessage());
         $response['error'] = "Internal server error during product addition.";
@@ -369,20 +417,19 @@ function decrementProduct(\PDO $db, int $productId, int $userId, bool $hasActive
 
         $response['quantity'] = $quantity;
 
-
         $countStmt = $db->prepare("
-             SELECT 
-                COUNT(*) AS ItemCount, 
+             SELECT
+                COUNT(*) AS ItemCount,
                 SUM(
                     CI.Quantity * COALESCE(
-                        CASE 
-                            WHEN P.isOnSale = 1 THEN P.SalePrice 
-                            ELSE P.Price 
+                        CASE
+                            WHEN P.isOnSale = 1 THEN P.SalePrice
+                            ELSE P.Price
                         END, P.Price)
                 ) AS TotalAmount
-            FROM {$table} CI 
-            INNER JOIN Products P 
-                ON CI.ProductId = P.Id 
+            FROM {$table} CI
+            INNER JOIN Products P
+                ON CI.ProductId = P.Id
             WHERE CI.UserId = ?
         ");
         $countStmt->execute([$userId]);
@@ -392,6 +439,8 @@ function decrementProduct(\PDO $db, int $productId, int $userId, bool $hasActive
 
         $response['total_count'] = (int)$cartData['ItemCount'];
         $response['subtotal'] = round($cartData['TotalAmount'] + $totaltax, 2);
+
+        QueryCache::delete("cart_content:{$userId}");
     } catch (\PDOException $e) {
         error_log("DB Error in decrementProduct: " . $e->getMessage());
         $response['error'] = "Internal server error during product decrement.";
@@ -462,6 +511,8 @@ function addSaved(\PDO $db, int $productId, int $userId): array
         $stmt = $db->prepare("SELECT COUNT(*) FROM Saved WHERE UserId = ?");
         $stmt->execute([$userId]);
         $response['saved_count'] = (int)$stmt->fetchColumn();
+
+        QueryCache::delete("saved_content:{$userId}");
     } catch (\PDOException $e) {
         error_log("DB Error in addSaved: " . $e->getMessage());
         $response['error'] = "Internal server error during wishlist toggle.";
@@ -485,8 +536,14 @@ function savedContent(\PDO $db, int $userId, bool $hasActiveOrder, float $taxRat
     $table = $hasActiveOrder ? 'Process' : 'Cart';
 
     try {
-        $sql = "
-            SELECT 
+        $cacheKey = "saved_content:{$userId}";
+        $cachedResults = QueryCache::get($cacheKey);
+
+        if ($cachedResults) {
+            $results = $cachedResults;
+        } else {
+            $sql = "
+            SELECT
                 src.ProductId,
                 p.*,
                 CASE WHEN b.ProductId IS NOT NULL THEN 1 ELSE 0 END AS isbought,
@@ -499,20 +556,25 @@ function savedContent(\PDO $db, int $userId, bool $hasActiveOrder, float $taxRat
             LEFT JOIN {$table} b
                    ON b.ProductId = src.ProductId AND b.UserId = ?
             LEFT JOIN (
-                SELECT 
+                SELECT
                     ProductId,
                     ROUND(AVG(Stars), 2)  AS avg_rating,
                     COUNT(*)              AS review_count
-                FROM ItemReviews 
+                FROM ItemReviews
                 GROUP BY ProductId
             ) r ON r.ProductId = src.ProductId
             WHERE src.UserId = ?
             ORDER BY src.DateAdded DESC
         ";
 
-        $stmt = $db->prepare($sql);
-        $stmt->execute([$userId, $userId]);
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $stmt = $db->prepare($sql);
+            $stmt->execute([$userId, $userId]);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if ($results) {
+                QueryCache::set($cacheKey, $results, 3600); // Cache for 1 hour
+            }
+        }
 
         $response['location'] = $table;
 
@@ -1087,7 +1149,20 @@ function loginUser(\PDO $db, string $email, string $password): array
         $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$user || !password_verify($password, $user['Password'])) {
+        // SECURITY: Timing attack prevention (Vulnerability #6)
+        // Always perform password verification to prevent user enumeration
+        $dummyHash = '$2y$10$invalid.dummy.hash.for.timing.attack.prevention.';
+        $passwordCorrect = $user && password_verify($password, $user['Password']);
+
+        // If user not found, verify against dummy hash to consume time
+        if (!$user) {
+            password_verify($password, $dummyHash);
+            $response['error'] = "Invalid email or password.";
+            return $response;
+        }
+
+        // Check password
+        if (!$passwordCorrect) {
             $response['error'] = "Invalid email or password.";
             return $response;
         }

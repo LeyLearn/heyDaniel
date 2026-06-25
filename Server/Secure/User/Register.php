@@ -38,30 +38,21 @@ if (!filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
     exit;
 }
 
+// SECURITY: Insufficient input validation (Vulnerability #11)
 if (
-    strlen($userPass) < 8 ||
-    !preg_match('/[A-Z]/', $userPass) ||     // at least one uppercase
-    !preg_match('/[a-z]/', $userPass) ||     // at least one lowercase
-    !preg_match('/[0-9]/', $userPass) ||     // at least one digit
-    !preg_match('/[^A-Za-z0-9]/', $userPass) // at least one special char
+    strlen($userPass) < 8 || strlen($userPass) > 128 ||
+    !preg_match('/[A-Z]/', $userPass) ||
+    !preg_match('/[a-z]/', $userPass) ||
+    !preg_match('/[0-9]/', $userPass) ||
+    !preg_match('/[^A-Za-z0-9]/', $userPass)
 ) {
-    http_response_code(400);
-    $response['error'] = 'Password too weak. Must be 8+ chars with uppercase, lowercase, number, and symbol.';
-    echo json_encode($response);
-    exit;
+    respondWithMsg('Password must be 8-128 characters with uppercase, lowercase, number, and symbol.');
 }
 
 $registerUser = registerUser($pdo, $userName, $userEmail, $userPass);
 
-if(!empty($registerUser['error'])){
-    http_response_code(400);
-    $response['error'] = $registerUser['error'];
-    echo json_encode($response);
-    exit;
+if (!empty($registerUser['error'])) {
+    respondWithMsg($registerUser['error']);
 }
 
-$response['success'] = true;
-
-
-echo json_encode($response);
-exit;
+respondSuccess(['registered' => true]);

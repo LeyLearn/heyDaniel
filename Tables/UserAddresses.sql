@@ -1,0 +1,16 @@
+CREATE TABLE UserAddresses (
+  Id         INT(11)      AUTO_INCREMENT PRIMARY KEY NOT NULL,
+  UserId     INT(11)      NOT NULL,
+  Address    VARCHAR(255) NOT NULL,
+  Apt        VARCHAR(50)  NOT NULL DEFAULT '',
+  City       VARCHAR(100) NOT NULL,
+  State      VARCHAR(50)  NOT NULL,
+  ZipCode    VARCHAR(16)  NOT NULL,
+  Coordinate VARCHAR(255) NOT NULL DEFAULT '',
+  LatnLong   VARCHAR(255) NOT NULL DEFAULT '',
+  GateCode   VARCHAR(50)  NOT NULL DEFAULT '',
+  Note       TEXT         NOT NULL DEFAULT '',
+  Phone      VARCHAR(20)  NOT NULL DEFAULT '',
+  DateAdded  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (UserId) REFERENCES Users(Id)
+);

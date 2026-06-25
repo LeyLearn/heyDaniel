@@ -1,0 +1,165 @@
+🚀 HeyDaniel Performance Baseline Test
+======================================
+Testing: Thu Jun 25 03:40:11 EDT 2026
+
+Performance Baseline Test Results
+Date: Thu Jun 25 03:40:11 EDT 2026
+URL: http://localhost/Server/index.php
+======================================
+
+[0;34mTEST 1: Basic API Latency[0m
+Measuring simple device_check endpoint (1 request)...
+
+time_connect:0.000269
+time_starttransfer:0.005291
+time_total:0.005418
+
+Total Time: 5.418ms
+Connect Time: 0.269ms
+
+[0;34mTEST 2: Sequential Requests (5 calls)[0m
+Simulating typical user interaction (5 API calls)...
+
+1. device_check: 1.782000ms
+2. cart_icon: 2.378000ms
+3. main_categories: 1.536000ms
+4. store: 3.445000ms
+5. summary: 3.240000ms
+
+Total Sequential Time: 12.381000ms
+Average per request: 2.47ms
+
+[0;34mTEST 3: Load Test (10 requests, sequential)[0m
+Running Apache Bench with 10 requests...
+
+This is ApacheBench, Version 2.3 <$Revision: 1913912 $>
+Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+Licensed to The Apache Software Foundation, http://www.apache.org/
+
+Benchmarking localhost (be patient).....done
+
+
+Server Software:        Apache/2.4.53
+Server Hostname:        localhost
+Server Port:            80
+
+Document Path:          /Server/index.php
+Document Length:        1028 bytes
+
+Concurrency Level:      1
+Time taken for tests:   0.022 seconds
+Complete requests:      10
+Failed requests:        0
+Non-2xx responses:      10
+Total transferred:      13570 bytes
+Total body sent:        2290
+HTML transferred:       10280 bytes
+Requests per second:    449.84 [#/sec] (mean)
+Time per request:       2.223 [ms] (mean)
+Time per request:       2.223 [ms] (mean, across all concurrent requests)
+Transfer rate:          596.13 [Kbytes/sec] received
+                        100.60 kb/s sent
+                        696.73 kb/s total
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0    0   0.0      0       0
+Processing:     1    2   1.1      1       4
+Waiting:        1    1   0.5      1       2
+Total:          1    2   1.1      2       4
+
+Percentage of the requests served within a certain time (ms)
+  50%      2
+  66%      2
+  75%      3
+  80%      4
+  90%      4
+  95%      4
+  98%      4
+  99%      4
+ 100%      4 (longest request)
+
+Mean response time: 2.223 ms
+
+[0;34mTEST 4: Concurrent Load (5 concurrent requests)[0m
+Running 10 requests with 5 concurrent...
+
+This is ApacheBench, Version 2.3 <$Revision: 1913912 $>
+Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+Licensed to The Apache Software Foundation, http://www.apache.org/
+
+Benchmarking localhost (be patient).....done
+
+
+Server Software:        Apache/2.4.53
+Server Hostname:        localhost
+Server Port:            80
+
+Document Path:          /Server/index.php
+Document Length:        1028 bytes
+
+Concurrency Level:      5
+Time taken for tests:   0.006 seconds
+Complete requests:      10
+Failed requests:        0
+Non-2xx responses:      10
+Total transferred:      13570 bytes
+Total body sent:        2290
+HTML transferred:       10280 bytes
+Requests per second:    1778.09 [#/sec] (mean)
+Time per request:       2.812 [ms] (mean)
+Time per request:       0.562 [ms] (mean, across all concurrent requests)
+Transfer rate:          2356.32 [Kbytes/sec] received
+                        397.64 kb/s sent
+                        2753.96 kb/s total
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0    0   0.1      0       1
+Processing:     1    2   0.4      2       2
+Waiting:        1    1   0.3      2       2
+Total:          2    2   0.3      2       3
+ERROR: The median and mean for the waiting time are more than twice the standard
+       deviation apart. These results are NOT reliable.
+
+Percentage of the requests served within a certain time (ms)
+  50%      2
+  66%      2
+  75%      2
+  80%      2
+  90%      3
+  95%      3
+  98%      3
+  99%      3
+ 100%      3 (longest request)
+
+Mean response time (concurrent): 2.812 ms
+
+[0;34mTEST 5: Response Size Analysis[0m
+
+device_check response:     1028 bytes
+main_categories response:     1028 bytes
+store response:     1028 bytes
+
+Total for 3 requests: 3084 bytes
+
+[1;33m======================================
+BASELINE SUMMARY
+======================================\033[0m
+
+Single Request Latency: ~2ms
+5 Sequential Requests: ~12ms
+Response Compression: NOT ENABLED (responses can be 6-7x smaller with gzip)
+
+Estimated Load:
+  - Current: 1,000 concurrent users max
+  - Throughput: ~10-100 requests/second
+
+[0;32mNext Steps:[0m
+1. Run: mysql < Tables/PERFORMANCE_INDEXES.sql
+2. Enable gzip in Server/index.php
+3. Re-run this test to see improvements
+
+
+[0;32m✓ Results saved to: BASELINE_RESULTS_20260625_034011.txt[0m
+
