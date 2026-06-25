@@ -1,9 +1,8 @@
 CREATE TABLE Cart (
-  Id int(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
-  UserId LONGTEXT NOT NULL,
-  ProductId LONGTEXT NOT NULL,
-  Quantity LONGTEXT NOT NULL,
-  DateAdded LONGTEXT NOT NULL
+  Id INT(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
+  UserId INT(11) NOT NULL,
+  ProductId INT(11) NOT NULL,
+  Quantity INT(11) NOT NULL DEFAULT 1,
+  DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_user_product (UserId, ProductId)
 );
-
--- This table is used to store the items that a user has added to their shopping cart. It includes the user ID, product ID, quantity of the product, and the date it was added to the cart. This information can be used to display the user's cart contents, calculate totals, and manage the checkout process.

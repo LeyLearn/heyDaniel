@@ -1,8 +1,9 @@
 CREATE TABLE Saved (
-  Id int(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
-  UserId INT NOT NULL,
-  ProductId INT NOT NULL,
-  DateAdded LONGTEXT NOT NULL
+  Id INT(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
+  UserId INT(11) NOT NULL,
+  ProductId INT(11) NOT NULL,
+  DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_user_product (UserId, ProductId),
+  FOREIGN KEY (UserId) REFERENCES Users(Id) ON DELETE CASCADE,
+  FOREIGN KEY (ProductId) REFERENCES Products(Id) ON DELETE CASCADE
 );
-
--- self-explanatory, tracks the items that a user has saved for later. can be used for wishlists, favorites, etc.

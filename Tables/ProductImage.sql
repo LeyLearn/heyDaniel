@@ -1,8 +1,8 @@
 CREATE TABLE ProductImages (
-    Id        INT(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
-    ProductId INT NOT NULL,
-    ImageUrl  LONGTEXT NOT NULL,
-    INDEX(ProductsId)
+  Id INT(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
+  ProductId INT(11) NOT NULL,
+  ImageUrl VARCHAR(500) NOT NULL,
+  DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (ProductId) REFERENCES Products(Id) ON DELETE CASCADE,
+  INDEX idx_product_id (ProductId)
 );
-
--- self-explanatory, stores the images associated with each product. can be used to display product images on the website, manage product listings, etc.
