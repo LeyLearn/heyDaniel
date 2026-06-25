@@ -5,10 +5,13 @@ CREATE TABLE Process (
   Quantity       INT(11)    NOT NULL,
   isStocked      TINYINT(1) NOT NULL DEFAULT 1,
   DateAdded      DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  NeverDelivered TINYINT(1) NOT NULL DEFAULT 0,
+  isMissing TINYINT(1) NOT NULL DEFAULT 0,
   HandlerId      INT(11)    NOT NULL DEFAULT 0,
   isClosed       TINYINT(1) NOT NULL DEFAULT 0,
+  FOREIGN KEY (UserId) REFERENCES Users(Id),
+  FOREIGN KEY (ProductId) REFERENCES Products(Id),
   INDEX idx_user_id (UserId),
   INDEX idx_product_id (ProductId),
   INDEX idx_date_added (DateAdded)
 );
+

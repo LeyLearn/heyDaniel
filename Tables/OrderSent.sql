@@ -6,14 +6,12 @@ CREATE TABLE OrderSent (
   FinalOrderRevenue DECIMAL(10,2) NOT NULL,
   OrderLiability DECIMAL(10,2) NOT NULL,
   HandlerId INT(11) NOT NULL DEFAULT 0,
-  StripePaymentIntentId VARCHAR(255) NULL,
   TipAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   OrderStatus VARCHAR(50) NOT NULL DEFAULT 'pending',
   DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   TimeDelivered DATETIME NULL,
   isRated TINYINT(1) NOT NULL DEFAULT 0,
   isTipped TINYINT(1) NOT NULL DEFAULT 0,
-  isSameDay TINYINT(1) NOT NULL DEFAULT 0,
   isClosed TINYINT(1) NOT NULL DEFAULT 0,
   FOREIGN KEY (UserId) REFERENCES Users(Id),
   INDEX idx_user_id (UserId),
@@ -21,30 +19,18 @@ CREATE TABLE OrderSent (
   INDEX idx_date_added (DateAdded)
 );
 
-CREATE TABLE Process (
-  Id INT(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
-  UserId INT(11) NOT NULL,
-  ProductId INT(11) NOT NULL,
-  Quantity INT(11) NOT NULL,
-  isStocked TINYINT(1) NOT NULL DEFAULT 1,
-  DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  isMissing TINYINT(1) NOT NULL DEFAULT 0,
-  HandlerId INT(11) NOT NULL DEFAULT 0,
-  FOREIGN KEY (UserId) REFERENCES Users(Id),
-  FOREIGN KEY (ProductId) REFERENCES Products(Id),
-  INDEX idx_user_id (UserId),
-  INDEX idx_product_id (ProductId)
-);
-
 CREATE TABLE OrderTracking (
   Id INT(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
   UserId INT(11) NOT NULL,
   ProductId INT(11) NOT NULL,
-  Quantity INT(11) NOT NULL,
-  isStocked TINYINT(1) NOT NULL DEFAULT 1,
+  ItemQuantity INT(11) NOT NULL,
+  OrderRevenue DECIMAL(10,2) NOT NULL,
+  OrderLiability DECIMAL(10,2) NOT NULL,
+  HandlerId INT(11) NOT NULL DEFAULT 0,
   DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   isMissing TINYINT(1) NOT NULL DEFAULT 0,
   TrackingStatus VARCHAR(50) NOT NULL DEFAULT 'pending',
+  TimeDelivered DATETIME NULL,
   FOREIGN KEY (UserId) REFERENCES Users(Id),
   FOREIGN KEY (ProductId) REFERENCES Products(Id),
   INDEX idx_user_id (UserId),
