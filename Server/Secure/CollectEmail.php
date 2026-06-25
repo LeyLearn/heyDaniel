@@ -13,14 +13,14 @@ include_once "../../Function/Auth/ArrayAuth.php";
 
 if (!isset($data['is_updating_password'])) {
     http_response_code(400);
-    $response['error'] = "Missing is_update_password field.";
+    $response['message'] = "Missing is_update_password field.";
     echo json_encode($response);
     exit;
 }
 
 if (!isset($data['email']) || $data['email'] === "") {
     http_response_code(400);
-    $response['error'] = "Email is required.";
+    $response['message'] = "Email is required.";
     echo json_encode($response);
     exit;
 }

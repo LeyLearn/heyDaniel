@@ -4,6 +4,7 @@ include_once "../../Function/Components.php";
 
 $response = [
     "success" => false,
+    "message" => null,
     "error"   => null
 ];
 
@@ -11,7 +12,7 @@ include_once "../../Function/Auth/ArrayAuth.php";
 
 if (!isset($data['device_type'])) {
     http_response_code(400);
-    $response['error'] = "Device type is required.";
+    $response['message'] = "Device type is required.";
     echo json_encode($response);
     exit;
 }
@@ -21,7 +22,7 @@ $validDeviceTypes = ['iOS', 'Android', 'Web'];
 
 if (!in_array($userDeviceType, $validDeviceTypes, true)) {
     http_response_code(400);
-    $response['error'] = "Invalid device type.";
+    $response['message'] = "Invalid device type.";
     echo json_encode($response);
     exit;
 }
@@ -43,14 +44,14 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
 
 if ($userId <= 0) {
     http_response_code(401);
-    $response['error'] = "Unauthorized.";
+    $response['message'] = "Unauthorized.";
     echo json_encode($response);
     exit;
 }
 
 if ($orderId <= 0) {
     http_response_code(400);
-    $response['error'] = "A valid order ID is required.";
+    $response['message'] = "A valid order ID is required.";
     echo json_encode($response);
     exit;
 }

@@ -3,16 +3,17 @@ include_once "../connect.php";
 include_once "../../Function/Components.php";
 
 $response = [
-    "success" => false,
+    "success"  => false,
     "order_id" => null,
-    "error"   => null
+    "message"  => null,
+    "error"    => null
 ];
 
 include_once "../../Function/Auth/ArrayAuth.php";
 
 if (!isset($data['device_type'])) {
     http_response_code(400);
-    $response['error'] = "Device type is required.";
+    $response['message'] = "Device type is required.";
     echo json_encode($response);
     exit;
 }
@@ -22,7 +23,7 @@ $validDeviceTypes = ['iOS', 'Android', 'Web'];
 
 if (!in_array($userDeviceType, $validDeviceTypes, true)) {
     http_response_code(400);
-    $response['error'] = "Invalid device type.";
+    $response['message'] = "Invalid device type.";
     echo json_encode($response);
     exit;
 }
@@ -53,14 +54,14 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
 
 if ($userId <= 0) {
     http_response_code(401);
-    $response['error'] = "Unauthorized.";
+    $response['message'] = "Unauthorized.";
     echo json_encode($response);
     exit;
 }
 
 if (empty($paymentMethodId)) {
     http_response_code(400);
-    $response['error'] = "Payment method is required.";
+    $response['message'] = "Payment method is required.";
     echo json_encode($response);
     exit;
 }
@@ -69,7 +70,7 @@ $requiredAddressFields = ['address', 'city', 'state', 'zip_code', 'phone'];
 foreach ($requiredAddressFields as $field) {
     if (empty($address[$field]) || !is_string($address[$field]) || trim($address[$field]) === '') {
         http_response_code(400);
-        $response['error'] = "Missing or empty address field: $field";
+        $response['message'] = "Missing or empty address field: $field";
         echo json_encode($response);
         exit;
     }

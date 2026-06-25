@@ -3,22 +3,23 @@ include_once "../connect.php";
 include_once "../../Function/Components.php";
 
 $response = [
-    'is_saved'       => false,
+    'is_saved'    => false,
     'saved_count' => 0,
-    'error'        => null
+    'message'     => null,
+    'error'       => null
 ];
 
 include_once "../../Function/Auth/ArrayAuth.php";
 
 if (!isset($data['device_type'])) {
     http_response_code(400);
-    $response['error'] = "Device type is required.";
+    $response['message'] = "Device type is required.";
     echo json_encode($response);
     exit;
 }
 if (!isset($data['product_id']) || !is_int($data['product_id']) || $data['product_id'] <= 0) {
     http_response_code(400);
-    $response['error'] = "Invalid or missing product ID.";
+    $response['message'] = "Invalid or missing product ID.";
     echo json_encode($response);
     exit;
 }
@@ -29,7 +30,7 @@ $userId = 0;
 
 if (!in_array($userDeviceType, $validDeviceTypes, true)) {
     http_response_code(400);
-    $response['error'] = "Invalid device type.";
+    $response['message'] = "Invalid device type.";
     echo json_encode($response);
     exit;
 }

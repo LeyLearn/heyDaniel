@@ -6,6 +6,7 @@ include_once "../../Function/Components.php";
 $response = [
     'same_day_eligible' => false,
     'tax_rate'          => 0.00,
+    'message'           => null,
     'error'             => null
 ];
 
@@ -13,14 +14,14 @@ include_once "../../Function/Auth/ArrayAuth.php";
 
 if (!isset($data['device_type'])) {
     http_response_code(400);
-    $response['error'] = "Device type is required.";
+    $response['message'] = "Device type is required.";
     echo json_encode($response);
     exit;
 }
 
 if(!isset($data['zipcode']) || empty($data['zipcode']) || strlen($data['zipcode']) > 16 || !preg_match('/^[a-zA-Z0-9\- ]+$/', $data['zipcode'])) {
     http_response_code(400);
-    $response['error'] = "Invalid or missing zipcode.";
+    $response['message'] = "Invalid or missing zipcode.";
     echo json_encode($response);
     exit;
 }
@@ -33,7 +34,7 @@ $userDeviceSignature = null;
 
 if (!in_array($userDeviceType, $validDeviceTypes, true)) {
     http_response_code(400);
-    $response['error'] = "Invalid device type.";
+    $response['message'] = "Invalid device type.";
     echo json_encode($response);
     exit;
 }

@@ -4,14 +4,15 @@ include_once "../../Function/Components.php";
 
 $response = [
     "success" => false,
-    "error" => null
+    "message" => null,
+    "error"   => null
 ];
 
 include_once "../../Function/Auth/ArrayAuth.php";
 
 if (!isset($data['user_email']) || !isset($data['new_password']) || !isset($data['confirm_password'])) {
     http_response_code(400);
-    $response['error'] = 'Invalid request';
+    $response['message'] = 'Invalid request';
     echo json_encode($response);
     exit;
 }

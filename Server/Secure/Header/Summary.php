@@ -4,15 +4,16 @@ include_once "../../Function/Components.php";
 
 $response = [
     'table_source' => 'Cart',
-    'subtotal' => 0.00,
-    'error' => null
+    'subtotal'     => 0.00,
+    'message'      => null,
+    'error'        => null
 ];
 
 include_once "../../Function/Auth/ArrayAuth.php";
 
 if (!isset($data['device_type'])) {
     http_response_code(400);
-    $response['error'] = "Device type is required.";
+    $response['message'] = "Device type is required.";
     echo json_encode($response);
     exit;
 }
@@ -25,7 +26,7 @@ $hasActiveOrder = false;
 
 if (!in_array($userDeviceType, $validDeviceTypes, true)) {
     http_response_code(400);
-    $response['error'] = "Invalid device type.";
+    $response['message'] = "Invalid device type.";
     echo json_encode($response);
     exit;
 }
