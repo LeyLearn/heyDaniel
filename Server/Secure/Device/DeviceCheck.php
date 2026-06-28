@@ -5,6 +5,9 @@ include_once __DIR__ . "/../../Function/Components.php";
 
 $response = [
     'is_device_known'   => false,
+    'zipcode'           => null,
+    'city'              => null,
+    'state'             => null,
     'same_day_eligible' => false,
     'tax_rate'          => 0.00,
     'has_active_order'  => false,
@@ -54,6 +57,9 @@ if (!empty($isSameDayEligible['message'])) {
     exit;
 }
 
+$response['zipcode'] = $isSameDayEligible['zipcode'];
+$response['city'] = $isSameDayEligible['city'];
+$response['state'] = $isSameDayEligible['state'];
 $response['same_day_eligible'] = $isSameDayEligible['same_day_eligible'];
 $response['is_device_known'] = $isSameDayEligible['is_device_known'];
 $response['tax_rate'] = $isSameDayEligible['tax_rate'];
@@ -63,6 +69,9 @@ if ($response['tax_rate'] !== 0.00) {
     $_SESSION['tax_rate'] = $response['tax_rate'];
 }
 
+$_SESSION['zipcode'] = $response['zipcode'];
+$_SESSION['city'] = $response['city'];
+$_SESSION['state'] = $response['state'];
 $_SESSION['same_day_eligible'] = $response['same_day_eligible'];
 $_SESSION['has_active_order'] = $response['has_active_order'];
 
