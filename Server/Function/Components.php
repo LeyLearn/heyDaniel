@@ -6,6 +6,9 @@ function isSameDayEligible(\PDO $db, string $deviceSignature, int $userId): arra
 {
     $response = [
         'is_device_known'   => false,
+        'zipcode'           => null,
+        'city'              => null,
+        'state'             => null,
         'same_day_eligible' => false,
         'tax_rate'          => 0.00,
         'has_active_order'  => false,
@@ -33,10 +36,16 @@ function isSameDayEligible(\PDO $db, string $deviceSignature, int $userId): arra
         if ($row) {
             $zipcode = $row['ZipCode'] ?? null;
             if ($zipcode) {
-                $stmt = $db->prepare("SELECT TaxRate FROM ZipcodeAllowed WHERE Zipcode = ? LIMIT 1");
+                $stmt = $db->prepare("SELECT City, State, TaxRate FROM ZipcodeAllowed WHERE Zipcode = ? LIMIT 1");
                 $stmt->execute([$zipcode]);
-                $response['tax_rate'] = (float)($stmt->fetchColumn() ?? 0.00);
+                $zipcodeRow = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($zipcodeRow) {
+                    $response['city'] = (string)($zipcodeRow['City'] ?? 'Unknown');
+                    $response['state'] = (string)($zipcodeRow['State'] ?? 'Unknown');
+                    $response['tax_rate'] = (float)($zipcodeRow['TaxRate'] ?? 0.00);
+                }
             }
+            $response['zipcode']           = $zipcode;
             $response['is_device_known']   = true;
             $response['same_day_eligible'] = (bool)$row['isSameDayEligible'];
 
