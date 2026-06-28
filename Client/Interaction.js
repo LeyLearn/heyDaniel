@@ -1,7 +1,4 @@
 $(document).ready(function(){
-
-DeviceCheck();
-
 const searchInput = $('.search');
 const searchBtn = $('#search-btn');
 const searchIcon = $('.search-icon');
