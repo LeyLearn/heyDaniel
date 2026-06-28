@@ -4,6 +4,9 @@ include_once __DIR__ . "/../../Function/Components.php";
 
 
 $response = [
+    'zipcode'           => null,
+    'city'              => null,
+    'state'             => null,
     'same_day_eligible' => false,
     'tax_rate'          => 0.00,
     'message'           => null,
@@ -57,9 +60,15 @@ if (!empty($deviceLog['message'])) {
     exit;
 }
 
+$response['zipcode'] = $deviceLog['zipcode'];
+$response['city'] = $deviceLog['city'];
+$response['state'] = $deviceLog['state'];
 $response['same_day_eligible'] = $deviceLog['same_day_eligible'];
 $response['tax_rate'] = $deviceLog['tax_rate'];
 
+$_SESSION['zipcode'] = $response['zipcode'];
+$_SESSION['city'] = $response['city'];
+$_SESSION['state'] = $response['state'];
 $_SESSION['tax_rate'] = $response['tax_rate'];
 $_SESSION['same_day_eligible'] = $response['same_day_eligible'];
 
