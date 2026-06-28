@@ -1,6 +1,6 @@
 <?php
-include_once "../connect.php";
-include_once "../../Function/Components.php";
+include_once __DIR__ . "/../../Connect.php";
+include_once __DIR__ . "/../../Function/Components.php";
 
 $response = [
     'saved_items' => [],
@@ -9,7 +9,6 @@ $response = [
     'error'       => null
 ];
 
-include_once "../../Function/Auth/ArrayAuth.php";
 
 if (!isset($data['device_type'])) {
     http_response_code(400);
@@ -45,7 +44,12 @@ $savedContent = savedContent($pdo, $userId, $hasActiveOrder, $taxRate);
 
 if (!empty($savedContent['error'])) {
     http_response_code(400);
-    $response['error'] = $savedContent['error'];
+    echo json_encode($response);
+    exit;
+}
+if(!empty($savedContent['message'])){
+    http_response_code(200);
+    $response['message'] = $savedContent['message'];
     echo json_encode($response);
     exit;
 }

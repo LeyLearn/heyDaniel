@@ -76,8 +76,11 @@ function generateDeviceSignature(): string
 function DeviceLog(\PDO $db, string $deviceSignature, string $deviceType, string $zipcode): array
 {
     $response = [
+        'zipcode'           => $zipcode,
         'same_day_eligible' => false,
         'tax_rate'          => 0.00,
+        'city'              => null,
+        'state'             => null,
         'message'           => null,
         'error'             => null
     ];
@@ -126,7 +129,7 @@ function DeviceLog(\PDO $db, string $deviceSignature, string $deviceType, string
         if ($cachedZipcode) {
             $row = $cachedZipcode;
         } else {
-            $stmt = $db->prepare("SELECT isSameDayEligible, TaxRate FROM ZipcodeAllowed WHERE Zipcode = ? LIMIT 1");
+            $stmt = $db->prepare("SELECT City, State, isSameDayEligible, TaxRate FROM ZipcodeAllowed WHERE Zipcode = ? LIMIT 1");
             $stmt->execute([$zipcode]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -136,6 +139,8 @@ function DeviceLog(\PDO $db, string $deviceSignature, string $deviceType, string
         }
 
         if ($row) {
+            $response['city']                = (string)($row['City'] ?? 'Unknown');
+            $response['state']               = (string)($row['State'] ?? 'Unknown');
             $response['same_day_eligible'] = (bool)$row['isSameDayEligible'];
             $response['tax_rate']          = (float)($row['TaxRate'] ?? 0.10);
         } else {
@@ -150,25 +155,31 @@ function DeviceLog(\PDO $db, string $deviceSignature, string $deviceType, string
 
             if ($taxInformation === false) {
                 $response['tax_rate'] = 0.10;
-                $stmt = $db->prepare("INSERT INTO ZipcodeAllowed (Zipcode, isSameDayEligible, TaxRate) VALUES (?, ?, ?)");
-                $stmt->execute([$zipcode, false, $response['tax_rate']]);
+                $response['city'] = 'Unknown';
+                $response['state'] = 'Unknown';
+                $stmt = $db->prepare("INSERT INTO ZipcodeAllowed (Zipcode, City, State, isSameDayEligible, TaxRate) VALUES (?, ?, ?, ?, ?)");
+                $stmt->execute([$zipcode, $response['city'], $response['state'], false, $response['tax_rate']]);
             } else {
                 $data   = json_decode($taxInformation, true);
                 $result = $data['results'][0] ?? null;
 
                 if ($result) {
                     $response['tax_rate'] = (float)($result['taxSales'] ?? 0.10);
+                    $response['city'] = (string)($result['city'] ?? 'Unknown');
+                    $response['state'] = (string)($result['state'] ?? 'Unknown');
                 } else {
                     $response['tax_rate'] = 0.10;
+                    $response['city'] = 'Unknown';
+                    $response['state'] = 'Unknown';
                 }
 
-                $stmt = $db->prepare("INSERT INTO ZipcodeAllowed (Zipcode, isSameDayEligible, TaxRate) VALUES (?, ?, ?)");
-                $stmt->execute([$zipcode, false, $response['tax_rate']]);
+                $stmt = $db->prepare("INSERT INTO ZipcodeAllowed (Zipcode, City, State, isSameDayEligible, TaxRate) VALUES (?, ?, ?, ?, ?)");
+                $stmt->execute([$zipcode, $response['city'], $response['state'], false, $response['tax_rate']]);
             }
         }
 
         $stmt = $db->prepare("INSERT INTO Devices (DeviceSignature, DeviceType, Zipcode, isSameDayEligible, isActive, DateAdded) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$deviceSignature, $columnMap[$deviceType], $zipcode, $response['same_day_eligible'], $isActive, $dateRegistered]);
+        $stmt->execute([$deviceSignature, $deviceType, $zipcode, $response['same_day_eligible'], $isActive, $dateRegistered]);
     } catch (\PDOException $e) {
         error_log("DB Error in DeviceLog: " . $e->getMessage());
         $response['error'] = "Internal server error during device logging.";
@@ -526,11 +537,14 @@ function savedContent(\PDO $db, int $userId, bool $hasActiveOrder, float $taxRat
     $response = [
         'saved_items' => [],
         'location'    => 'Cart',
+        'message'     => null,
         'error'       => null
     ];
 
     if ($userId <= 0) {
-        return $response; // Not logged in, return default response
+        $response['message'] = "need to log in";
+        return $response;
+         // Not logged in, return default response
     }
 
     $table = $hasActiveOrder ? 'Process' : 'Cart';

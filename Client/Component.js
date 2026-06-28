@@ -2,7 +2,7 @@
 function DeviceCheck() {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -17,8 +17,6 @@ function DeviceCheck() {
             else {
                 if (data.is_device_known === false) {
                     // prompt zipcode sheet
-                    DeviceLog("32256");
-
                 }
                 else {
                     console.log("Device is known :" + data.is_device_known)
@@ -35,7 +33,7 @@ function DeviceCheck() {
 function DeviceLog(zipcode) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -66,7 +64,7 @@ function DeviceLog(zipcode) {
 function addProduct(product_id) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -104,7 +102,7 @@ function addProduct(product_id) {
 function cartIcon() {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -135,7 +133,7 @@ function cartIcon() {
 function cartItem() {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -176,7 +174,7 @@ function cartItem() {
 function register(userName, userEmail, userPassword) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -202,7 +200,7 @@ function register(userName, userEmail, userPassword) {
 function login(userEmail, userPass) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -228,7 +226,7 @@ function login(userEmail, userPass) {
 function logout() {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -253,7 +251,7 @@ function logout() {
 function decrementProduct(product_id) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -281,7 +279,7 @@ function decrementProduct(product_id) {
 function clearCart() {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -306,7 +304,7 @@ function clearCart() {
 function savedCount() {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -331,7 +329,7 @@ function savedCount() {
 function savedItems() {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -339,35 +337,52 @@ function savedItems() {
             device_type: "Web"
         }),
         success: function (data) {
+
             if (data.message) {
-                $("p").text(data.message);
-            } else {
-                data.saved_items.forEach(function (item) {
-                    const productId = item.product_id;
-                    const brand = item.brand;
-                    const name = item.name;
-                    const oz = item.oz;
-                    const price = item.price;
-                    const picture = item.picture;
-                    const isOnSale = item.is_on_sale;
-                    const isBogo = item.is_bogo;
-                    const ratings = item.ratings;
-                    const reviewCount = item.review_count;
-                    // mount html here
-                });
+                $('#saved-message').text(data.message);
+                return;
             }
+
+            const container = $('#saved-items-container');
+            container.empty();
+
+            data.saved_items.forEach(function (item) {
+                const productId = item.product_id;
+                const brand = item.brand;
+                const name = item.name;
+                const oz = item.oz;
+                const price = item.price;
+                const picture = item.picture;
+                const isOnSale = item.is_on_sale;
+                const isBogo = item.is_bogo;
+                const ratings = item.ratings;
+                const reviewCount = item.review_count;
+
+                const card = $('<div class="saved-item"></div>').append(
+                    $('<img>').attr('src', picture).attr('alt', name),
+                    $('<p class="saved-brand"></p>').text(brand),
+                    $('<p class="saved-name"></p>').text(name),
+                    oz ? $('<p class="saved-oz"></p>').text(oz + ' oz') : null,
+                    $('<p class="saved-price"></p>').text('$' + price),
+                    isOnSale ? $('<span class="badge-sale">Sale</span>') : null,
+                    isBogo ? $('<span class="badge-bogo">BOGO</span>') : null,
+                    $('<p class="saved-ratings"></p>').text('★ ' + ratings + ' (' + reviewCount + ')'),
+                    $('<button class="btn-add-to-cart">Add to Cart</button>').on('click', function () {
+                        addProduct(productId);
+                    })
+                );
+
+                container.append(card);
+            });
         },
-        error: function (xhr) {
-            const res = JSON.parse(xhr.responseText);
-            console.log("savedItems failed:", res.error);
-        }
+        error: function () {}
     });
 }
 
 function savedAdd(product_id) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -394,7 +409,7 @@ function savedAdd(product_id) {
 function summary() {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -422,7 +437,7 @@ function summary() {
 function store(page, limit) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -460,7 +475,7 @@ function store(page, limit) {
 function filter(mainCategory, subCategory, thirdCategory, page, limit) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -501,7 +516,7 @@ function filter(mainCategory, subCategory, thirdCategory, page, limit) {
 function mainCategories() {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -527,7 +542,7 @@ function mainCategories() {
 function subCategories(mainCategory) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -554,7 +569,7 @@ function subCategories(mainCategory) {
 function thirdCategories(subCategory) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -582,7 +597,7 @@ function thirdCategories(subCategory) {
 function search(query) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -616,7 +631,7 @@ function search(query) {
 function checkout(firstName, lastName, streetAddress, city, state, zipcode, aptUnit) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -652,7 +667,7 @@ function checkout(firstName, lastName, streetAddress, city, state, zipcode, aptU
 function collectEmail(email) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -676,7 +691,7 @@ function collectEmail(email) {
 function verifyCode(email, code) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -701,7 +716,7 @@ function verifyCode(email, code) {
 function changePassword(email, newPassword) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -728,7 +743,7 @@ function changePassword(email, newPassword) {
 function productDetail(product_id) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -777,7 +792,7 @@ function productDetail(product_id) {
 function orderHistory() {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -818,7 +833,7 @@ function orderHistory() {
 function getReviews(product_id, page, limit) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -858,7 +873,7 @@ function getReviews(product_id, page, limit) {
 function addReview(product_id, stars, expectation, title, review) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -890,7 +905,7 @@ function addReview(product_id, stars, expectation, title, review) {
 function recentlyViewed() {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
@@ -931,7 +946,7 @@ function recentlyViewed() {
 function itemPush(product_id, table) {
     $.ajax({
         method: "POST",
-        url: "Server/index.php",
+        url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({

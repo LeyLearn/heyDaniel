@@ -31,7 +31,7 @@ if (isset($_SESSION['user_id'])) {
     $isMember = false;
 }
 
-$sql = "SELECT * FROM UserAddresses WHERE Id = ?";
+$sql = "SELECT * FROM UserAddresses WHERE UserId = ?";
 $stmt = $pdo->prepare($sql);
 $stmt->execute([$userId]);
 $results = $stmt->fetchAll(PDO::FETCH_ASSOC);

@@ -2,34 +2,12 @@
 
 declare(strict_types=1);
 
-// PERFORMANCE: Enable gzip compression
-if (extension_loaded('zlib') &&
-    str_contains($_SERVER['HTTP_ACCEPT_ENCODING'] ?? '', 'gzip')) {
-    ob_start('ob_gzhandler');
-    header('Content-Encoding: gzip');
-} else {
-    ob_start();
-}
-
-// SECURITY: Enforce HTTPS (Vulnerability #7, #16)
-if (empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off') {
-    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    $uri = $_SERVER['REQUEST_URI'] ?? '/';
-    header('HTTP/1.1 301 Moved Permanently');
-    header('Location: https://' . $host . $uri);
-    exit;
-}
-
-// SECURITY: Add Security Headers (Vulnerability #12)
 header('Content-Type: application/json; charset=utf-8');
 header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('X-XSS-Protection: 1; mode=block');
 header('Referrer-Policy: strict-origin-when-cross-origin');
-header('Access-Control-Allow-Origin: none');
-
-include_once 'Function/Response.php';
 
 $routes = [
     // Device
@@ -84,51 +62,42 @@ $routes = [
     'change_password'   => 'Secure/ResetPassWord/ChangePassword.php',
 ];
 
-// SECURITY: Input size validation (Vulnerability #13)
-$maxPayloadSize = 1024 * 1024;  // 1MB limit
 $rawInput = file_get_contents('php://input');
 
-if ($rawInput === false) {
-    respondWithError('Failed to read input', 400);
-}
-
-if (strlen($rawInput) > $maxPayloadSize) {
-    respondWithMsg('Payload too large', 413);
+if ($rawInput === false || $rawInput === '' || strlen($rawInput) > 2000) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid input data']);
+    exit;
 }
 
 $data = json_decode($rawInput, true);
-if ($data === null && $rawInput !== '') {
-    respondWithError('Invalid JSON', 400);
+
+if (!is_array($data) || json_last_error() !== JSON_ERROR_NONE) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Malformed JSON input']);
+    exit;
 }
 
-$action = trim($data['action'] ?? '');
+$action = $data['action'] ?? null;
 
-if ($action === '' || !isset($routes[$action])) {
-    respondWithMsg('Not found', 404);
+if (!$action) {
+    http_response_code(400);
+    echo json_encode(['error' => 'No action specified']);
+    exit;
 }
 
-// SECURITY: Path traversal prevention (Vulnerability #1)
-$file = __DIR__ . '/' . $routes[$action];
-$realPath = realpath($file);
-$allowedDir = realpath(__DIR__);
-
-if (!$realPath || strpos($realPath, $allowedDir) !== 0) {
-    respondWithError('Access denied', 403);
+if (!isset($routes[$action])) {
+    http_response_code(404);
+    echo json_encode(['error' => "Route '$action' not found"]);
+    exit;
 }
 
-if (!file_exists($file)) {
-    respondWithError('Not found', 404);
+// Include and execute the route
+$routePath = __DIR__ . '/' . $routes[$action];
+if (!file_exists($routePath)) {
+    http_response_code(404);
+    echo json_encode(['error' => 'Route file not found']);
+    exit;
 }
 
-chdir(dirname($file));
-
-ob_start();
-try {
-    include_once $file;
-} catch (Exception $e) {
-    error_log("Error in $action: " . $e->getMessage());
-    respondWithError('Internal server error', 500);
-}
-$output = ob_get_clean();
-
-echo $output;
+include $routePath;

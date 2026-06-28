@@ -42,7 +42,7 @@ class QueryCache
     /**
      * Delete cached value
      */
-    public static function invalidate(string $key): void
+    public static function delete(string $key): void
     {
         if (!self::ENABLED || !extension_loaded('apcu')) {
             return;

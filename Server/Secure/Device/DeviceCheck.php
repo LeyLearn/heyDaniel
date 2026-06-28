@@ -1,6 +1,6 @@
 <?php
-include_once "../connect.php";
-include_once "../../Function/Components.php";
+include_once __DIR__ . "/../Connect.php";
+include_once __DIR__ . "/../../Function/Components.php";
 
 
 $response = [
@@ -12,10 +12,11 @@ $response = [
     'error'             => null
 ];
 
-include_once "../../Function/Auth/ArrayAuth.php";
 
 if (!isset($data['device_type'])) {
-    respondWithMsg("Device type is required.");
+    http_response_code(400);
+    echo json_encode(['error' => 'Device type is required.']);
+    exit;
 }
 
 $userDeviceType = $data['device_type'];
@@ -23,9 +24,10 @@ $validDeviceTypes = ['iOS', 'Android', 'Web'];
 $userId = 0;
 $userDeviceSignature = null;
 
-// SECURITY: SQL injection prevention (Vulnerability #15)
 if (!in_array($userDeviceType, $validDeviceTypes, true)) {
-    respondWithMsg("Invalid device type.");
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid device type.']);
+    exit;
 }
 
 if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
@@ -40,13 +42,16 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
 
 $isSameDayEligible = isSameDayEligible($pdo, $userDeviceSignature, $userId);
 
-// SECURITY: Error handling (Vulnerability #14)
 if (!empty($isSameDayEligible['error'])) {
-    respondWithError($isSameDayEligible['error'], 500);
+    http_response_code(500);
+    echo json_encode([]);
+    exit;
 }
 
 if (!empty($isSameDayEligible['message'])) {
-    respondWithMsg($isSameDayEligible['message']);
+    $response['message'] = $isSameDayEligible['message'];
+    echo json_encode($response);
+    exit;
 }
 
 $response['same_day_eligible'] = $isSameDayEligible['same_day_eligible'];
@@ -54,7 +59,6 @@ $response['is_device_known'] = $isSameDayEligible['is_device_known'];
 $response['tax_rate'] = $isSameDayEligible['tax_rate'];
 $response['has_active_order'] = $isSameDayEligible['has_active_order'];
 
-// Store values in session for later use
 if ($response['tax_rate'] !== 0.00) {
     $_SESSION['tax_rate'] = $response['tax_rate'];
 }
@@ -62,4 +66,5 @@ if ($response['tax_rate'] !== 0.00) {
 $_SESSION['same_day_eligible'] = $response['same_day_eligible'];
 $_SESSION['has_active_order'] = $response['has_active_order'];
 
-respondSuccess($response);
+echo json_encode($response);
+exit;

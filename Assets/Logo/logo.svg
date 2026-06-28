@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="532" height="154" viewBox="0 0 532 154">
+  <defs>
+    <clipPath id="clip-heyDaniel_logo">
+      <rect width="532" height="154"/>
+    </clipPath>
+  </defs>
+  <g id="heyDaniel_logo" data-name="heyDaniel logo" clip-path="url(#clip-heyDaniel_logo)">
+    <g id="Group_3" data-name="Group 3" transform="translate(-292 -49)">
+      <text id="Hey" transform="translate(320 130)" fill="#8d1111" font-size="88" font-family="Georgia" letter-spacing="-0.023em"><tspan x="0" y="0">Hey</tspan></text>
+      <text id="Daniel" transform="translate(475 130)" fill="#02163c" font-size="88" font-family="Georgia-Bold, Georgia" font-weight="700" letter-spacing="-0.023em"><tspan x="0" y="0">Daniel</tspan></text>
+      <g id="Path_2" data-name="Path 2" transform="translate(768 63)" fill="none">
+        <path d="M10,0A10,10,0,1,1,0,10,10,10,0,0,1,10,0Z" stroke="none"/>
+        <path d="M 10 2 C 5.588789939880371 2 2 5.588789939880371 2 10 C 2 14.41121006011963 5.588789939880371 18 10 18 C 14.41121006011963 18 18 14.41121006011963 18 10 C 18 5.588789939880371 14.41121006011963 2 10 2 M 10 0 C 15.52285003662109 0 20 4.477149963378906 20 10 C 20 15.52285003662109 15.52285003662109 20 10 20 C 4.477149963378906 20 0 15.52285003662109 0 10 C 0 4.477149963378906 4.477149963378906 0 10 0 Z" stroke="none" fill="#02163c"/>
+      </g>
+      <path id="Path_1" data-name="Path 1" d="M2.4,0c.065,0,.1-.026.1-.1V-3.276H3.627c.143,0,.208.065.3.221C4.5-2.145,5.408-.65,5.785-.065A.217.217,0,0,0,5.967,0H7.592c.078,0,.065-.065.026-.143C7.241-.793,5.681-3.12,5.252-3.718A2.416,2.416,0,0,0,6.929-6.006c0-1.664-1.222-2.561-3.3-2.561-1,0-1.547.013-2.574.039-.078,0-.091.052-.091.117V-.1c0,.078.026.1.1.1Zm.1-4.615V-7.176c.208-.013.624-.026,1.066-.026,1.105,0,1.794.429,1.794,1.287,0,.832-.676,1.3-1.729,1.3Z" transform="translate(774 77)" fill="#02163c"/>
+    </g>
+  </g>
+</svg>

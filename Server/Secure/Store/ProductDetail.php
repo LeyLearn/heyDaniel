@@ -1,16 +1,17 @@
 <?php
-include_once "../../Connect.php";
-include_once "../../Function/Components.php";
-include_once "../../Function/Response.php";
-
-include_once "../../Function/Auth/ArrayAuth.php";
+include_once __DIR__ . "/../../Connect.php";
+include_once __DIR__ . "/../../Function/Components.php";
 
 if (!isset($data['device_type'])) {
-    respondWithMsg("Device type is required.");
+    http_response_code(400);
+    echo json_encode(['error' => 'Device type is required.']);
+    exit;
 }
 
 if (!isset($data['product_id']) || !is_int($data['product_id']) || $data['product_id'] <= 0) {
-    respondWithMsg("Invalid or missing product ID.");
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid or missing product ID.']);
+    exit;
 }
 
 $userDeviceType    = $data['device_type'];
@@ -22,7 +23,9 @@ $hasActiveOrder    = false;
 $productId         = $data['product_id'];
 
 if (!in_array($userDeviceType, $validDeviceTypes, true)) {
-    respondWithMsg("Invalid device type.");
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid device type.']);
+    exit;
 }
 
 if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
@@ -41,7 +44,10 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
 $result = productDetails($pdo, $productId, $userId, $hasActiveOrder, $isSameDayEligible, $taxRate);
 
 if (!empty($result['error'])) {
-    respondWithMsg($result['error'], 404);
+    http_response_code(404);
+    echo json_encode([]);
+    exit;
 }
 
-respondSuccess(['product' => $result['product']]);
+echo json_encode(['product' => $result['product']]);
+exit;

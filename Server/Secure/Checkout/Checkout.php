@@ -1,6 +1,6 @@
 <?php
-include_once "../connect.php";
-include_once "../../Function/Components.php";
+include_once __DIR__ . "/../Connect.php";
+include_once __DIR__ . "/../../Function/Components.php";
 
 $response = [
     "success"  => false,
@@ -9,7 +9,6 @@ $response = [
     "error"    => null
 ];
 
-include_once "../../Function/Auth/ArrayAuth.php";
 
 if (!isset($data['device_type'])) {
     http_response_code(400);
@@ -78,9 +77,13 @@ foreach ($requiredAddressFields as $field) {
 
 $checkout = submitCheckout($pdo, $userId, $isSameDay, $taxRate, $tipAmount, $paymentMethodId, $address);
 
-if (!empty($checkout['error'])) {
+if (!empty($)) {
     http_response_code(400);
-    $response['error'] = $checkout['error'];
+    echo json_encode($response);
+    exit;
+}
+if (!empty($)) {
+    $response['message'] = $;
     echo json_encode($response);
     exit;
 }

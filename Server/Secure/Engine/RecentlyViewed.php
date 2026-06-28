@@ -1,16 +1,17 @@
 <?php
-include_once "../../Connect.php";
-include_once "../../Function/Components.php";
-include_once "../../Function/Response.php";
-
-include_once "../../Function/Auth/ArrayAuth.php";
+include_once __DIR__ . "/../../Connect.php";
+include_once __DIR__ . "/../../Function/Components.php";
 
 if (!isset($data['device_type'])) {
-    respondWithMsg("Device type is required.");
+    http_response_code(400);
+    echo json_encode(['error' => 'Device type is required.']);
+    exit;
 }
 
 if (!isset($data['device_signature'])) {
-    respondWithMsg("Device signature is required.");
+    http_response_code(400);
+    echo json_encode(['error' => 'Device signature is required.']);
+    exit;
 }
 
 $userDeviceType    = $data['device_type'];
@@ -21,7 +22,9 @@ $isSameDayEligible = false;
 $deviceSignature   = (string)$data['device_signature'];
 
 if (!in_array($userDeviceType, $validDeviceTypes, true)) {
-    respondWithMsg("Invalid device type.");
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid device type.']);
+    exit;
 }
 
 if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
@@ -38,7 +41,10 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
 $result = recentlyViewed($pdo, $userId, $deviceSignature, $isSameDayEligible, $taxRate);
 
 if (!empty($result['error'])) {
-    respondWithMsg($result['error']);
+    http_response_code(400);
+    echo json_encode([]);
+    exit;
 }
 
-respondSuccess(['products' => $result['products']]);
+echo json_encode(['products' => $result['products']]);
+exit;

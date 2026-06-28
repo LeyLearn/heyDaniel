@@ -1,6 +1,6 @@
 <?php
-include_once "../connect.php";
-include_once "../../Function/Components.php";
+include_once __DIR__ . "/../Connect.php";
+include_once __DIR__ . "/../../Function/Components.php";
 
 
 $response = [
@@ -10,7 +10,6 @@ $response = [
     'error' => null
 ];
 
-include_once "../../Function/Auth/ArrayAuth.php";
 
 if (!isset($data['device_type'])) {
     http_response_code(400);
@@ -42,9 +41,13 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
 
 $cartIcon = cartIcon($pdo, $userId, $isSameDayEligible);
 
-if (!empty($cartIcon['error'])) {
+if (!empty($)) {
     http_response_code(400);
-    $response['error'] = $cartIcon['error'];
+    echo json_encode($response);
+    exit;
+}
+if (!empty($)) {
+    $response['message'] = $;
     echo json_encode($response);
     exit;
 }

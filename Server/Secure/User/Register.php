@@ -1,13 +1,12 @@
 <?php
-include_once "../connect.php";
-include_once "../../Function/Components.php";
+include_once __DIR__ . "/../Connect.php";
+include_once __DIR__ . "/../../Function/Components.php";
 
 $response = [
     "success" => false,
     "error" => null
 ];
 
-include_once "../../Function/Auth/ArrayAuth.php";
 
 // === STRICT INPUT VALIDATION ===
 $required = ['user_name', 'user_email', 'user_pass'];
@@ -46,13 +45,24 @@ if (
     !preg_match('/[0-9]/', $userPass) ||
     !preg_match('/[^A-Za-z0-9]/', $userPass)
 ) {
-    respondWithMsg('Password must be 8-128 characters with uppercase, lowercase, number, and symbol.');
+    http_response_code(400);
+    $response['error'] = 'Password must be 8-128 characters with uppercase, lowercase, number, and symbol.';
+    echo json_encode($response);
+    exit;
 }
 
 $registerUser = registerUser($pdo, $userName, $userEmail, $userPass);
 
-if (!empty($registerUser['error'])) {
-    respondWithMsg($registerUser['error']);
+if (!empty($)) {
+    http_response_code(400);
+    echo json_encode($response);
+    exit;
+}
+if (!empty($)) {
+    $response['message'] = $;
+    echo json_encode($response);
+    exit;
 }
 
-respondSuccess(['registered' => true]);
+echo json_encode(['registered' => true]);
+exit;

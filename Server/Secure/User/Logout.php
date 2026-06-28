@@ -1,19 +1,20 @@
 <?php
-include_once "../../Connect.php";
-include_once "../../Function/Components.php";
-include_once "../../Function/Response.php";
-
-include_once "../../Function/Auth/ArrayAuth.php";
+include_once __DIR__ . "/../../Connect.php";
+include_once __DIR__ . "/../../Function/Components.php";
 
 if (!isset($data['device_type'])) {
-    respondWithMsg("Device type is required.");
+    http_response_code(400);
+    echo json_encode(['error' => 'Device type is required.']);
+    exit;
 }
 
 $userDeviceType   = $data['device_type'];
 $validDeviceTypes = ['iOS', 'Android', 'Web'];
 
 if (!in_array($userDeviceType, $validDeviceTypes, true)) {
-    respondWithMsg("Invalid device type.");
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid device type.']);
+    exit;
 }
 
 $userId = 0;
@@ -24,7 +25,9 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
     $token  = trim($data['token']    ?? '');
 
     if (empty($token)) {
-        respondWithMsg("Token is required.");
+        http_response_code(400);
+        echo json_encode(['error' => 'Token is required.']);
+        exit;
     }
 } else {
     session_start();
@@ -32,13 +35,18 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
 }
 
 if ($userId <= 0) {
-    respondWithMsg("Unauthorized.", 401);
+    http_response_code(401);
+    echo json_encode(['error' => 'Unauthorized.']);
+    exit;
 }
 
 $logout = logoutUser($pdo, $userId, $token);
 
 if (!empty($logout['error'])) {
-    respondWithMsg($logout['error']);
+    http_response_code(400);
+    echo json_encode([]);
+    exit;
 }
 
-respondSuccess(['success' => true]);
+echo json_encode(['success' => true]);
+exit;

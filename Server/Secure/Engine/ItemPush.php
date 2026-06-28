@@ -1,26 +1,31 @@
 <?php
-include_once "../../Connect.php";
-include_once "../../Function/Components.php";
-include_once "../../Function/Response.php";
-
-include_once "../../Function/Auth/ArrayAuth.php";
+include_once __DIR__ . "/../../Connect.php";
+include_once __DIR__ . "/../../Function/Components.php";
 
 if (!isset($data['device_type'])) {
-    respondWithMsg("Device type is required.");
+    http_response_code(400);
+    echo json_encode(['error' => 'Device type is required.']);
+    exit;
 }
 
 if (!isset($data['device_signature'])) {
-    respondWithMsg("Device signature is required.");
+    http_response_code(400);
+    echo json_encode(['error' => 'Device signature is required.']);
+    exit;
 }
 
 if (!isset($data['product_id']) || !is_int($data['product_id']) || $data['product_id'] <= 0) {
-    respondWithMsg("Invalid or missing product ID.");
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid or missing product ID.']);
+    exit;
 }
 
 $allowedTables = ['RecentlyViewed', 'SearchHistory'];
 
 if (!isset($data['table']) || !in_array($data['table'], $allowedTables, true)) {
-    respondWithMsg("Invalid or missing table. Must be 'RecentlyViewed' or 'SearchHistory'.");
+    http_response_code(400);
+    echo json_encode(['error' => "Invalid or missing table. Must be 'RecentlyViewed' or 'SearchHistory'."]);
+    exit;
 }
 
 $userDeviceType   = $data['device_type'];
@@ -28,7 +33,9 @@ $validDeviceTypes = ['iOS', 'Android', 'Web'];
 $userId           = 0;
 
 if (!in_array($userDeviceType, $validDeviceTypes, true)) {
-    respondWithMsg("Invalid device type.");
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid device type.']);
+    exit;
 }
 
 if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
@@ -45,7 +52,10 @@ $table           = $data['table'];
 $result = itemPush($pdo, $userId, $deviceSignature, $productId, $table);
 
 if (!empty($result['error'])) {
-    respondWithMsg($result['error']);
+    http_response_code(400);
+    echo json_encode([]);
+    exit;
 }
 
-respondSuccess(['success' => true]);
+echo json_encode(['success' => true]);
+exit;

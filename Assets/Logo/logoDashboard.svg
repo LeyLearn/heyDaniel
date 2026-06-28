@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="205" height="205" viewBox="0 0 205 205">
+  <defs>
+    <clipPath id="clip-heyDaniel_alternate_logo">
+      <rect width="205" height="205"/>
+    </clipPath>
+  </defs>
+  <g id="heyDaniel_alternate_logo" data-name="heyDaniel alternate logo" clip-path="url(#clip-heyDaniel_alternate_logo)">
+    <g id="Group_3" data-name="Group 3" transform="translate(-425 -28)">
+      <circle id="Ellipse_1" data-name="Ellipse 1" cx="100" cy="100" r="100" transform="translate(428 31)" fill="#02163c"/>
+      <text id="D" transform="translate(509.462 148)" fill="#fff" font-size="88" font-family="Georgia-Bold, Georgia" font-weight="700" letter-spacing="-0.023em"><tspan x="0" y="0">D</tspan></text>
+      <text id="H" transform="translate(478 148)" fill="#8d1111" font-size="88" font-family="Georgia" letter-spacing="-0.023em"><tspan x="0" y="0">H</tspan></text>
+      <line id="Line_2" data-name="Line 2" x2="184" y2="1.5" transform="translate(435.5 165.5)" stroke="#8d1111" stroke-linecap="round" stroke-width="3"/>
+      <text id="DISCOVER_MORE_PAY_LESS" data-name="DISCOVER  MORE, PAY LESS" transform="translate(528 183)" fill="#f5f7fa" font-size="6" font-family="AmericanTypewriter-Semibold, American Typewriter" font-weight="600" letter-spacing="0.299em"><tspan x="-62.394" y="0" xml:space="preserve">DISCOVER  MORE, PAY LESS</tspan></text>
+      <g id="Path_2" data-name="Path 2" transform="matrix(0.998, -0.07, 0.07, 0.998, 590.589, 90.23)" fill="none">
+        <path d="M5,0A5,5,0,1,1,0,5,5,5,0,0,1,5,0Z" stroke="none"/>
+        <path d="M 5 1 C 2.794390201568604 1 1 2.794390201568604 1 5 C 1 7.205610275268555 2.794390201568604 9 5 9 C 7.205610275268555 9 9 7.205610275268555 9 5 C 9 2.794390201568604 7.205610275268555 1 5 1 M 5 0 C 7.761420249938965 0 10 2.238580226898193 10 5 C 10 7.761420249938965 7.761420249938965 10 5 10 C 2.238580226898193 10 0 7.761420249938965 0 5 C 0 2.238580226898193 2.238580226898193 0 5 0 Z" stroke="none" fill="#f7f8fa"/>
+      </g>
+      <path id="Path_1" data-name="Path 1" d="M1.609-5.567c.029,0,.047-.009.047-.036V-6.714h.5a.146.146,0,0,1,.134.077c.257.319.665.842.834,1.047a.113.113,0,0,0,.082.023h.729c.035,0,.029-.023.012-.05-.169-.228-.869-1.042-1.061-1.252a.9.9,0,0,0,.752-.8c0-.583-.548-.9-1.481-.9-.449,0-.694,0-1.155.014-.035,0-.041.018-.041.041V-5.6c0,.027.012.036.047.036Zm.047-1.616v-.9c.093,0,.28-.009.478-.009.5,0,.8.15.8.451s-.3.455-.776.455Z" transform="translate(593.464 101.936)" fill="#fff"/>
+    </g>
+  </g>
+</svg>

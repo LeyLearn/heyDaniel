@@ -1,13 +1,12 @@
 <?php
-include_once "../connect.php";
-include_once "../../Function/Components.php";
+include_once __DIR__ . "/../Connect.php";
+include_once __DIR__ . "/../../Function/Components.php";
 
 $response = [
   "JWT" => null,
   "error" => null
 ];
 
-include_once "../../Function/Auth/ArrayAuth.php";
 
 $requiredFields = ['user_email', 'user_pass', 'device_type'];
 

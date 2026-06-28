@@ -1,12 +1,11 @@
 <?php
-include_once "../../Connect.php";
-include_once "../../Function/Components.php";
-include_once "../../Function/Response.php";
-
-include_once "../../Function/Auth/ArrayAuth.php";
+include_once __DIR__ . "/../../Connect.php";
+include_once __DIR__ . "/../../Function/Components.php";
 
 if (!isset($data['product_id']) || !is_int($data['product_id']) || $data['product_id'] <= 0) {
-    respondWithMsg("Invalid or missing product ID.");
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid or missing product ID.']);
+    exit;
 }
 
 $productId = $data['product_id'];
@@ -16,11 +15,14 @@ $limit     = min(50, max(1, (int)($data['limit'] ?? 10)));
 $result = getReviews($pdo, $productId, $page, $limit);
 
 if (!empty($result['error'])) {
-    respondWithMsg($result['error']);
+    http_response_code(400);
+    echo json_encode([]);
+    exit;
 }
 
-respondSuccess([
+echo json_encode([
     'reviews'     => $result['reviews'],
     'total_count' => $result['total_count'],
     'avg_rating'  => $result['avg_rating']
 ]);
+exit;
