@@ -1,5 +1,16 @@
 
 function DeviceCheck() {
+    // Check if device info already cached in session (first app open only)
+    const cachedDeviceData = sessionStorage.getItem('deviceData');
+
+    if (cachedDeviceData) {
+        // Use cached data
+        const data = JSON.parse(cachedDeviceData);
+        handleDeviceCheckResponse(data);
+        return;
+    }
+
+    // Only call API on first app open
     $.ajax({
         method: "POST",
         url: "/HeyDaniel/Server/index.php",
@@ -11,23 +22,41 @@ function DeviceCheck() {
             screen_resolution: screen.width + "x" + screen.height
         }),
         success: function (data) {
-            if (data.message) {
-                $("p").text(data.message);
-            }
-            else {
-                if (data.is_device_known === false) {
-                    // prompt zipcode sheet
-                }
-                else {
-                    console.log("Device is known :" + data.is_device_known)
-                }
-            }
+            // Cache the result for entire session
+            sessionStorage.setItem('deviceData', JSON.stringify(data));
+            handleDeviceCheckResponse(data);
         },
         error: function (xhr) {
-            const res = JSON.parse(xhr.responseText);
-            console.log("DeviceCheck failed:", res.error);
+            console.log("DeviceCheck failed: ", xhr.status);
         }
     });
+}
+
+function handleDeviceCheckResponse(data) {
+    if (data.message) {
+        $("p").text(data.message);
+    } else {
+        if (data.is_device_known === false) {
+            // prompt zipcode sheet
+            showZipcodePrompt();
+        } else {
+            console.log("Device is known: " + data.is_device_known);
+            console.log("Location: " + data.city + ", " + data.state);
+            storeDeviceInfo(data);
+        }
+    }
+}
+
+function storeDeviceInfo(data) {
+    // Store location info for use throughout app
+    window.deviceInfo = {
+        zipcode: data.zipcode,
+        city: data.city,
+        state: data.state,
+        taxRate: data.tax_rate,
+        sameDayEligible: data.same_day_eligible
+    };
+    console.log("Device info stored:", window.deviceInfo);
 }
 
 function DeviceLog(zipcode) {
