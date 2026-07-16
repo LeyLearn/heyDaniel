@@ -1,4 +1,5 @@
 <?php
+
 include_once __DIR__ . "/../Connect.php";
 include_once __DIR__ . "/../../Function/Components.php";
 
@@ -29,13 +30,9 @@ $isUpdatingPassword = (bool)$data['is_updating_password'];
 
 $collectEmail = collectEmail($pdo, $userEmail, $isUpdatingPassword);
 
-if (!empty($)) {
+if (!empty($collectEmail['error'])) {
     http_response_code(400);
-    echo json_encode($response);
-    exit;
-}
-if (!empty($)) {
-    $response['message'] = $;
+    $response['error'] = $collectEmail['error'];
     echo json_encode($response);
     exit;
 }

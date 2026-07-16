@@ -1,0 +1,13 @@
+/* SAVED / WISHLIST PAGE */
+#saved-message {
+  width: 100%;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.Move_All_Btn {
+  width: auto;
+  height: 40px;
+  padding: 0 20px;
+}

@@ -8,7 +8,9 @@
     ?>
 <body>
     <?php
-     require $path."Interface/Sections/Header.php";
+     require $path . "Interface/Sections/Header.php";
+     require $path . "Interface/Sections/Main.php";
+     require $path . "Interface/Sections/Footer.php";
     ?>
 
 </body>

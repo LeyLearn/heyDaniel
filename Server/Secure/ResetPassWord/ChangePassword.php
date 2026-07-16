@@ -1,5 +1,6 @@
 <?php
-include_once __DIR__ . "/../Connect.php";
+
+include_once __DIR__ . "/../../Connect.php";
 include_once __DIR__ . "/../../Function/Components.php";
 
 $response = [
@@ -22,13 +23,9 @@ $confirmPassword = trim($data['confirm_password']);
 
 $updatePassword = updatePassword($pdo, $userEmail, $password, $confirmPassword);
 
-if (!empty($)) {
+if (!empty($updatePassword['error'])) {
     http_response_code(400);
-    echo json_encode($response);
-    exit;
-}
-if (!empty($)) {
-    $response['message'] = $;
+    $response['error'] = $updatePassword['error'];
     echo json_encode($response);
     exit;
 }
@@ -37,4 +34,3 @@ $response['success'] = $updatePassword['success'] ?? false;
 
 echo json_encode($response);
 exit;
-

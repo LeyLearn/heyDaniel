@@ -1,0 +1,129 @@
+/* CONFIRMATION PAGE */
+.Confirmation_Layout {
+  display: flex;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+.Confirmation_Card {
+  width: 100%;
+  max-width: 480px;
+  background: #fff;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 40px 32px;
+  text-align: center;
+}
+
+.Confirmation_Icon_Wrap {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--secondary-accent) 0%, transparent 72%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.Confirmation_Icon_Wrap::before {
+  content: "";
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid var(--secondary);
+}
+
+.Confirmation_Icon {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  filter: invert(9%) sepia(56%) saturate(3000%) hue-rotate(202deg) brightness(90%);
+}
+
+.Confirmation_Card h1 {
+  font-size: 1.6rem;
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  margin: 0 0 8px;
+}
+
+.Confirmation_Card p {
+  color: var(--text-muted);
+  font-size: var(--regular-text);
+}
+
+.Confirmation_Subtext {
+  margin-bottom: 16px;
+}
+
+.Confirmation_Order_Id {
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+}
+
+.Confirmation_Email {
+  margin-bottom: 20px;
+}
+
+.Confirmation_Email strong {
+  color: var(--text-dark);
+}
+
+.Estimated_Delivery_Card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--bg-light);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 20px 0;
+  text-align: left;
+}
+
+.Estimated_Delivery_Card img {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  filter: invert(9%) sepia(56%) saturate(3000%) hue-rotate(202deg) brightness(90%);
+}
+
+.Estimated_Delivery_Label {
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 2px;
+}
+
+.Estimated_Delivery_Date {
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+}
+
+.Confirmation_Summary {
+  text-align: left;
+  border-top: 1px solid var(--bg-light);
+  border-bottom: 1px solid var(--bg-light);
+  padding: 16px 0;
+  margin: 20px 0;
+}
+
+.Confirmation_Actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.Confirmation_Actions .Continue_Shopping_Btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+  box-sizing: border-box;
+}

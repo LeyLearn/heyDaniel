@@ -9,8 +9,14 @@ $metaDescription = "Manage your account and orders on HeyDaniel.";
 
 <body>
     <?php
-    require $path . "Interface/Sections/Header.php";
+    if (isset($_SESSION['user_id'])) {
+        require $path . "Interface/Sections/Profile.php";
+    } else {
+        require $path . "Interface/Sections/Credential.php";
+    }
+    require $path . "Interface/Sections/Footer.php";
     ?>
+
 
 </body>
 

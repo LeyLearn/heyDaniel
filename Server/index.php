@@ -41,6 +41,7 @@ $routes = [
     'search'            => 'Secure/Engine/Search.php',
     'item_push'         => 'Secure/Engine/ItemPush.php',
     'recently_viewed'   => 'Secure/Engine/RecentlyViewed.php',
+    'pulling_products'   => 'Secure/Products/ProductSlide.php',
 
     // Checkout & Orders
     'checkout'          => 'Secure/Checkout/Checkout.php',
@@ -54,6 +55,7 @@ $routes = [
     // User
     'register'          => 'Secure/User/Register.php',
     'login'             => 'Secure/User/Login.php',
+    'google_login'      => 'Secure/User/GoogleLogin.php',
     'logout'            => 'Secure/User/Logout.php',
 
     // Password Reset

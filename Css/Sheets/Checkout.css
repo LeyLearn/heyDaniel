@@ -1,0 +1,313 @@
+/* CHECKOUT PAGE */
+
+/* STEPS */
+.Checkout_Steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  margin-bottom: 20px;
+}
+
+.Checkout_Step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  color: var(--text-muted);
+}
+
+.Checkout_Step_Num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--bg-light);
+  color: var(--text-muted);
+  font-size: var(--information);
+}
+
+.Checkout_Step_Done .Checkout_Step_Num {
+  background: var(--secondary);
+  color: var(--text-light);
+}
+
+.Checkout_Step_Done {
+  color: var(--text-dark);
+}
+
+.Checkout_Step_Active .Checkout_Step_Num {
+  background: var(--primary);
+  color: var(--text-light);
+}
+
+.Checkout_Step_Active {
+  color: var(--text-dark);
+}
+
+.Checkout_Layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+}
+
+.Checkout_Form {
+  flex: 1;
+  min-width: 0;
+  max-width: 560px;
+}
+
+.Checkout_Field {
+  margin-bottom: 16px;
+}
+
+.Checkout_Field_Row {
+  display: flex;
+  gap: 12px;
+}
+
+.Checkout_Field_Row .Checkout_Field {
+  flex: 1;
+  min-width: 0;
+}
+
+.Checkout_Field label {
+  display: block;
+  font-size: var(--information);
+  font-weight: var(--font-weight);
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.Checkout_Field input,
+.Checkout_Field textarea {
+  width: 100%;
+  border-radius: 5px;
+  border: 1px solid var(--border-light);
+  padding: 10px;
+  font-size: var(--regular-text);
+  color: var(--text-dark);
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+/* DELIVERY METHOD */
+.Delivery_Method_Options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.Delivery_Method_Card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #fff;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+}
+
+.Delivery_Method_Card.Selected {
+  border: 2px solid var(--secondary);
+  padding: 15px;
+}
+
+.Delivery_Method_Card input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.Delivery_Method_Card img {
+  width: 20px;
+  height: 20px;
+  filter: invert(9%) sepia(56%) saturate(3000%) hue-rotate(202deg) brightness(90%);
+  flex-shrink: 0;
+}
+
+.Delivery_Method_Info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.Delivery_Method_Name {
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+}
+
+.Delivery_Method_Desc {
+  font-size: var(--information);
+  color: var(--text-muted);
+}
+
+.Delivery_Method_Price {
+  flex-shrink: 0;
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+}
+
+/* PAYMENT METHOD */
+.Payment_Method_Options {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.Payment_Method_Option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 14px 10px;
+  cursor: pointer;
+  font-size: var(--information);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+}
+
+.Payment_Method_Option.Selected {
+  border: 2px solid var(--secondary);
+  padding: 13px 9px;
+}
+
+.Payment_Method_Option input[type="radio"] {
+  display: none;
+}
+
+.Payment_Method_Option img {
+  width: 18px;
+  height: 18px;
+}
+
+.Payment_Method_Card {
+  background: #fff;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.Payment_Method_Card .Checkout_Field {
+  margin-bottom: 0;
+}
+
+.Payment_Method_Coming_Soon {
+  font-size: var(--information);
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+#checkout-card-element {
+  border: 1px solid var(--border-light);
+  border-radius: 5px;
+  padding: 12px 10px;
+  background: #fff;
+}
+
+#checkout-submit-btn {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.Checkout_Summary {
+  width: 320px;
+}
+
+/* ITEMIZED ORDER SUMMARY */
+.Checkout_Summary_Items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--bg-light);
+}
+
+.Checkout_Summary_Item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.Checkout_Summary_Item_Image {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-origin: content-box;
+  background-color: rgba(2, 22, 60, 0.1);
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.Checkout_Summary_Item_Info {
+  flex: 1;
+  min-width: 0;
+}
+
+.Checkout_Summary_Item_Name {
+  font-size: var(--information);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.Checkout_Summary_Item_Meta {
+  font-size: var(--fine-print);
+  color: var(--text-muted);
+}
+
+.Checkout_Summary_Item_Price {
+  flex-shrink: 0;
+  font-size: var(--information);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+}
+
+@media (max-width: 768px) {
+  .Checkout_Layout {
+    flex-direction: column;
+  }
+
+  .Checkout_Form {
+    max-width: 100%;
+  }
+
+  .Checkout_Field_Row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .Checkout_Summary {
+    width: 100%;
+    position: static;
+  }
+
+  .Checkout_Steps {
+    gap: 20px;
+  }
+
+  .Checkout_Step_Label {
+    display: none;
+  }
+}

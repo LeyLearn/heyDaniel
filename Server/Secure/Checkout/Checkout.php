@@ -1,5 +1,6 @@
 <?php
-include_once __DIR__ . "/../Connect.php";
+
+include_once __DIR__ . "/../../Connect.php";
 include_once __DIR__ . "/../../Function/Components.php";
 
 $response = [
@@ -43,12 +44,21 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
     $address         = $data['address']                 ?? [];
 } else {
     session_start();
-    $userId          = (int)($_SESSION['user_id']       ?? 0);
-    $taxRate         = (float)($_SESSION['tax_rate']    ?? 0.00);
-    $isSameDay       = (bool)($_SESSION['is_same_day']  ?? false);
-    $tipAmount       = (float)($data['tip_amount']      ?? 0.00);
+    $userId          = (int)($_SESSION['user_id']            ?? 0);
+    $taxRate         = (float)($_SESSION['tax_rate']          ?? 0.00);
+    $isSameDay       = (bool)($_SESSION['same_day_eligible']  ?? false);
+    $tipAmount       = (float)($data['tip_amount']            ?? 0.00);
     $paymentMethodId = trim($data['payment_method_id']  ?? '');
     $address         = $data['address']                 ?? [];
+}
+
+// Every session value needed has been read at this point — release the
+// write lock now instead of holding it through submitCheckout()'s Stripe
+// API round-trips below, which would otherwise serialize any other
+// concurrent request from this same browser session (e.g. cartIcon()
+// polling) behind this one.
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
 }
 
 if ($userId <= 0) {
@@ -65,7 +75,7 @@ if (empty($paymentMethodId)) {
     exit;
 }
 
-$requiredAddressFields = ['address', 'city', 'state', 'zip_code', 'phone'];
+$requiredAddressFields = ['Address', 'City', 'State', 'ZipCode', 'Phone'];
 foreach ($requiredAddressFields as $field) {
     if (empty($address[$field]) || !is_string($address[$field]) || trim($address[$field]) === '') {
         http_response_code(400);
@@ -75,15 +85,18 @@ foreach ($requiredAddressFields as $field) {
     }
 }
 
-$checkout = submitCheckout($pdo, $userId, $isSameDay, $taxRate, $tipAmount, $paymentMethodId, $address);
-
-if (!empty($)) {
-    http_response_code(400);
+if (RateLimiter::tooManyAttempts($pdo, "checkout:{$userId}", 10, 600)) {
+    http_response_code(429);
+    $response['message'] = "Too many checkout attempts. Please wait a few minutes and try again.";
     echo json_encode($response);
     exit;
 }
-if (!empty($)) {
-    $response['message'] = $;
+
+$checkout = submitCheckout($pdo, $userId, $isSameDay, $taxRate, $tipAmount, $paymentMethodId, $address);
+
+if (!empty($checkout['error'])) {
+    http_response_code(500);
+    $response['error'] = $checkout['error'];
     echo json_encode($response);
     exit;
 }

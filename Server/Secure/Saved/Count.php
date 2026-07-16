@@ -1,5 +1,6 @@
 <?php
-include_once __DIR__ . "/../Connect.php";
+
+include_once __DIR__ . "/../../Connect.php";
 include_once __DIR__ . "/../../Function/Components.php";
 
 $response = [
@@ -37,13 +38,9 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
 
 $savedCount = savedCount($pdo, $userId);
 
-if (!empty($)) {
-    http_response_code(400);
-    echo json_encode($response);
-    exit;
-}
-if (!empty($)) {
-    $response['message'] = $;
+if (!empty($savedCount['error'])) {
+    http_response_code(500);
+    $response['error'] = $savedCount['error'];
     echo json_encode($response);
     exit;
 }

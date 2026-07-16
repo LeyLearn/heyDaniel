@@ -1,16 +1,19 @@
 <?php
-include_once __DIR__ . "/../Connect.php";
+
+include_once __DIR__ . "/../../Connect.php";
 include_once __DIR__ . "/../../Function/Components.php";
 
 
 $response = [
-    'zipcode'           => null,
-    'city'              => null,
-    'state'             => null,
-    'same_day_eligible' => false,
-    'tax_rate'          => 0.00,
-    'message'           => null,
-    'error'             => null
+    'zipcode'               => null,
+    'city'                  => null,
+    'state'                 => null,
+    'same_day_eligible'     => false,
+    'tax_rate'              => 0.00,
+    'requires_confirmation' => false,
+    'perishable_items'      => [],
+    'message'               => null,
+    'error'                 => null
 ];
 
 
@@ -21,13 +24,14 @@ if (!isset($data['device_type'])) {
 }
 
 if (!isset($data['zipcode']) || empty($data['zipcode']) || strlen($data['zipcode']) > 16 || !preg_match('/^[a-zA-Z0-9\- ]+$/', $data['zipcode'])) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Invalid or missing zipcode.']);
+    http_response_code(200);
+    echo json_encode(['message' => 'Invalid or missing zipcode.']);
     exit;
 }
 
 $userDeviceType = $data['device_type'];
 $zipcode = $data['zipcode'];
+$confirmRemovePerishables = (bool)($data['confirm_remove_perishables'] ?? false);
 $validDeviceTypes = ['iOS', 'Android', 'Web'];
 $userId = 0;
 $userDeviceSignature = null;
@@ -43,28 +47,54 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
     $userDeviceSignature = (string)($data['device_signature'] ?? '');
 } else {
     session_start();
+    $userId              = (int)($_SESSION['user_id'] ?? 0);
     $userDeviceSignature = $_SESSION['device_signature'];
 }
 
-$deviceLog = DeviceLog($pdo, $userDeviceSignature, $userDeviceType, $zipcode);
+if ($confirmRemovePerishables) {
+    // The user already saw the conflict and chose to continue — this one
+    // call both drops the perishables and finalizes the zip change.
+    $confirm = removePerishablesFromCart($pdo, $userId, $userDeviceSignature, $userDeviceType, $zipcode);
 
-if (!empty($deviceLog['error'])) {
-    http_response_code(500);
-    echo json_encode([]);
-    exit;
+    if (!empty($confirm['error'])) {
+        http_response_code(500);
+        echo json_encode($confirm['error']);
+        exit;
+    }
+
+    $response['zipcode']           = $zipcode;
+    $response['city']              = $confirm['city'];
+    $response['state']             = $confirm['state'];
+    $response['same_day_eligible'] = false;
+    $response['tax_rate']          = $confirm['tax_rate'];
+} else {
+    $update = updateDeviceZip($pdo, $userDeviceSignature, $userDeviceType, $zipcode, $userId);
+
+    if (!empty($update['error'])) {
+        http_response_code(500);
+        echo json_encode($update['error']);
+        exit;
+    }
+
+    if (!empty($update['message'])) {
+        $response['message'] = $update['message'];
+        echo json_encode($response);
+        exit;
+    }
+
+    if ($update['requires_confirmation']) {
+        $response['requires_confirmation'] = true;
+        $response['perishable_items'] = $update['perishable_items'];
+        echo json_encode($response);
+        exit;
+    }
+
+    $response['zipcode']           = $update['zipcode'];
+    $response['city']              = $update['city'];
+    $response['state']             = $update['state'];
+    $response['same_day_eligible'] = $update['same_day_eligible'];
+    $response['tax_rate']          = $update['tax_rate'];
 }
-
-if (!empty($deviceLog['message'])) {
-    $response['message'] = $deviceLog['message'];
-    echo json_encode($response);
-    exit;
-}
-
-$response['zipcode'] = $deviceLog['zipcode'];
-$response['city'] = $deviceLog['city'];
-$response['state'] = $deviceLog['state'];
-$response['same_day_eligible'] = $deviceLog['same_day_eligible'];
-$response['tax_rate'] = $deviceLog['tax_rate'];
 
 $_SESSION['zipcode'] = $response['zipcode'];
 $_SESSION['city'] = $response['city'];

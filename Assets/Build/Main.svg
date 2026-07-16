@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1536" height="700" viewBox="0 0 1536 700">
+    <linearGradient id="linear-gradient" x1="0.5" x2="0.5" y2="1">
+      <stop offset="0" id="slide-color" stop-color="#bf6752"/>
+      <stop offset="1" stop-color="#f2f3f2" stop-opacity="0" />
+    </linearGradient>
+    <pattern id="pattern" width="100%" height="100%" viewBox="0 40 1500 600">
+    </pattern>
+  <g>
+    <rect width="1536" height="700" fill="#f2f3f2"/>
+    <rect width="1536" height="700" fill="url(#linear-gradient)"/>
+    <rect width="927" height="319" fill="url(#pattern)"/>
+  </g>
+</svg>

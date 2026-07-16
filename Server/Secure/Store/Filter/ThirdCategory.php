@@ -1,6 +1,7 @@
 <?php
-include_once __DIR__ . "/../Connect.php";
-include_once __DIR__ . "/../../Function/Components.php";
+
+include_once __DIR__ . "/../../../Connect.php";
+include_once __DIR__ . "/../../../Function/Components.php";
 
 $response = [
     'third_categories' => [],
@@ -43,13 +44,9 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
 
 $thirdCategories = thirdCategories($pdo, $subCategory, $isSameDayEligible);
 
-if (!empty($)) {
-    http_response_code(400);
-    echo json_encode($response);
-    exit;
-}
-if (!empty($)) {
-    $response['message'] = $;
+if (!empty($thirdCategories['error'])) {
+    http_response_code(500);
+    $response['error'] = $thirdCategories['error'];
     echo json_encode($response);
     exit;
 }

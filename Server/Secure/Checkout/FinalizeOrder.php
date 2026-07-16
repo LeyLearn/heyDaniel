@@ -1,5 +1,6 @@
 <?php
-include_once __DIR__ . "/../Connect.php";
+
+include_once __DIR__ . "/../../Connect.php";
 include_once __DIR__ . "/../../Function/Components.php";
 
 $response = [
@@ -41,6 +42,12 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
     $tipAmount = (float)($data['tip_amount'] ?? 0.00);
 }
 
+// Release the session write lock before finalizeOrder()'s Stripe API calls
+// (capture + possible tip charge) — see Checkout.php for the same fix.
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
 if ($userId <= 0) {
     http_response_code(401);
     $response['message'] = "Unauthorized.";
@@ -57,13 +64,9 @@ if ($orderId <= 0) {
 
 $finalize = finalizeOrder($pdo, $userId, $orderId, $tipAmount);
 
-if (!empty($)) {
-    http_response_code(400);
-    echo json_encode($response);
-    exit;
-}
-if (!empty($)) {
-    $response['message'] = $;
+if (!empty($finalize['error'])) {
+    http_response_code(500);
+    $response['error'] = $finalize['error'];
     echo json_encode($response);
     exit;
 }

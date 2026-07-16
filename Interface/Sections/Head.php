@@ -10,11 +10,11 @@ session_start();
   <!-- script files -->
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <script src="https://accounts.google.com/gsi/client" defer></script>
   <script type="text/javascript" src="<?= $path ?>Client/Component.js"></script>
-  <script type="text/javascript" src="<?= $path ?>Client/Server.js"></script>
   <script type="text/javascript" src="<?= $path ?>Client/Interaction.js"></script>
   <!-- css files -->
-  <link rel="stylesheet" type="text/css" href="<?= $path ?>Css/Sections/Text.css">
+  <link rel="stylesheet" type="text/css" href="<?= $path ?>Css/Sections/Header.css">
   <link rel="stylesheet" type="text/css" href="<?= $path ?>Css/Sections/Button.css">
   <link rel="stylesheet" type="text/css" href="<?= $path ?>Css/Sections/Input.css">
   <link rel="stylesheet" type="text/css" href="<?= $path ?>Css/Sections/Category.css">
@@ -24,6 +24,8 @@ session_start();
   <link rel="stylesheet" type="text/css" href="<?= $path ?>Css/Sections/Card.css">
   <link rel="stylesheet" type="text/css" href="<?= $path ?>Css/Sections/Pictures.css">
   <link rel="stylesheet" type="text/css" href="<?= $path ?>Css/Sections/Ad.css">
+  <link rel="stylesheet" type="text/css" href="<?= $path ?>Css/Sections/Main.css">
+  <link rel="stylesheet" type="text/css" href="<?= $path ?>Css/Sections/Footer.css">
 
   <link rel="stylesheet" type="text/css" href="<?= $path ?>Css/Sheets/Credential.css">
   <link rel="stylesheet" type="text/css" href="<?= $path ?>Css/Sheets/Cart.css">
@@ -33,13 +35,12 @@ session_start();
   <link rel="stylesheet" type="text/css" href="<?= $path ?>Css/Sheets/Confirmation.css">
   <link rel="stylesheet" type="text/css" href="<?= $path ?>Css/Sheets/Profile.css">
   <link rel="stylesheet" type="text/css" href="<?= $path ?>Css/Sheets/Item.css">
-  <link rel="stylesheet" type="text/css" href="<?= $path ?>Css/Sheets/Index.css">
   <!-- for icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-  <?php 
-    include_once $path."Server/Status.php";
-  ?>
+  <?php
+    include_once $path . "Server/Status.php";
+    ?>
 
   <title><?= isset($pageTitle) ? $pageTitle : "Home - HeyDaniel"; ?></title>
   <!-- <link rel="icon" href="Images/favicon.ico" type="image/x-icon"> -->

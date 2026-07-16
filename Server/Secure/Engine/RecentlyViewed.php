@@ -1,4 +1,5 @@
 <?php
+
 include_once __DIR__ . "/../../Connect.php";
 include_once __DIR__ . "/../../Function/Components.php";
 
@@ -8,18 +9,12 @@ if (!isset($data['device_type'])) {
     exit;
 }
 
-if (!isset($data['device_signature'])) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Device signature is required.']);
-    exit;
-}
-
 $userDeviceType    = $data['device_type'];
 $validDeviceTypes  = ['iOS', 'Android', 'Web'];
 $userId            = 0;
 $taxRate           = 0.00;
 $isSameDayEligible = false;
-$deviceSignature   = (string)$data['device_signature'];
+$deviceSignature   = '';
 
 if (!in_array($userDeviceType, $validDeviceTypes, true)) {
     http_response_code(400);
@@ -31,11 +26,13 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
     $userId            = (int)($data['user_id'] ?? 0);
     $taxRate           = (float)($data['tax_rate'] ?? 0.00);
     $isSameDayEligible = (bool)($data['same_day_eligible'] ?? false);
+    $deviceSignature   = (string)($data['device_signature'] ?? '');
 } else {
     session_start();
     $userId            = (int)($_SESSION['user_id'] ?? 0);
     $taxRate           = (float)($_SESSION['tax_rate'] ?? 0.00);
     $isSameDayEligible = (bool)($_SESSION['same_day_eligible'] ?? false);
+    $deviceSignature   = (string)($_SESSION['device_signature'] ?? '');
 }
 
 $result = recentlyViewed($pdo, $userId, $deviceSignature, $isSameDayEligible, $taxRate);

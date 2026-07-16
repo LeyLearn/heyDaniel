@@ -1,6 +1,7 @@
 <?php
-include_once __DIR__ . "/../Connect.php";
-include_once __DIR__ . "/../../Function/Components.php";
+
+include_once __DIR__ . "/../../../Connect.php";
+include_once __DIR__ . "/../../../Function/Components.php";
 
 $response = [
     'products'          => [],
@@ -56,13 +57,9 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
 
 $filterStore = filterStore($pdo, $userId, $hasActiveOrder, $isSameDayEligible, $taxRate, $filter, $limit);
 
-if (!empty($)) {
-    http_response_code(400);
-    echo json_encode($response);
-    exit;
-}
-if (!empty($)) {
-    $response['message'] = $;
+if (!empty($filterStore['error'])) {
+    http_response_code(500);
+    $response['error'] = $filterStore['error'];
     echo json_encode($response);
     exit;
 }

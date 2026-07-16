@@ -1,5 +1,6 @@
 <?php
-include_once __DIR__ . "/../Connect.php";
+
+include_once __DIR__ . "/../../Connect.php";
 include_once __DIR__ . "/../../Function/Components.php";
 
 $response = [
@@ -21,13 +22,9 @@ $uniqueCode = trim($data['unique_code']);
 
 $verifyCode = verifyCode($pdo, $userEmail, $uniqueCode);
 
-if (!empty($)) {
+if (!empty($verifyCode['error'])) {
     http_response_code(400);
-    echo json_encode($response);
-    exit;
-}
-if (!empty($)) {
-    $response['message'] = $;
+    $response['error'] = $verifyCode['error'];
     echo json_encode($response);
     exit;
 }

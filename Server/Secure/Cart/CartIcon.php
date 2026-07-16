@@ -1,5 +1,6 @@
 <?php
-include_once __DIR__ . "/../Connect.php";
+
+include_once __DIR__ . "/../../Connect.php";
 include_once __DIR__ . "/../../Function/Components.php";
 
 
@@ -20,7 +21,6 @@ if (!isset($data['device_type'])) {
 $userDeviceType = $data['device_type'];
 $validDeviceTypes = ['iOS', 'Android', 'Web'];
 $userId = 0;
-$isSameDayEligible = false;
 
 if (!in_array($userDeviceType, $validDeviceTypes, true)) {
     http_response_code(400);
@@ -32,22 +32,16 @@ if (!in_array($userDeviceType, $validDeviceTypes, true)) {
 
 if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
     $userId              = (int)($data['user_id'] ?? 0);
-    $isSameDayEligible = $data['same_day_eligible'] ?? false;
 } else {
     session_start();
     $userId              = (int)($_SESSION['user_id'] ?? 0);
-    $isSameDayEligible = $_SESSION['same_day_eligible'] ?? false;
 }
 
-$cartIcon = cartIcon($pdo, $userId, $isSameDayEligible);
+$cartIcon = cartIcon($pdo, $userId);
 
-if (!empty($)) {
-    http_response_code(400);
-    echo json_encode($response);
-    exit;
-}
-if (!empty($)) {
-    $response['message'] = $;
+if (!empty($cartIcon['error'])) {
+    http_response_code(500);
+    $response['error'] = $cartIcon['error'];
     echo json_encode($response);
     exit;
 }

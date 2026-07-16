@@ -1,0 +1,333 @@
+/* PROFILE PAGE */
+.Profile_Layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+}
+
+/* SIDEBAR NAV */
+.Profile_Nav {
+  width: 220px;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: sticky;
+  top: 20px;
+}
+
+.Profile_Nav_Link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--text-dark);
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.Profile_Nav_Link:hover {
+  background: var(--bg-light);
+}
+
+.Profile_Nav_Link.Active {
+  background: var(--secondary-accent);
+  color: var(--secondary);
+}
+
+.Profile_Nav_Link img {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.Profile_Nav_Logout {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bg-light);
+  color: var(--primary);
+}
+
+.Profile_Nav_Logout:hover {
+  background: var(--primary-accent);
+}
+
+.Profile_Main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* WELCOME HEADER */
+.Profile_Welcome {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.Profile_Welcome_Text {
+  flex: 1;
+}
+
+.Edit_Profile_Btn {
+  width: auto;
+  height: 40px;
+  padding: 0 20px;
+  flex-shrink: 0;
+}
+
+.Profile_Avatar {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--secondary);
+  color: var(--text-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  font-weight: var(--font-weight);
+  text-transform: uppercase;
+}
+
+.Profile_Welcome_Tag {
+  font-size: var(--regular-text);
+  color: var(--text-muted);
+  margin: 0 0 2px;
+}
+
+.Profile_Welcome_Text h1 {
+  font-size: 1.5rem;
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  margin: 0;
+}
+
+.Profile_Member_Badge {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  color: var(--primary);
+  background: var(--primary-accent);
+  padding: 3px 10px;
+  border-radius: 10px;
+}
+
+/* TWO-COLUMN GRID: Profile Info | Order History */
+.Profile_Grid {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.Profile_Section {
+  background: #fff;
+  border: 1px solid rgba(2, 22, 60, 0.08);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 10px rgba(2, 22, 60, 0.04);
+}
+
+.Profile_Section h3 {
+  font-size: var(--subtitle);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  margin: 0 0 18px;
+}
+
+.Profile_Field {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--bg-light);
+}
+
+.Profile_Field:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.Profile_Field label {
+  display: block;
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.Profile_Field p {
+  font-size: var(--regular-text);
+  color: var(--text-dark);
+  font-weight: var(--font-weight);
+}
+
+/* ADDRESS BOOK */
+.Address_Book_Grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.Address_Card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--bg-light);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.Add_Address_Card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: none;
+  border: 1px dashed var(--border-light);
+  border-radius: 8px;
+  padding: 16px;
+  color: var(--primary);
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  cursor: pointer;
+  min-height: 68px;
+}
+
+.Add_Address_Card:hover {
+  background: var(--primary-accent);
+}
+
+.Add_Address_Plus {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.Address_Card img {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.Address_Card_Label {
+  font-size: var(--information);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  margin: 0 0 4px;
+}
+
+.Profile_Address {
+  font-size: var(--regular-text);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ORDER ROWS */
+.Order_Row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--bg-light);
+}
+
+.Order_Row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.Order_Row_Icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--bg-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.Order_Row_Icon img {
+  width: 18px;
+  height: 18px;
+}
+
+.Order_Row_Info {
+  flex: 1;
+  min-width: 0;
+}
+
+.Order_Row_Number {
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+}
+
+.Order_Row_Meta {
+  font-size: var(--information);
+  color: var(--text-muted);
+}
+
+.Order_Row_Status {
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  color: var(--secondary);
+  background: var(--bg-light);
+  padding: 4px 10px;
+  border-radius: 10px;
+  text-transform: capitalize;
+}
+
+.Order_Row_Total {
+  font-weight: var(--font-weight);
+  color: var(--primary);
+  width: 80px;
+  text-align: right;
+}
+
+@media (max-width: 768px) {
+  .Profile_Layout {
+    flex-direction: column;
+  }
+
+  .Profile_Grid {
+    grid-template-columns: 1fr;
+  }
+
+  .Profile_Nav {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    position: static;
+  }
+
+  .Profile_Nav_Link {
+    width: auto;
+    flex: 1;
+    justify-content: center;
+  }
+
+  .Profile_Nav_Link span {
+    display: none;
+  }
+
+  .Profile_Nav_Logout {
+    margin-top: 0;
+    padding-top: 12px;
+    border-top: none;
+  }
+}

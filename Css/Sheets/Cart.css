@@ -1,0 +1,113 @@
+/* CART PAGE LAYOUT */
+.Cart_Layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+}
+
+.Cart_Items {
+  flex: 1;
+  min-width: 0;
+}
+
+.Cart_Items .Section_Header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.Cart_Summary {
+  width: 300px;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 20px;
+  position: sticky;
+  top: 20px;
+}
+
+.Cart_Summary h2 {
+  font-size: var(--subtitle);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  margin: 0 0 16px;
+}
+
+.Promo_Code_Row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.Promo_Code_Row input {
+  flex: 1;
+  height: 40px;
+  border-radius: 5px;
+  border: 1px solid var(--border-light);
+  padding: 0 10px;
+  font-size: var(--regular-text);
+}
+
+.Promo_Code_Row .Secondary_Light_Btn {
+  width: auto;
+  height: 40px;
+  padding: 0 16px;
+}
+
+.Cart_Summary_Row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--regular-text);
+  color: var(--text-dark);
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--bg-light);
+}
+
+.Cart_Summary_Row span:last-child {
+  font-weight: var(--font-weight);
+  color: var(--primary);
+}
+
+.Cart_Summary .Primary_Btn {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  line-height: 45px;
+}
+
+.Trust_Badges {
+  list-style: none;
+  margin: 20px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--bg-light);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.Trust_Badges li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--information);
+  color: var(--text-muted);
+}
+
+.Trust_Badges img {
+  width: 16px;
+  height: 16px;
+  opacity: 0.7;
+}
+
+@media (max-width: 768px) {
+  .Cart_Layout {
+    flex-direction: column;
+  }
+
+  .Cart_Summary {
+    width: 100%;
+    position: static;
+  }
+}

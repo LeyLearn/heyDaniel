@@ -1,6 +1,7 @@
 <?php
-include_once __DIR__ . "/../Connect.php";
-include_once __DIR__ . "/../../Function/Components.php";
+
+include_once __DIR__ . "/../../../Connect.php";
+include_once __DIR__ . "/../../../Function/Components.php";
 
 $response = [
     'sub_categories' => [],
@@ -43,13 +44,9 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
 
 $subCategories = subCategories($pdo, $mainCategory, $isSameDayEligible);
 
-if (!empty($)) {
-    http_response_code(400);
-    echo json_encode($response);
-    exit;
-}
-if (!empty($)) {
-    $response['message'] = $;
+if (!empty($subCategories['error'])) {
+    http_response_code(500);
+    $response['error'] = $subCategories['error'];
     echo json_encode($response);
     exit;
 }

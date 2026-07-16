@@ -1,59 +1,71 @@
-/* COLOR PALETTE
-PRIMARY = #7a0d0d (dark maroon)
-PRIMARY_LIGHT = #8B1111
-PRIMARY_ACCENT = #D4A5A5 (soft coral/pink)
-SECONDARY COLOR = #013A52 (navy blue)
-SECONDARY_LIGHT = #064863
-TEXT_DARK = #333
-TEXT_LIGHT = #fff
-BG_LIGHT = #f5f5f5
-*/
-
-:root {
-  --primary: #7a0d0d;
-  --primary-light: #8B1111;
-  --primary-accent: #D4A5A5;
-  --secondary: #013A52;
-  --secondary-light: #064863;
-  --text-dark: #333;
-  --text-light: #fff;
-  --bg-light: #f5f5f5;
-}
+/* Color tokens (--primary, --secondary, --text-light, etc.) are defined
+   once in Header.css :root and shared across Button/Card/Icon.css. */
 
 /* BASE BUTTON STYLES */
 button {
   cursor: pointer;
-  font-size: 1.5rem;
+  font-size: var(--regular-text);
   transition: all 0.3s ease-in-out;
   border-radius: 5px;
 }
 
-/* PRIMARY BUTTONS */
-.Primary_Btn {
+/* SOLID NAVY, FULL WIDTH, 45px
+   (primary CTAs / form submits across cart, review, auth) */
+.Primary_Btn,
+.Add_To_Cart_Btn,
+.Review_Btn,
+.Submit_Review_Btn,
+.Login_Btn,
+.Register_Btn {
   position: relative;
   width: 100%;
   height: 45px;
   color: var(--text-light);
-  background: var(--primary);
+  background: var(--secondary);
   border: none;
-  font-weight: bold;
+  font-weight: var(--font-weight);
 }
 
-.Primary_Btn:hover {
-  background: var(--primary-light);
+.Primary_Btn:hover,
+.Add_To_Cart_Btn:hover,
+.Review_Btn:hover,
+.Submit_Review_Btn:hover,
+.Login_Btn:hover,
+.Register_Btn:hover {
+  background: var(--secondary-light);
+}
+
+/* SOLID NAVY, FULL WIDTH, 50px
+   (final checkout-flow actions, slightly taller for emphasis) */
+.Checkout_Btn,
+.Place_Order_Btn,
+.Finalize_Order_Btn {
+  position: relative;
+  width: 100%;
+  height: 50px;
+  color: var(--text-light);
+  background: var(--secondary);
+  border: none;
+  font-weight: var(--font-weight);
+}
+
+.Checkout_Btn:hover,
+.Place_Order_Btn:hover,
+.Finalize_Order_Btn:hover {
+  background: var(--secondary-light);
 }
 
 .Primary_Light_Btn {
   position: relative;
   width: 100%;
   height: 45px;
-  color: var(--primary);
+  color: var(--secondary);
   background: none;
-  border: 2px solid var(--primary);
+  border: 2px solid var(--secondary);
 }
 
 .Primary_Light_Btn:hover {
-  background: var(--primary-accent);
+  background: var(--secondary-accent);
 }
 
 /* SECONDARY BUTTONS */
@@ -63,7 +75,7 @@ button {
   background: var(--secondary);
   color: var(--text-light);
   margin: 10px 0;
-  font-weight: bold;
+  font-weight: var(--font-weight);
   padding: 8px 15px;
 }
 
@@ -80,7 +92,7 @@ button {
 }
 
 .Secondary_Light_Btn:hover {
-  background: var(--primary-accent);
+  background: var(--secondary-accent);
 }
 
 /* TEXT BUTTON */
@@ -89,12 +101,12 @@ button {
   background: none;
   padding: 5px;
   border: none;
-  font-weight: bold;
-  color: var(--primary);
+  font-weight: var(--font-weight);
+  color: var(--secondary);
 }
 
 .Text_Btn:hover {
-  color: var(--primary-light);
+  color: var(--secondary-light);
 }
 
 /* DELETE BUTTON */
@@ -125,62 +137,54 @@ button {
   display: none;
 }
 
-/* CART & QUANTITY BUTTONS */
-.Add_To_Cart_Btn {
-  position: relative;
-  width: 100%;
-  height: 45px;
-  color: var(--text-light);
-  background: var(--primary);
-  border: none;
-  font-weight: bold;
-}
-
-.Add_To_Cart_Btn:hover {
-  background: var(--primary-light);
-}
-
-.Qty_Btn {
+/* QUANTITY BUTTONS
+   (40x40 solid navy, used for cart qty increment/decrement) */
+.Qty_Btn,
+.Qty_Decrement_Btn {
   position: relative;
   width: 40px;
   height: 40px;
   color: var(--text-light);
   background: var(--secondary);
   border: none;
-  font-weight: bold;
+  font-weight: var(--font-weight);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.Qty_Btn:hover {
+.Qty_Btn:hover,
+.Qty_Decrement_Btn:hover {
   background: var(--secondary-light);
 }
 
-.Qty_Decrement_Btn {
-  position: relative;
-  width: 40px;
-  height: 40px;
-  color: var(--text-light);
-  background: var(--primary);
-  border: none;
-  font-weight: bold;
+.Qty_Btn img,
+.Qty_Decrement_Btn img {
+  width: 16px;
+  height: 16px;
+  filter: brightness(0) invert(1);
 }
 
-.Qty_Decrement_Btn:hover {
-  background: var(--primary-light);
-}
-
-/* SAVE & WISHLIST BUTTONS */
-.Save_Btn {
+/* SAVE & WISHLIST BUTTONS
+   (full-width outline, filled bg-light, used wherever a "light" action
+   needs a save/cancel/continue treatment) */
+.Save_Btn,
+.Cancel_Review_Btn,
+.Continue_Shopping_Btn {
   position: relative;
   width: 100%;
   height: 45px;
   color: var(--secondary);
   background: var(--bg-light);
   border: 2px solid var(--secondary);
-  font-weight: bold;
+  font-weight: var(--font-weight);
 }
 
-.Save_Btn:hover {
-  background: var(--primary-accent);
+.Save_Btn:hover,
+.Cancel_Review_Btn:hover,
+.Continue_Shopping_Btn:hover {
+  background: var(--secondary-accent);
 }
 
 .Save_Btn.saved {
@@ -194,20 +198,6 @@ button {
 }
 
 /* REVIEW BUTTONS */
-.Review_Btn {
-  position: relative;
-  width: 100%;
-  height: 45px;
-  color: var(--text-light);
-  background: var(--primary);
-  border: none;
-  font-weight: bold;
-}
-
-.Review_Btn:hover {
-  background: var(--primary-light);
-}
-
 .Star_Btn {
   position: relative;
   width: 50px;
@@ -215,7 +205,7 @@ button {
   color: #ffc107;
   background: none;
   border: none;
-  font-size: 2rem;
+  font-size: 1.5rem;
   cursor: pointer;
 }
 
@@ -225,35 +215,7 @@ button {
 
 .Star_Btn.selected {
   color: #ffc107;
-  font-weight: bold;
-}
-
-.Submit_Review_Btn {
-  position: relative;
-  width: 100%;
-  height: 45px;
-  color: var(--text-light);
-  background: var(--secondary);
-  border: none;
-  font-weight: bold;
-}
-
-.Submit_Review_Btn:hover {
-  background: var(--secondary-light);
-}
-
-.Cancel_Review_Btn {
-  position: relative;
-  width: 100%;
-  height: 45px;
-  color: var(--secondary);
-  background: var(--bg-light);
-  border: 2px solid var(--secondary);
-  font-weight: bold;
-}
-
-.Cancel_Review_Btn:hover {
-  background: var(--primary-accent);
+  font-weight: var(--font-weight);
 }
 
 /* PAGINATION BUTTONS */
@@ -265,7 +227,7 @@ button {
   color: var(--text-light);
   background: var(--secondary);
   border: none;
-  font-weight: bold;
+  font-weight: var(--font-weight);
 }
 
 .Prev_Btn:hover,
@@ -279,76 +241,51 @@ button {
   cursor: not-allowed;
 }
 
-/* CHECKOUT BUTTONS */
-.Checkout_Btn {
-  position: relative;
-  width: 100%;
-  height: 50px;
-  color: var(--text-light);
-  background: var(--secondary);
-  border: none;
-  font-weight: bold;
-}
-
-.Checkout_Btn:hover {
-  background: var(--secondary-light);
-}
-
-.Continue_Shopping_Btn {
-  position: relative;
-  width: 100%;
-  height: 45px;
-  color: var(--secondary);
-  background: var(--bg-light);
-  border: 2px solid var(--secondary);
-  font-weight: bold;
-}
-
-.Continue_Shopping_Btn:hover {
-  background: var(--primary-accent);
-}
-
-.Place_Order_Btn {
-  position: relative;
-  width: 100%;
-  height: 50px;
-  color: var(--text-light);
-  background: var(--primary);
-  border: none;
-  font-weight: bold;
-}
-
-.Place_Order_Btn:hover {
-  background: var(--primary-light);
-}
-
-.Finalize_Order_Btn {
-  position: relative;
-  width: 100%;
-  height: 50px;
-  color: var(--text-light);
-  background: var(--secondary);
-  border: none;
-  font-weight: bold;
-}
-
-.Finalize_Order_Btn:hover {
-  background: var(--secondary-light);
-}
-
-/* FILTER BUTTONS */
-.Filter_Btn {
+/* SOLID NAVY, 40px, PADDED (no fixed width)
+   (order-history and account-management row actions) */
+.View_Order_Btn,
+.Reorder_Btn,
+.Clear_History_Btn,
+.Logout_Btn {
   position: relative;
   height: 40px;
-  padding: 0 15px;
+  padding: 0 20px;
+  color: var(--text-light);
+  background: var(--secondary);
+  border: none;
+  font-weight: var(--font-weight);
+}
+
+.View_Order_Btn:hover,
+.Reorder_Btn:hover,
+.Clear_History_Btn:hover,
+.Logout_Btn:hover {
+  background: var(--secondary-light);
+}
+
+/* FILTER & OUTLINE-40 BUTTONS
+   (outline, bg-light fill, 40px — differ only in horizontal padding) */
+.Filter_Btn,
+.Download_Invoice_Btn {
+  position: relative;
+  height: 40px;
   color: var(--secondary);
   background: var(--bg-light);
   border: 1px solid var(--secondary);
-  font-weight: bold;
+  font-weight: var(--font-weight);
 }
 
-.Filter_Btn:hover {
-  background: var(--primary-accent);
+.Filter_Btn {
+  padding: 0 15px;
+}
+
+.Download_Invoice_Btn {
+  padding: 0 20px;
+}
+
+.Filter_Btn:hover,
+.Download_Invoice_Btn:hover {
+  background: var(--secondary-accent);
 }
 
 .Filter_Btn.active {
@@ -361,133 +298,27 @@ button {
   background: var(--secondary-light);
 }
 
-.Clear_Filters_Btn {
-  position: relative;
-  height: 40px;
-  padding: 0 15px;
-  color: var(--primary);
-  background: none;
-  border: none;
-  font-weight: bold;
-  text-decoration: underline;
-}
-
-.Clear_Filters_Btn:hover {
-  color: var(--primary-light);
-}
-
-/* ORDER HISTORY BUTTONS */
-.View_Order_Btn {
-  position: relative;
-  height: 40px;
-  padding: 0 20px;
-  color: var(--text-light);
-  background: var(--secondary);
-  border: none;
-  font-weight: bold;
-}
-
-.View_Order_Btn:hover {
-  background: var(--secondary-light);
-}
-
-.Reorder_Btn {
-  position: relative;
-  height: 40px;
-  padding: 0 20px;
-  color: var(--text-light);
-  background: var(--primary);
-  border: none;
-  font-weight: bold;
-}
-
-.Reorder_Btn:hover {
-  background: var(--primary-light);
-}
-
-.Download_Invoice_Btn {
-  position: relative;
-  height: 40px;
-  padding: 0 20px;
-  color: var(--secondary);
-  background: var(--bg-light);
-  border: 1px solid var(--secondary);
-  font-weight: bold;
-}
-
-.Download_Invoice_Btn:hover {
-  background: var(--primary-accent);
-}
-
-/* CLEAR HISTORY BUTTON */
-.Clear_History_Btn {
-  position: relative;
-  height: 40px;
-  padding: 0 20px;
-  color: var(--text-light);
-  background: var(--primary);
-  border: none;
-  font-weight: bold;
-}
-
-.Clear_History_Btn:hover {
-  background: var(--primary-light);
-}
-
-/* AUTH BUTTONS */
-.Login_Btn {
-  position: relative;
-  width: 100%;
-  height: 45px;
-  color: var(--text-light);
-  background: var(--secondary);
-  border: none;
-  font-weight: bold;
-}
-
-.Login_Btn:hover {
-  background: var(--secondary-light);
-}
-
-.Register_Btn {
-  position: relative;
-  width: 100%;
-  height: 45px;
-  color: var(--text-light);
-  background: var(--primary);
-  border: none;
-  font-weight: bold;
-}
-
-.Register_Btn:hover {
-  background: var(--primary-light);
-}
-
-.Logout_Btn {
-  position: relative;
-  height: 40px;
-  padding: 0 20px;
-  color: var(--text-light);
-  background: var(--primary);
-  border: none;
-  font-weight: bold;
-}
-
-.Logout_Btn:hover {
-  background: var(--primary-light);
-}
-
+/* UNDERLINED TEXT-LINK BUTTONS
+   (clear filters / forgot password — differ only in Clear_Filters_Btn's
+   extra height + padding, since it sits inline in the filter bar) */
+.Clear_Filters_Btn,
 .Forgot_Password_Btn {
   position: relative;
   background: none;
   border: none;
-  color: var(--primary);
-  font-weight: bold;
+  color: var(--secondary);
+  font-weight: var(--font-weight);
   text-decoration: underline;
 }
 
+.Clear_Filters_Btn {
+  height: 40px;
+  padding: 0 15px;
+}
+
+.Clear_Filters_Btn:hover,
 .Forgot_Password_Btn:hover {
-  color: var(--primary-light);
+  color: var(--secondary-light);
 }
 
 /* DISABLED STATE */
@@ -514,7 +345,7 @@ button:disabled {
 /* MOBILE (320px - 480px) */
 @media (max-width: 480px) {
   button {
-    font-size: 1rem;
+    font-size: var(--information);
   }
 
   .Primary_Btn,
@@ -531,7 +362,7 @@ button:disabled {
   .Login_Btn,
   .Register_Btn {
     height: 40px;
-    font-size: 1rem;
+    font-size: var(--information);
   }
 
   .Checkout_Btn,
@@ -544,20 +375,20 @@ button:disabled {
   .Qty_Decrement_Btn {
     width: 35px;
     height: 35px;
-    font-size: 1rem;
+    font-size: var(--information);
   }
 
   .Star_Btn {
     width: 40px;
     height: 40px;
-    font-size: 1.5rem;
+    font-size: 1.2rem;
   }
 
   .Prev_Btn,
   .Next_Btn {
     width: 40px;
     height: 40px;
-    font-size: 1rem;
+    font-size: var(--information);
   }
 
   .Filter_Btn,
@@ -568,7 +399,7 @@ button:disabled {
   .Logout_Btn {
     height: 35px;
     padding: 0 12px;
-    font-size: 0.9rem;
+    font-size: var(--fine-print);
   }
 
   .Delete_Btn {
@@ -585,7 +416,7 @@ button:disabled {
 /* TABLET (481px - 768px) */
 @media (min-width: 481px) and (max-width: 768px) {
   button {
-    font-size: 1.2rem;
+    font-size: var(--regular-text);
   }
 
   .Primary_Btn,
@@ -602,20 +433,20 @@ button:disabled {
   .Login_Btn,
   .Register_Btn {
     height: 42px;
-    font-size: 1.1rem;
+    font-size: var(--regular-text);
   }
 
   .Qty_Btn,
   .Qty_Decrement_Btn {
     width: 38px;
     height: 38px;
-    font-size: 1.1rem;
+    font-size: var(--regular-text);
   }
 
   .Star_Btn {
     width: 45px;
     height: 45px;
-    font-size: 1.8rem;
+    font-size: 1.35rem;
   }
 
   .Filter_Btn,
@@ -626,7 +457,7 @@ button:disabled {
   .Logout_Btn {
     height: 38px;
     padding: 0 14px;
-    font-size: 1rem;
+    font-size: var(--information);
   }
 
   .Btn_Group {
@@ -637,7 +468,7 @@ button:disabled {
 /* DESKTOP (769px - 1024px) */
 @media (min-width: 769px) and (max-width: 1024px) {
   button {
-    font-size: 1.3rem;
+    font-size: var(--regular-text);
   }
 
   .Primary_Btn,
@@ -654,20 +485,20 @@ button:disabled {
   .Login_Btn,
   .Register_Btn {
     height: 45px;
-    font-size: 1.2rem;
+    font-size: var(--regular-text);
   }
 
   .Qty_Btn,
   .Qty_Decrement_Btn {
     width: 42px;
     height: 42px;
-    font-size: 1.2rem;
+    font-size: var(--regular-text);
   }
 
   .Star_Btn {
     width: 50px;
     height: 50px;
-    font-size: 2rem;
+    font-size: 1.5rem;
   }
 
   .Filter_Btn,
@@ -678,7 +509,7 @@ button:disabled {
   .Logout_Btn {
     height: 40px;
     padding: 0 16px;
-    font-size: 1rem;
+    font-size: var(--information);
   }
 
   .Btn_Group {
@@ -689,7 +520,7 @@ button:disabled {
 /* LAPTOP & LARGE SCREENS (1025px+) */
 @media (min-width: 1025px) {
   button {
-    font-size: 1.4rem;
+    font-size: var(--subtitle);
   }
 
   .Primary_Btn,
@@ -706,20 +537,20 @@ button:disabled {
   .Login_Btn,
   .Register_Btn {
     height: 48px;
-    font-size: 1.3rem;
+    font-size: var(--subtitle);
   }
 
   .Qty_Btn,
   .Qty_Decrement_Btn {
     width: 45px;
     height: 45px;
-    font-size: 1.3rem;
+    font-size: var(--subtitle);
   }
 
   .Star_Btn {
     width: 55px;
     height: 55px;
-    font-size: 2.2rem;
+    font-size: 1.6rem;
   }
 
   .Filter_Btn,
@@ -730,11 +561,10 @@ button:disabled {
   .Logout_Btn {
     height: 42px;
     padding: 0 20px;
-    font-size: 1.1rem;
+    font-size: var(--regular-text);
   }
 
   .Btn_Group {
     gap: 20px;
   }
 }
-

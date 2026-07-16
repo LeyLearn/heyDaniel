@@ -51,7 +51,7 @@ function isSameDayEligible(\PDO $db, string $deviceSignature, int $userId): arra
 
             if ($response['same_day_eligible']) {
                 if ($userId > 0) {
-                    $stmt = $db->prepare("SELECT 1 FROM OrderSent WHERE UserID = ? AND OrderStatus = 'Processing' LIMIT 1");
+                    $stmt = $db->prepare("SELECT 1 FROM OrderSent WHERE UserID = ? AND (OrderStatus = 'Processing' OR OrderStatus = 'Pending') LIMIT 1");
                     $stmt->execute([$userId]);
                     $response['has_active_order'] = $stmt->fetchColumn() !== false;
                 } else {
@@ -82,122 +82,194 @@ function generateDeviceSignature(): string
     return hash('sha256', $payload);
 }
 
-function DeviceLog(\PDO $db, string $deviceSignature, string $deviceType, string $zipcode): array
+// Replaces the old DeviceLog() + logDevice() + cartHasPerishables() split.
+// Resolves the submitted zip, and only commits it to the Devices table
+// immediately if there's nothing to ask the user about first:
+//   - new zip IS same-day eligible            -> smooth, commit now
+//   - new zip ISN'T eligible, cart has no perishables -> also smooth, commit now
+//   - new zip ISN'T eligible, cart HAS perishables    -> hold off; caller
+//     must show the conflict and only commit via removePerishablesFromCart()
+//     once the user confirms (see that function below).
+function updateDeviceZip(\PDO $db, string $deviceSignature, string $deviceType, string $zipcode, int $userId): array
 {
     $response = [
-        'zipcode'           => $zipcode,
-        'same_day_eligible' => false,
-        'tax_rate'          => 0.00,
-        'city'              => null,
-        'state'             => null,
-        'message'           => null,
-        'error'             => null
+        'zipcode'               => $zipcode,
+        'same_day_eligible'     => false,
+        'tax_rate'              => 0.00,
+        'city'                  => null,
+        'state'                 => null,
+        'requires_confirmation' => false,
+        'perishable_items'      => [],
+        'message'               => null,
+        'error'                 => null
     ];
 
-    // SECURITY: Input validation (Vulnerability #11, #15, #19)
-    // Validate device signature format (should be SHA256 hash)
-    if (
-        $deviceSignature === ""
-        || strlen($deviceSignature) !== 64
-        || !preg_match('/^[a-f0-9]{64}$/', $deviceSignature)
-    ) {
+    // 1. Input validation
+    if (!preg_match('/^[a-f0-9]{64}$/', $deviceSignature)) {
         $response['error'] = "Invalid device signature format.";
+        $response['message'] = "There has been an error, please try again later.";
         return $response;
     }
 
-    // Validate device type (SQL injection prevention for Vulnerability #15)
     $validDeviceTypes = ['iOS', 'Android', 'Web'];
-    if ($deviceType === "" || !in_array($deviceType, $validDeviceTypes, true)) {
-        $response['message'] = "Invalid device type.";
+    if (!in_array($deviceType, $validDeviceTypes, true)) {
+        $response['error'] = "Invalid device type.";
+        $response['message'] = "There has been an error, please try again later.";
         return $response;
     }
 
-    // Validate zipcode
-    if (
-        $zipcode === ""
-        || strlen($zipcode) > 16
-        || !preg_match('/^[a-zA-Z0-9\- ]+$/', $zipcode)
-    ) {
-        $response['message'] = "Invalid zipcode format.";
+    if (!preg_match('/^[a-zA-Z0-9\- ]{1,16}$/', $zipcode)) {
+        $response['error'] = "Invalid zipcode format.";
+        $response['message'] = "There has been an error, please try again later.";
         return $response;
     }
+    $validZip = "https://api.zippopotam.us/us/" . urlencode($zipcode);
+    $zipResponse = @file_get_contents($validZip);
 
-    $columnMap = [
-        'iOS'     => 'AppleDevice',
-        'Android' => 'AndroidDevice',
-        'Web'     => 'WebDevice'
-    ];
+    if (!$zipResponse) {
+        $response['error'] = "Invalid zipcode format.";
+        $response['message'] = "There has been an error, please try again later.";
+        return $response;
+    }
+    // $zipResponse itself is only used to confirm the zip is real — the
+    // actual city/state/tax data now comes from the zip-tax.com call below.
 
-    $isActive       = true;
-    $dateRegistered = date("Y-m-d H:i:s");
+    $cacheKey = "zipcode:{$zipcode}";
 
     try {
-        $cacheKey = "zipcode:{$zipcode}";
-        $cachedZipcode = QueryCache::get($cacheKey);
+        // 2. Cache/DB Layer Fetch
+        $row = QueryCache::get($cacheKey);
 
-        if ($cachedZipcode) {
-            $row = $cachedZipcode;
-        } else {
+        if (!$row) {
             $stmt = $db->prepare("SELECT City, State, isSameDayEligible, TaxRate FROM ZipcodeAllowed WHERE Zipcode = ? LIMIT 1");
             $stmt->execute([$zipcode]);
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $row = $stmt->fetch(\PDO::FETCH_ASSOC);
 
             if ($row) {
-                QueryCache::set($cacheKey, $row, 86400); // Cache for 24 hours
+                QueryCache::set($cacheKey, $row, 86400);
             }
         }
 
-        if ($row) {
-            $response['city']                = (string)($row['City'] ?? 'Unknown');
-            $response['state']               = (string)($row['State'] ?? 'Unknown');
-            $response['same_day_eligible'] = (bool)$row['isSameDayEligible'];
-            $response['tax_rate']          = (float)($row['TaxRate'] ?? 0.10);
-        } else {
-            $config = parse_ini_file('/path/to/.env');
-            $apiKey = $config['ZIPTAX_KEY'];
+        // 3. Fallback to External API (When Zipcode is missing or needs tax updates)
+        if (!$row) {
+            $fallbackTax = 0.10;
+            $fallbackCity = 'Unknown';
+            $fallbackState = 'Unknown';
 
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, "https://api.zip.tax/v1/rates?key={$apiKey}&zip={$zipcode}");
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            $taxInformation = curl_exec($ch);
-            curl_close($ch);
+            // $apiKey = $_ENV['TAX_KEY'] ?? '';
+            // if (empty($apiKey)) {
+            //     $response['error'] = "can't find .env file.";
+            //     $response['message'] = "An unexpected error occurred.";
+            //     return $response;
+            // }
 
-            if ($taxInformation === false) {
-                $response['tax_rate'] = 0.10;
-                $response['city'] = 'Unknown';
-                $response['state'] = 'Unknown';
-                $stmt = $db->prepare("INSERT INTO ZipcodeAllowed (Zipcode, City, State, isSameDayEligible, TaxRate) VALUES (?, ?, ?, ?, ?)");
-                $stmt->execute([$zipcode, $response['city'], $response['state'], false, $response['tax_rate']]);
-            } else {
-                $data   = json_decode($taxInformation, true);
-                $result = $data['results'][0] ?? null;
+            // $ch = curl_init();
+            // curl_setopt($ch, CURLOPT_URL, "https://api.zip-tax.com/request/v60?key=" . urlencode($apiKey) . "&postalcode=" . urlencode($zipcode));
+            // curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            // curl_setopt($ch, CURLOPT_TIMEOUT, 5);
 
-                if ($result) {
-                    $response['tax_rate'] = (float)($result['taxSales'] ?? 0.10);
-                    $response['city'] = (string)($result['city'] ?? 'Unknown');
-                    $response['state'] = (string)($result['state'] ?? 'Unknown');
-                } else {
-                    $response['tax_rate'] = 0.10;
-                    $response['city'] = 'Unknown';
-                    $response['state'] = 'Unknown';
+            // $taxInformation = curl_exec($ch);
+            // $httpStatus = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            // curl_close($ch);
+
+            // if ($taxInformation !== false && $httpStatus === 200) {
+            //     $taxData = json_decode($taxInformation, true);
+            //     $result = $taxData['results'][0] ?? null;
+            //     if ($result) {
+            //         $fallbackTax = (float)($result['taxSales'] ?? 0.10);
+            //         $fallbackCity = (string)($result['geoCity'] ?? 'Unknown');
+            //         $fallbackState = (string)($result['geoState'] ?? 'Unknown');
+            //     }
+            // }
+
+            /*
+             * Atomic Upsert Logic:
+             * 1. Missing zipcodes are inserted with isSameDayEligible = 0.
+             * 2. Existing zipcodes (whitelisted) only update their TaxRate, preserving eligibility status.
+             */
+            $stmt = $db->prepare("
+                INSERT INTO ZipcodeAllowed (Zipcode, City, State, isSameDayEligible, TaxRate)
+                VALUES (?, ?, ?, 0, ?)
+                ON DUPLICATE KEY UPDATE
+                    TaxRate = VALUES(TaxRate)
+            ");
+            $stmt->execute([$zipcode, $fallbackCity, $fallbackState, $fallbackTax]);
+
+            // Re-fetch guarantees $row accurately reflects the post-upsert state of `isSameDayEligible`
+            $stmt = $db->prepare("SELECT City, State, isSameDayEligible, TaxRate FROM ZipcodeAllowed WHERE Zipcode = ? LIMIT 1");
+            $stmt->execute([$zipcode]);
+            $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+            QueryCache::set($cacheKey, $row, 86400);
+        }
+
+        // 4. Hydrate Response
+        $response['city']              = (string)$row['City'];
+        $response['state']             = (string)$row['State'];
+        $response['same_day_eligible'] = (bool)$row['isSameDayEligible'];
+        $response['tax_rate']          = (float)$row['TaxRate'];
+    } catch (\Throwable $e) {
+        error_log("Error in updateDeviceZip: " . $e->getMessage());
+        $response['error'] = "Internal server error. " . $e->getMessage();
+        $response['message'] = "An unexpected error occurred.";
+        return $response;
+    }
+
+    // 5. If the new zip isn't eligible, a conflict is only possible if the
+    // cart actually holds perishables — check before committing anything.
+    if (!$response['same_day_eligible'] && $userId > 0) {
+        try {
+            $stmt = $db->prepare("
+                SELECT p.Id AS ProductId, p.Name
+                FROM Cart c
+                INNER JOIN Products p ON p.Id = c.ProductId
+                INNER JOIN ProductCategories pc ON pc.ProductId = c.ProductId
+                WHERE c.UserId = ? AND pc.MainCategory IN ('Grocery', 'Frozen', 'Produce', 'Dairy')
+            ");
+            $stmt->execute([$userId]);
+            $perishables = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+            if (!empty($perishables)) {
+                foreach ($perishables as $item) {
+                    $response['perishable_items'][] = [
+                        'product_id' => (int)$item['ProductId'],
+                        'name'       => $item['Name']
+                    ];
                 }
-
-                $stmt = $db->prepare("INSERT INTO ZipcodeAllowed (Zipcode, City, State, isSameDayEligible, TaxRate) VALUES (?, ?, ?, ?, ?)");
-                $stmt->execute([$zipcode, $response['city'], $response['state'], false, $response['tax_rate']]);
+                $response['requires_confirmation'] = true;
+                return $response; // hold off — caller must not commit yet
             }
+        } catch (\PDOException $e) {
+            error_log("DB Error in updateDeviceZip (perishables check): " . $e->getMessage());
+            $response['error'] = "Internal server error while checking cart.";
+            return $response;
         }
+    }
 
-        $stmt = $db->prepare("INSERT INTO Devices (DeviceSignature, DeviceType, Zipcode, isSameDayEligible, isActive, DateAdded) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$deviceSignature, $deviceType, $zipcode, $response['same_day_eligible'], $isActive, $dateRegistered]);
+    // 6. No conflict — safe to commit the device's new zip/eligibility now.
+    // This write is what isSameDayEligible() reads back on every future page
+    // load to rehydrate the session, so it must never happen before we know
+    // there's nothing left for the user to confirm.
+    try {
+        $stmt = $db->prepare("INSERT INTO Devices (DeviceSignature, DeviceType, Zipcode, isSameDayEligible, isActive, DateAdded)
+                VALUES (?, ?, ?, ?, 1, NOW())
+                ON DUPLICATE KEY UPDATE
+                    DeviceType = VALUES(DeviceType),
+                    Zipcode = VALUES(Zipcode),
+                    isSameDayEligible = VALUES(isSameDayEligible),
+                    isActive = VALUES(isActive),
+                    DateAdded = VALUES(DateAdded)
+        ");
+        $stmt->execute([$deviceSignature, $deviceType, $zipcode, $response['same_day_eligible'] ? 1 : 0]);
     } catch (\PDOException $e) {
-        error_log("DB Error in DeviceLog: " . $e->getMessage());
-        $response['error'] = "Internal server error during device logging.";
+        error_log("DB Error in updateDeviceZip (commit): " . $e->getMessage());
+        $response['error'] = "Internal server error while logging device.";
     }
 
     return $response;
 }
 
-function cartIcon(\PDO $db, int $userId, bool $isSameDayEligible): array
+function cartIcon(\PDO $db, int $userId): array
 {
     $response = [
         'icon' => 'icon_cart',
@@ -208,10 +280,6 @@ function cartIcon(\PDO $db, int $userId, bool $isSameDayEligible): array
 
     if ($userId <= 0) {
         return $response; // Not logged in, return default cart icon
-    }
-
-    if (!$isSameDayEligible) {
-        return $response; // Not eligible for same-day, return default cart icon
     }
 
     try {
@@ -252,7 +320,7 @@ function cartContent(\PDO $db, int $userId, float $taxRate): array
             $sql = " SELECT
         src.ProductId,
         p.*,
-        COALESCE(s.isSaved, 0)      AS isSaved,
+        CASE WHEN s.Id IS NOT NULL THEN 1 ELSE 0 END AS isSaved,
         COALESCE(src.Quantity, 0)   AS ItemQuantity,
         COALESCE(r.avg_rating, 0)   AS avg_rating,
         COALESCE(r.review_count, 0) AS review_count
@@ -290,7 +358,7 @@ function cartContent(\PDO $db, int $userId, float $taxRate): array
                 'product_id'    => $row['ProductId'],
                 'brand'        => $row['Brand'],
                 'name'         => $row['Name'],
-                'oz'           => $row['Oz'],
+                'oz'           => $row['Size'],
                 'price'        => (float)round($row['Price'] * (1 + $taxRate), 2),
                 'picture'      => $row['Picture'],
                 'is_on_sale'     => (bool)$row['isOnSale'],
@@ -331,6 +399,71 @@ function clearCart(\PDO $db, int $userId): array
     } catch (\PDOException $e) {
         error_log("DB Error in clearCart: " . $e->getMessage());
         $response['error'] = "Internal server error during cart clearance.";
+    }
+
+    return $response;
+}
+
+// The Continue-click half of the flow: the user already saw the conflict
+// from updateDeviceZip() and chose to proceed, so this both clears the
+// perishables AND finalizes the zip commit that updateDeviceZip() held off
+// on — eligibility is already known to be false here (that's the only way
+// this path gets reached), so there's no need to re-resolve it.
+function removePerishablesFromCart(\PDO $db, int $userId, string $deviceSignature, string $deviceType, string $zipcode): array
+{
+    $response = [
+        'removed_count' => 0,
+        'city'          => null,
+        'state'         => null,
+        'tax_rate'      => 0.00,
+        'error'         => null
+    ];
+
+    if ($userId <= 0) {
+        $response['error'] = "User not authenticated.";
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            DELETE c FROM Cart c
+            INNER JOIN ProductCategories pc ON pc.ProductId = c.ProductId
+            WHERE c.UserId = ? AND pc.MainCategory IN ('Grocery', 'Frozen', 'Produce', 'Dairy')
+        ");
+        $stmt->execute([$userId]);
+        $response['removed_count'] = $stmt->rowCount();
+
+        QueryCache::delete("cart_content:{$userId}");
+
+        // Plain read for display — the zip was already resolved (and found
+        // non-eligible) by updateDeviceZip() moments earlier, so this isn't
+        // a full re-resolve and never touches the external zip API.
+        $cacheKey = "zipcode:{$zipcode}";
+        $zipRow = QueryCache::get($cacheKey);
+
+        if (!$zipRow) {
+            $stmt = $db->prepare("SELECT City, State, TaxRate FROM ZipcodeAllowed WHERE Zipcode = ? LIMIT 1");
+            $stmt->execute([$zipcode]);
+            $zipRow = $stmt->fetch(\PDO::FETCH_ASSOC);
+        }
+
+        $response['city']     = $zipRow['City'] ?? null;
+        $response['state']    = $zipRow['State'] ?? null;
+        $response['tax_rate'] = (float)($zipRow['TaxRate'] ?? 0.00);
+
+        $stmt = $db->prepare("INSERT INTO Devices (DeviceSignature, DeviceType, Zipcode, isSameDayEligible, isActive, DateAdded)
+                VALUES (?, ?, ?, 0, 1, NOW())
+                ON DUPLICATE KEY UPDATE
+                    DeviceType = VALUES(DeviceType),
+                    Zipcode = VALUES(Zipcode),
+                    isSameDayEligible = VALUES(isSameDayEligible),
+                    isActive = VALUES(isActive),
+                    DateAdded = VALUES(DateAdded)
+        ");
+        $stmt->execute([$deviceSignature, $deviceType, $zipcode]);
+    } catch (\PDOException $e) {
+        error_log("DB Error in removePerishablesFromCart: " . $e->getMessage());
+        $response['error'] = "Internal server error while updating cart.";
     }
 
     return $response;
@@ -483,7 +616,7 @@ function savedCount(\PDO $db, int $userId): array
     try {
         $stmt = $db->prepare("SELECT COUNT(*) FROM Saved WHERE UserId = ?");
         $stmt->execute([$userId]);
-        $response['wishlist_count'] = (int)$stmt->fetchColumn();
+        $response['saved_count'] = (int)$stmt->fetchColumn();
     } catch (\PDOException $e) {
         error_log("DB Error in wishListCount: " . $e->getMessage());
         $response['error'] = "Internal server error during wishlist count retrieval.";
@@ -553,7 +686,7 @@ function savedContent(\PDO $db, int $userId, bool $hasActiveOrder, float $taxRat
     if ($userId <= 0) {
         $response['message'] = "need to log in";
         return $response;
-         // Not logged in, return default response
+        // Not logged in, return default response
     }
 
     $table = $hasActiveOrder ? 'Process' : 'Cart';
@@ -610,11 +743,11 @@ function savedContent(\PDO $db, int $userId, bool $hasActiveOrder, float $taxRat
                 'product_id'   => $row['ProductId'],
                 'brand'        => $row['Brand'],
                 'name'         => $row['Name'],
-                'oz'           => $row['Oz'],
-                'price'        => (float)round($row['Price'] * $taxRate, 2),
+                'oz'           => $row['Size'],
+                'price'        => (float)round($row['Price'] * (1 + $taxRate), 2),
                 'picture'      => $row['Picture'],
                 'is_on_sale'   => (bool)$row['isOnSale'],
-                'sale_price'   => (float)round($row['SalePrice'] * $taxRate, 2),
+                'sale_price'   => (float)round($row['SalePrice'] * (1 + $taxRate), 2),
                 'is_bogo'      => (bool)$row['isBogo'],
                 'is_bought'    => (bool)$row['isbought'],
                 'quantity'     => (int)$row['ItemQuantity'],
@@ -678,6 +811,7 @@ function pullingProducts(\PDO $db, bool $isSameDayEligible, string $table, int $
 {
     $response = [
         'products' => [],
+        'message' => null,
         'error'    => null
     ];
 
@@ -688,14 +822,21 @@ function pullingProducts(\PDO $db, bool $isSameDayEligible, string $table, int $
         return $response;
     }
 
-    // $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
+    if ($table === "Recommendations") {
+        $table = "SearchHistory";
+    } else if ($table === "RecentlyBought") {
+        $table = "ItemBoughtHistory";
+    } else {
+        $table = "RecentlyViewed";
+    }
+
 
     try {
         $buildQuery = "
             SELECT
                 r.ProductId,
                 p.*,
-                COALESCE(s.isSaved, 0)       AS isSaved,
+                CASE WHEN s.Id IS NOT NULL THEN 1 ELSE 0 END AS isSaved,
                 COALESCE(cart.Quantity, 0)   AS CartQuantity,
                 COALESCE(proc.Quantity, 0)   AS ProcessQuantity,
                 COALESCE(rv.avg_rating, 0)   AS avg_rating,
@@ -733,11 +874,11 @@ function pullingProducts(\PDO $db, bool $isSameDayEligible, string $table, int $
                 'product_id'   => $item['ProductId'],
                 'brand'        => $item['Brand'],
                 'name'         => $item['Name'],
-                'oz'           => $item['Oz'],
-                'price'        => (float)round($item['Price'] * $taxRate, 2),
+                'oz'           => $item['Size'],
+                'price'        => (float)round($item['Price'] + ($item['Price'] * $taxRate), 2),
                 'picture'      => $item['Picture'],
                 'is_on_sale'   => (bool)$item['isOnSale'],
-                'sale_price'   => (float)round($item['SalePrice'] * $taxRate, 2),
+                'sale_price'   => (float)round($item['SalePrice'] + ($item['SalePrice'] * $taxRate), 2),
                 'is_bogo'      => (bool)$item['isBogo'],
                 'is_saved'     => (bool)$item['isSaved'],
                 'in_cart'      => $item['CartQuantity'] > 0,
@@ -752,6 +893,92 @@ function pullingProducts(\PDO $db, bool $isSameDayEligible, string $table, int $
     } catch (\PDOException $e) {
         error_log("DB Error in pullingProducts: " . $e->getMessage());
         $response['error'] = "Internal server error during product fetch.";
+    }
+
+    return $response;
+}
+
+function recentlyViewed(\PDO $db, int $userId, string $deviceSignature, bool $isSameDayEligible, float $taxRate): array
+{
+    $response = [
+        'products' => [],
+        'error'    => null
+    ];
+
+    if ($userId <= 0 && $deviceSignature === '') {
+        return $response;
+    }
+
+    try {
+        // The dedup (latest view per product) has to happen in its own
+        // GROUP BY before joining Products — grouping by rv.ProductId at the
+        // outer level while selecting p.* would violate ONLY_FULL_GROUP_BY,
+        // since MySQL/MariaDB can't infer that a joined table's columns are
+        // functionally dependent on another table's grouped column.
+        $stmt = $db->prepare("
+            SELECT
+                rv.ProductId,
+                p.*,
+                CASE WHEN s.Id IS NOT NULL THEN 1 ELSE 0 END AS isSaved,
+                COALESCE(cart.Quantity, 0)   AS CartQuantity,
+                COALESCE(proc.Quantity, 0)   AS ProcessQuantity,
+                COALESCE(r.avg_rating, 0)    AS avg_rating,
+                COALESCE(r.review_count, 0)  AS review_count
+            FROM (
+                SELECT ProductId, MAX(DateViewed) AS LastViewed
+                FROM RecentlyViewed
+                WHERE UserId = ? OR DeviceSignature = ?
+                GROUP BY ProductId
+            ) rv
+            INNER JOIN Products p ON p.Id = rv.ProductId
+            LEFT JOIN Saved s
+                ON s.ProductId = rv.ProductId AND s.UserId = ?
+            LEFT JOIN Cart cart
+                ON cart.ProductId = rv.ProductId AND cart.UserId = ?
+            LEFT JOIN Process proc
+                ON proc.ProductId = rv.ProductId AND proc.UserId = ?
+            LEFT JOIN (
+                SELECT
+                    ProductId,
+                    ROUND(AVG(Stars), 2) AS avg_rating,
+                    COUNT(*)             AS review_count
+                FROM ItemReviews
+                GROUP BY ProductId
+            ) r ON r.ProductId = rv.ProductId
+            LEFT JOIN ProductCategories pc ON pc.ProductId = rv.ProductId
+            WHERE (? = 1 OR pc.MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy'))
+            ORDER BY rv.LastViewed DESC
+            LIMIT 16
+        ");
+        $stmt->execute([$userId, $deviceSignature, $userId, $userId, $userId, (int)$isSameDayEligible]);
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($results as $item) {
+            $inProcess = $item['ProcessQuantity'] > 0;
+
+            $response['products'][] = [
+                'product_id'   => (int)$item['ProductId'],
+                'brand'        => $item['Brand'],
+                'name'         => $item['Name'],
+                'oz'           => $item['Size'],
+                'price'        => (float)round($item['Price'] * (1 + $taxRate), 2),
+                'picture'      => $item['Picture'],
+                'is_on_sale'   => (bool)$item['isOnSale'],
+                'sale_price'   => (float)round($item['SalePrice'] * (1 + $taxRate), 2),
+                'is_bogo'      => (bool)$item['isBogo'],
+                'is_saved'     => (bool)$item['isSaved'],
+                'in_cart'      => $item['CartQuantity'] > 0,
+                'in_process'   => $inProcess,
+                'quantity'     => $inProcess ? (int)$item['ProcessQuantity'] : (int)$item['CartQuantity'],
+                'rating'       => $item['review_count'] > 0
+                    ? round((float)$item['avg_rating'], 2)
+                    : "No ratings yet",
+                'review_count' => (int)$item['review_count']
+            ];
+        }
+    } catch (\PDOException $e) {
+        error_log("DB Error in recentlyViewed: " . $e->getMessage());
+        $response['error'] = "Internal server error during recently-viewed fetch.";
     }
 
     return $response;
@@ -784,9 +1011,9 @@ function searchEngine(\PDO $db, string $searchTerm, bool $isSameDayEligible, flo
                 pc.MainCategory   LIKE ? OR
                 pc.SubCategory    LIKE ? OR
                 pc.ThirdCategory  LIKE ? OR
-                pc.Ext_Category   LIKE ? OR
+                pc.ExtCategory    LIKE ? OR
                 p.Name            LIKE ? OR
-                p.Oz              LIKE ?
+                p.Size            LIKE ?
             )
             {$eligibilityFilter}
             LIMIT 7
@@ -801,11 +1028,11 @@ function searchEngine(\PDO $db, string $searchTerm, bool $isSameDayEligible, flo
                 'product_id' => $row['Id'],
                 'brand'      => $row['Brand'],
                 'name'       => $row['Name'],
-                'oz'         => $row['Oz'],
-                'price'      => (float)round($row['Price'] * $taxRate, 2),
+                'oz'         => $row['Size'],
+                'price'      => (float)round($row['Price'] * (1 + $taxRate), 2),
                 'picture'    => $row['Picture'],
                 'is_on_sale' => (bool)$row['isOnSale'],
-                'sale_price' => (float)round($row['SalePrice'] * $taxRate, 2),
+                'sale_price' => (float)round($row['SalePrice'] * (1 + $taxRate), 2),
                 'is_bogo'    => (bool)$row['isBogo'],
             ];
         }
@@ -828,8 +1055,8 @@ function store(\PDO $db, int $userId, bool $hasActiveOrder, bool $isSameDayEligi
 
     $table = $hasActiveOrder ? 'Process' : 'Cart';
 
-    $productFilters  = ['Brand', 'Name', 'Oz', 'Price', 'isOnSale', 'SalePrice', 'isBogo', 'inStock'];
-    $categoryFilters = ['MainCategory', 'SubCategory', 'ThirdCategory', 'Ext_Category'];
+    $productFilters  = ['Brand', 'Name', 'Size', 'Price', 'isOnSale', 'SalePrice', 'isBogo', 'inStock'];
+    $categoryFilters = ['MainCategory', 'SubCategory', 'ThirdCategory', 'ExtCategory'];
 
     $whereClauses = ["p.inStock = 1"];
     $params       = [$userId, $userId, $userId];
@@ -858,8 +1085,8 @@ function store(\PDO $db, int $userId, bool $hasActiveOrder, bool $isSameDayEligi
                 pc.MainCategory,
                 pc.SubCategory,
                 pc.ThirdCategory,
-                pc.Ext_Category,
-                COALESCE(s.isSaved, 0)       AS isSaved,
+                pc.ExtCategory,
+                CASE WHEN s.Id IS NOT NULL THEN 1 ELSE 0 END AS isSaved,
                 COALESCE(cart.Quantity, 0)   AS CartQuantity,
                 COALESCE(proc.Quantity, 0)   AS ProcessQuantity,
                 COALESCE(rv.avg_rating, 0)   AS avg_rating,
@@ -902,12 +1129,12 @@ function store(\PDO $db, int $userId, bool $hasActiveOrder, bool $isSameDayEligi
                 'product_id'     => (int)$product['Id'],
                 'brand'          => $product['Brand'],
                 'name'           => $product['Name'],
-                'oz'             => $product['Oz'],
-                'price'          => (float)round($product['Price'] * $taxRate, 2),
+                'oz'             => $product['Size'],
+                'price'          => (float)round($product['Price'] * (1 + $taxRate), 2),
                 'picture'        => $product['Picture'],
                 'description'    => $product['Description'],
                 'is_on_sale'     => (bool)$product['isOnSale'],
-                'sale_price'     => (float)round($product['SalePrice'] * $taxRate, 2),
+                'sale_price'     => (float)round($product['SalePrice'] * (1 + $taxRate), 2),
                 'is_bogo'        => (bool)$product['isBogo'],
                 'in_stock'       => (bool)$product['inStock'],
                 'is_saved'       => (bool)$product['isSaved'],
@@ -919,7 +1146,7 @@ function store(\PDO $db, int $userId, bool $hasActiveOrder, bool $isSameDayEligi
                 'main_category'  => $product['MainCategory'],
                 'sub_category'   => $product['SubCategory'],
                 'third_category' => $product['ThirdCategory'],
-                'ext_category'   => $product['Ext_Category'],
+                'ext_category'   => $product['ExtCategory'],
                 'rating'         => $product['review_count'] > 0
                     ? round((float)$product['avg_rating'], 2)
                     : "No ratings yet",
@@ -963,8 +1190,8 @@ function store(\PDO $db, int $userId, bool $hasActiveOrder, bool $isSameDayEligi
                 pc.MainCategory,
                 pc.SubCategory,
                 pc.ThirdCategory,
-                pc.Ext_Category,
-                COALESCE(s.isSaved, 0)      AS isSaved,
+                pc.ExtCategory,
+                CASE WHEN s.Id IS NOT NULL THEN 1 ELSE 0 END AS isSaved,
                 COALESCE(cart.Quantity, 0)  AS CartQuantity,
                 COALESCE(proc.Quantity, 0)  AS ProcessQuantity
             FROM Products p
@@ -995,12 +1222,12 @@ function store(\PDO $db, int $userId, bool $hasActiveOrder, bool $isSameDayEligi
                 'product_id'     => (int)$similar['Id'],
                 'brand'          => $similar['Brand'],
                 'name'           => $similar['Name'],
-                'oz'             => $similar['Oz'],
-                'price'          => (float)round($similar['Price'] * $taxRate, 2),
+                'oz'             => $similar['Size'],
+                'price'          => (float)round($similar['Price'] * (1 + $taxRate), 2),
                 'picture'        => $similar['Picture'],
                 'description'    => $similar['Description'],
                 'is_on_sale'     => (bool)$similar['isOnSale'],
-                'sale_price'     => (float)round($similar['SalePrice'] * $taxRate, 2),
+                'sale_price'     => (float)round($similar['SalePrice'] * (1 + $taxRate), 2),
                 'is_bogo'        => (bool)$similar['isBogo'],
                 'in_stock'       => (bool)$similar['inStock'],
                 'is_saved'       => (bool)$similar['isSaved'],
@@ -1012,7 +1239,7 @@ function store(\PDO $db, int $userId, bool $hasActiveOrder, bool $isSameDayEligi
                 'main_category'  => $similar['MainCategory'],
                 'sub_category'   => $similar['SubCategory'],
                 'third_category' => $similar['ThirdCategory'],
-                'ext_category'   => $similar['Ext_Category'],
+                'ext_category'   => $similar['ExtCategory'],
             ];
         }
     } catch (\PDOException $e) {
@@ -1048,8 +1275,8 @@ function productDetails(\PDO $db, int $productId, int $userId, bool $hasActiveOr
                 pc.MainCategory,
                 pc.SubCategory,
                 pc.ThirdCategory,
-                pc.Ext_Category,
-                COALESCE(s.isSaved, 0)      AS isSaved,
+                pc.ExtCategory,
+                CASE WHEN s.Id IS NOT NULL THEN 1 ELSE 0 END AS isSaved,
                 COALESCE(cart.Quantity, 0)  AS CartQuantity,
                 COALESCE(proc.Quantity, 0)  AS ProcessQuantity,
                 COALESCE(rv.avg_rating, 0)  AS avg_rating,
@@ -1090,12 +1317,12 @@ function productDetails(\PDO $db, int $productId, int $userId, bool $hasActiveOr
             'product_id'     => (int)$product['Id'],
             'brand'          => $product['Brand'],
             'name'           => $product['Name'],
-            'oz'             => $product['Oz'],
-            'price'          => (float)round($product['Price'] * $taxRate, 2),
+            'oz'             => $product['Size'],
+            'price'          => (float)round($product['Price'] * (1 + $taxRate), 2),
             'picture'        => $product['Picture'],
             'description'    => $product['Description'],
             'is_on_sale'     => (bool)$product['isOnSale'],
-            'sale_price'     => (float)round($product['SalePrice'] * $taxRate, 2),
+            'sale_price'     => (float)round($product['SalePrice'] * (1 + $taxRate), 2),
             'is_bogo'        => (bool)$product['isBogo'],
             'in_stock'       => (bool)$product['inStock'],
             'is_saved'       => (bool)$product['isSaved'],
@@ -1107,7 +1334,7 @@ function productDetails(\PDO $db, int $productId, int $userId, bool $hasActiveOr
             'main_category'  => $product['MainCategory'],
             'sub_category'   => $product['SubCategory'],
             'third_category' => $product['ThirdCategory'],
-            'ext_category'   => $product['Ext_Category'],
+            'ext_category'   => $product['ExtCategory'],
             'rating'         => $product['review_count'] > 0
                 ? round((float)$product['avg_rating'], 2)
                 : "No ratings yet",
@@ -1121,9 +1348,125 @@ function productDetails(\PDO $db, int $productId, int $userId, bool $hasActiveOr
     return $response;
 }
 
-function registerUser(\PDO $db, string $userName, string $email, string $password): array
+function getReviews(\PDO $db, int $productId, int $page, int $limit): array
+{
+    $response = [
+        'reviews'     => [],
+        'total_count' => 0,
+        'avg_rating'  => 0,
+        'error'       => null
+    ];
+
+    if ($productId <= 0) {
+        $response['error'] = "Invalid product ID.";
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            SELECT COUNT(*) AS ReviewCount, ROUND(AVG(Stars), 2) AS AvgRating
+            FROM ItemReviews
+            WHERE ProductId = ?
+        ");
+        $stmt->execute([$productId]);
+        $counts = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $response['total_count'] = (int)$counts['ReviewCount'];
+        $response['avg_rating']  = $counts['ReviewCount'] > 0 ? (float)$counts['AvgRating'] : 0;
+
+        $offset = ($page - 1) * $limit;
+
+        $stmt = $db->prepare("
+            SELECT r.Id, r.Stars, r.Expectation, r.ReviewTitle, r.Review, r.DateAdded, u.Name AS UserName
+            FROM ItemReviews r
+            INNER JOIN Users u ON u.Id = r.UserId
+            WHERE r.ProductId = ?
+            ORDER BY r.DateAdded DESC
+            LIMIT ? OFFSET ?
+        ");
+        $stmt->bindValue(1, $productId, PDO::PARAM_INT);
+        $stmt->bindValue(2, $limit, PDO::PARAM_INT);
+        $stmt->bindValue(3, $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as $row) {
+            $response['reviews'][] = [
+                'review_id'   => (int)$row['Id'],
+                'user_name'   => $row['UserName'],
+                'stars'       => (int)$row['Stars'],
+                'expectation' => (int)$row['Expectation'],
+                'title'       => $row['ReviewTitle'],
+                'review'      => $row['Review'],
+                'date_added'  => $row['DateAdded']
+            ];
+        }
+    } catch (\PDOException $e) {
+        error_log("DB Error in getReviews: " . $e->getMessage());
+        $response['error'] = "Internal server error during review fetch.";
+    }
+
+    return $response;
+}
+
+function addReview(\PDO $db, int $userId, int $productId, int $stars, int $expectation, string $title, string $review): array
 {
     $response = ['error' => null];
+
+    if ($userId <= 0) {
+        $response['error'] = "User not authenticated. Please log in.";
+        return $response;
+    }
+
+    if ($productId <= 0) {
+        $response['error'] = "Invalid product ID.";
+        return $response;
+    }
+
+    if ($stars < 1 || $stars > 5) {
+        $response['error'] = "Star rating must be between 1 and 5.";
+        return $response;
+    }
+
+    if ($expectation < 1 || $expectation > 5) {
+        $response['error'] = "Expectation rating must be between 1 and 5.";
+        return $response;
+    }
+
+    $title  = trim($title);
+    $review = trim($review);
+
+    if ($title === '' || strlen($title) > 255) {
+        $response['error'] = "Review title is required and must be under 255 characters.";
+        return $response;
+    }
+
+    if ($review === '') {
+        $response['error'] = "Review text is required.";
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            INSERT INTO ItemReviews (UserId, ProductId, Stars, Expectation, ReviewTitle, Review)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([$userId, $productId, $stars, $expectation, $title, $review]);
+    } catch (\PDOException $e) {
+        error_log("DB Error in addReview: " . $e->getMessage());
+        $response['error'] = "Internal server error during review submission.";
+    }
+
+    return $response;
+}
+
+function registerUser(\PDO $db, string $userName, string $email, string $password): array
+{
+    $response = [
+        'success' => false,
+        'message' => null,
+        'error' => null
+    ];
 
     try {
         $db->beginTransaction();
@@ -1132,29 +1475,29 @@ function registerUser(\PDO $db, string $userName, string $email, string $passwor
         $stmt->execute([$email]);
         if ($stmt->fetchColumn()) {
             $db->rollBack();
-            $response['error'] = "Registration failed.";
+            $response['message'] = "Registration failed. Try logging in!";
             return $response;
         }
 
         $stmt = $db->prepare("
-            INSERT INTO Users (Name, Email, Password, Phone, Credits, isMember, isActive, TimeRegister) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+            INSERT INTO Users (Name, Email, Password, Credits, isMember, isActive, TimeRegister) 
+            VALUES (?, ?, ?, ?, ?, ?, NOW())
         ");
         $stmt->execute([
             $userName,
             $email,
             password_hash($password, PASSWORD_BCRYPT),
-            null,
             0.00,
-            (int) false,
-            (int) true
+            0,
+            1
         ]);
 
         $db->commit();
+        $response['success'] = true;
     } catch (\PDOException $e) {
         $db->rollBack();
         error_log("DB Error in registerUser: " . $e->getMessage());
-        $response['error'] = "Internal server error during registration.";
+        $response['error'] = "Internal server error during registration." . $e->getMessage();
     }
 
     return $response;
@@ -1164,11 +1507,12 @@ function loginUser(\PDO $db, string $email, string $password): array
 {
     $response = [
         'user'  => [],
+        'message' => null,
         'error' => null
     ];
 
     try {
-        $stmt = $db->prepare("SELECT Id, Name, Email, Phone, Password, Credits, isMember, isActive, TimeRegister FROM Users WHERE Email = ? LIMIT 1");
+        $stmt = $db->prepare("SELECT Id, Name, Email, Password, Credits, isMember, isActive, TimeRegister FROM Users WHERE Email = ? LIMIT 1");
         $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -1180,18 +1524,18 @@ function loginUser(\PDO $db, string $email, string $password): array
         // If user not found, verify against dummy hash to consume time
         if (!$user) {
             password_verify($password, $dummyHash);
-            $response['error'] = "Invalid email or password.";
+            $response['message'] = "Invalid email or password.";
             return $response;
         }
 
         // Check password
         if (!$passwordCorrect) {
-            $response['error'] = "Invalid email or password.";
+            $response['message'] = "Invalid email or password.";
             return $response;
         }
 
         if (!(bool)$user['isActive']) {
-            $response['error'] = "Account is deactivated.";
+            $response['message'] = "Account is deactivated.";
             return $response;
         }
 
@@ -1199,7 +1543,7 @@ function loginUser(\PDO $db, string $email, string $password): array
             'user_id'       => (int)$user['Id'],
             'user_name'     => $user['Name'],
             'user_email'    => $user['Email'],
-            'user_phone'    => $user['Phone'],
+            'user_phone'    => null,
             'credits'       => (float)$user['Credits'],
             'is_member'     => (bool)$user['isMember'],
             'time_register' => $user['TimeRegister'],
@@ -1207,6 +1551,72 @@ function loginUser(\PDO $db, string $email, string $password): array
     } catch (\PDOException $e) {
         error_log("DB Error in loginUser: " . $e->getMessage());
         $response['error'] = "Internal server error during login.";
+    }
+
+    return $response;
+}
+
+function googleLoginUser(\PDO $db, string $email, string $name): array
+{
+    $response = [
+        'user'  => [],
+        'error' => null
+    ];
+
+    try {
+        $db->beginTransaction();
+
+        $stmt = $db->prepare("SELECT Id, Name, Email, Password, Credits, isMember, isActive, TimeRegister FROM Users WHERE Email = ? LIMIT 1");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($user) {
+            if ($user['Password'] !== null) {
+                $db->rollBack();
+                $response['error'] = "An account with this email already exists. Please log in with your password.";
+                return $response;
+            }
+
+            if (!(bool)$user['isActive']) {
+                $db->rollBack();
+                $response['error'] = "Account is deactivated.";
+                return $response;
+            }
+
+            $db->commit();
+        } else {
+            $stmt = $db->prepare("
+                INSERT INTO Users (Name, Email, Password, Credits, isMember, isActive, TimeRegister)
+                VALUES (?, ?, NULL, ?, ?, ?, NOW())
+            ");
+            $stmt->execute([
+                $name,
+                $email,
+                0.00,
+                (int) false,
+                (int) true
+            ]);
+
+            $stmt = $db->prepare("SELECT Id, Name, Email, Password, Credits, isMember, isActive, TimeRegister FROM Users WHERE Id = ? LIMIT 1");
+            $stmt->execute([(int)$db->lastInsertId()]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            $db->commit();
+        }
+
+        $response['user'] = [
+            'user_id'       => (int)$user['Id'],
+            'user_name'     => $user['Name'],
+            'user_email'    => $user['Email'],
+            'user_phone'    => null,
+            'credits'       => (float)$user['Credits'],
+            'is_member'     => (bool)$user['isMember'],
+            'time_register' => $user['TimeRegister'],
+        ];
+    } catch (\PDOException $e) {
+        $db->rollBack();
+        error_log("DB Error in googleLoginUser: " . $e->getMessage());
+        $response['error'] = "Internal server error during Google login.";
     }
 
     return $response;
@@ -1345,6 +1755,10 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
         return $response;
     }
 
+    // A negative tip would otherwise reduce $total below (and the amount
+    // actually charged via Stripe) — clamp before it ever reaches the math.
+    $tipAmount = max(0.0, $tipAmount);
+
     // Validate address
     $requiredAddressFields = ['Address', 'City', 'State', 'ZipCode', 'Phone'];
     foreach ($requiredAddressFields as $field) {
@@ -1355,17 +1769,15 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
     }
 
     try {
-        $db->beginTransaction();
-
         // Fetch cart items
         $stmt = $db->prepare("
-            SELECT 
+            SELECT
                 CI.ProductId,
                 CI.Quantity,
                 COALESCE(
-                    CASE 
-                        WHEN P.isOnSale = 1 THEN P.SalePrice 
-                        ELSE P.Price 
+                    CASE
+                        WHEN P.isOnSale = 1 THEN P.SalePrice
+                        ELSE P.Price
                     END, P.Price
                 ) AS UnitPrice
             FROM Cart CI
@@ -1376,7 +1788,6 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
         $cartItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         if (empty($cartItems)) {
-            $db->rollBack();
             $response['error'] = "Cart is empty.";
             return $response;
         }
@@ -1389,7 +1800,7 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
         $itemCount = array_sum(array_column($cartItems, 'Quantity'));
 
         // Check for existing Stripe Customer
-        \Stripe\Stripe::setApiKey(getenv('STRIPE_SECRET_KEY'));
+        \Stripe\Stripe::setApiKey($_ENV['STRIPE_SECRET_KEY'] ?? '');
 
         $stmt = $db->prepare("SELECT StripeCustomerId FROM CustomerPaymentMethod WHERE UserId = ? LIMIT 1");
         $stmt->execute([$userId]);
@@ -1417,27 +1828,40 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
 
             $stripeCustomerId = $customer->id;
 
-            $date = date('Y-m-d');
-            $time = date('H:i:s');
-
             // Save to CustomerPaymentMethod
             $stmt = $db->prepare("
-                INSERT INTO CustomerPaymentMethod (UserId, PaymentMethod, StripeCustomerId, DateAdded, TimeAdded)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO CustomerPaymentMethod (UserId, PaymentMethod, StripeCustomerId)
+                VALUES (?, ?, ?)
             ");
-            $stmt->execute([$userId, $paymentMethodId, $stripeCustomerId, $date, $time]);
+            $stmt->execute([$userId, $paymentMethodId, $stripeCustomerId]);
         }
 
         // Create Payment Intent with manual capture
         $paymentIntent = \Stripe\PaymentIntent::create([
-            'amount'         => (int)round($total * 100),
-            'currency'       => 'usd',
-            'customer'       => $stripeCustomerId,
-            'payment_method' => $paymentMethodId,
-            'capture_method' => 'manual',
-            'confirm'        => true,
-            'description'    => "HeyDaniel, LLC order - UserId: {$userId}",
+            'amount'               => (int)round($total * 100),
+            'currency'             => 'usd',
+            'customer'             => $stripeCustomerId,
+            'payment_method'       => $paymentMethodId,
+            'payment_method_types' => ['card'],
+            'capture_method'       => 'manual',
+            'confirm'              => true,
+            'description'          => "HeyDaniel, LLC order - UserId: {$userId}",
         ]);
+    } catch (\Stripe\Exception\ApiErrorException $e) {
+        error_log("Stripe Error in submitCheckout: " . $e->getMessage());
+        $response['error'] = "Payment processing failed.";
+        return $response;
+    } catch (\PDOException $e) {
+        error_log("DB Error in submitCheckout: " . $e->getMessage());
+        $response['error'] = "Internal server error during checkout.";
+        return $response;
+    }
+
+    // Everything from here on is the atomic "commit the order" step, kept to
+    // a short transaction of pure DB writes — the slow Stripe round-trips
+    // above no longer happen while a transaction (and its row locks) is open.
+    try {
+        $db->beginTransaction();
 
         // Store Payment Intent ID in CustomerPaymentMethod
         $stmt = $db->prepare("
@@ -1446,9 +1870,6 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
             WHERE UserId = ?
         ");
         $stmt->execute([$paymentIntent->id, $userId]);
-
-        $date = date('Y-m-d');
-        $time = date('H:i:s');
 
         // Save address
         $stmt = $db->prepare("
@@ -1462,36 +1883,48 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
             $address['City'],
             $address['State'],
             $address['ZipCode'],
-            $address['LatnLong'],
+            $address['LatnLong']  ?? '',
             $address['GateCode'] ?? '',
             $address['Note']     ?? '',
             $address['Phone']
         ]);
 
-        // Move cart items to Process or orderTracking
-        $destinationTable = $isSameDay ? 'Process' : 'orderTracking';
+        // Move cart items to Process (same-day) or OrderTracking (standard
+        // shipping) — the two tables track different things per item, so
+        // they need different column lists rather than one shared insert.
+        if ($isSameDay) {
+            $insertStmt = $db->prepare("
+                INSERT INTO Process (UserId, ProductId, Quantity, isStocked)
+                VALUES (?, ?, ?, 1)
+            ");
 
-        $insertStmt = $db->prepare("
-            INSERT INTO {$destinationTable} (UserId, ProductId, Quantity, isStocked, DateAdded, TimeAdded)
-            VALUES (?, ?, ?, 1, ?, ?)
-        ");
+            foreach ($cartItems as $item) {
+                $insertStmt->execute([$userId, $item['ProductId'], $item['Quantity']]);
+            }
+        } else {
+            $insertStmt = $db->prepare("
+                INSERT INTO OrderTracking (UserId, ProductId, ItemQuantity, OrderRevenue, OrderLiability)
+                VALUES (?, ?, ?, ?, ?)
+            ");
 
-        foreach ($cartItems as $item) {
-            $insertStmt->execute([
-                $userId,
-                $item['ProductId'],
-                $item['Quantity'],
-                $date,
-                $time
-            ]);
+            foreach ($cartItems as $item) {
+                $itemRevenue = round($item['UnitPrice'] * $item['Quantity'], 2);
+                $insertStmt->execute([
+                    $userId,
+                    $item['ProductId'],
+                    $item['Quantity'],
+                    $itemRevenue,
+                    round($itemRevenue * $taxRate, 2)
+                ]);
+            }
         }
 
         // Insert into OrderSent
         $stmt = $db->prepare("
             INSERT INTO OrderSent (
                 UserId, ItemQuantity, OrderRevenue, FinalOrderRevenue, OrderLiability,
-                TipAmount, isSameDay, isTipped, OrderStatus, DateAdded, TimeAdded
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+                TipAmount, isSameDay, isTipped, OrderStatus
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
         ");
         $stmt->execute([
             $userId,
@@ -1501,9 +1934,7 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
             $taxAmount,
             $tip,
             (int)$isSameDay,
-            (int)($tip > 0),
-            $date,
-            $time
+            (int)($tip > 0)
         ]);
 
         $orderId = (int)$db->lastInsertId();
@@ -1515,10 +1946,6 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
         $db->commit();
 
         $response['order_id'] = $orderId;
-    } catch (\Stripe\Exception\ApiErrorException $e) {
-        $db->rollBack();
-        error_log("Stripe Error in submitCheckout: " . $e->getMessage());
-        $response['error'] = "Payment processing failed.";
     } catch (\PDOException $e) {
         $db->rollBack();
         error_log("DB Error in submitCheckout: " . $e->getMessage());
@@ -1540,8 +1967,10 @@ function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): a
         return $response;
     }
 
+    $tipAmount = max(0.0, $tipAmount);
+
     try {
-        \Stripe\Stripe::setApiKey(getenv('STRIPE_SECRET_KEY'));
+        \Stripe\Stripe::setApiKey($_ENV['STRIPE_SECRET_KEY'] ?? '');
 
         // Fetch order
         $stmt = $db->prepare("
@@ -1571,13 +2000,14 @@ function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): a
         // Charge tip separately if same-day and tipped
         if ($order['isSameDay'] && $tipAmount > 0) {
             \Stripe\PaymentIntent::create([
-                'amount'         => (int)round($tipAmount * 100),
-                'currency'       => 'usd',
-                'customer'       => $paymentRow['StripeCustomerId'],
-                'payment_method' => $paymentRow['PaymentMethod'],
-                'off_session'    => true,
-                'confirm'        => true,
-                'description'    => "HeyDaniel, LLC tip - OrderId: {$orderId}",
+                'amount'               => (int)round($tipAmount * 100),
+                'currency'             => 'usd',
+                'customer'             => $paymentRow['StripeCustomerId'],
+                'payment_method'       => $paymentRow['PaymentMethod'],
+                'payment_method_types' => ['card'],
+                'off_session'          => true,
+                'confirm'              => true,
+                'description'          => "HeyDaniel, LLC tip - OrderId: {$orderId}",
             ]);
         }
 
@@ -1589,17 +2019,17 @@ function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): a
 
         // Update OrderSent
         $stmt = $db->prepare("
-            UPDATE OrderSent 
-            SET isClosed = 1, 
+            UPDATE OrderSent
+            SET isClosed = 1,
                 isTipped = ?,
                 TipAmount = ?,
-                TimeDelivered = ?
+                OrderStatus = 'delivered',
+                TimeDelivered = NOW()
             WHERE Id = ? AND UserId = ?
         ");
         $stmt->execute([
             (int)($tipAmount > 0),
             $tipAmount,
-            date('H:i:s'),
             $orderId,
             $userId
         ]);
@@ -1619,6 +2049,56 @@ function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): a
     } catch (\PDOException $e) {
         error_log("DB Error in finalizeOrder: " . $e->getMessage());
         $response['error'] = "Internal server error during order finalization.";
+    }
+
+    return $response;
+}
+
+// Order-level summaries only. OrderSent has no foreign key linking it to the
+// Process/OrderTracking rows that held its line items at checkout time, so
+// there's no reliable way to show which products belonged to which order —
+// building that would mean guessing off timestamps, which can silently
+// misattribute items for orders placed close together.
+function orderHistory(\PDO $db, int $userId, float $taxRate): array
+{
+    $response = [
+        'orders' => [],
+        'error'  => null
+    ];
+
+    if ($userId <= 0) {
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            SELECT
+                Id, ItemQuantity, OrderRevenue, FinalOrderRevenue, OrderLiability,
+                TipAmount, OrderStatus, DateAdded, TimeDelivered, isClosed
+            FROM OrderSent
+            WHERE UserId = ?
+            ORDER BY DateAdded DESC, Id DESC
+        ");
+        $stmt->execute([$userId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as $row) {
+            $response['orders'][] = [
+                'order_id'       => (int)$row['Id'],
+                'item_count'     => (int)$row['ItemQuantity'],
+                'subtotal'       => (float)$row['OrderRevenue'],
+                'tax'            => (float)$row['OrderLiability'],
+                'tip'            => (float)$row['TipAmount'],
+                'total'          => (float)$row['FinalOrderRevenue'],
+                'status'         => $row['OrderStatus'],
+                'date_added'     => $row['DateAdded'],
+                'time_delivered' => $row['TimeDelivered'],
+                'is_closed'      => (bool)$row['isClosed']
+            ];
+        }
+    } catch (\PDOException $e) {
+        error_log("DB Error in orderHistory: " . $e->getMessage());
+        $response['error'] = "Internal server error during order history retrieval.";
     }
 
     return $response;
@@ -1770,7 +2250,6 @@ function verifyCode(\PDO $db, string $userEmail, string $uniqueCode): array
         }
 
         $response['success'] = true;
-
     } catch (\PDOException $e) {
         error_log("DB Error in verifyCode: " . $e->getMessage());
         $response['error'] = "Internal server error during code verification.";
@@ -1805,7 +2284,7 @@ function updatePassword(\PDO $db, string $userEmail, string $password, string $c
         return $response;
     }
 
-    try{
+    try {
         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
         $stmt = $db->prepare("UPDATE Users SET Password = ? WHERE Email = ?");
         $success = $stmt->execute([$hashedPassword, $userEmail]);
@@ -1818,9 +2297,7 @@ function updatePassword(\PDO $db, string $userEmail, string $password, string $c
             $deleteStmt->execute([$userEmail]);
             $response['success'] = true;
         }
-
-    }
-    catch (\PDOException $e) {
+    } catch (\PDOException $e) {
         error_log("DB Error in updating passoword: " . $e->getMessage());
         $response['error'] = "Internal server error during password update.";
     }

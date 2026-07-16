@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /**
@@ -79,6 +80,65 @@ class QueryCache
         }
 
         return $result;
+    }
+}
+
+/**
+ * Fixed-window rate limiter. Meant as a cheap first line of defense against
+ * brute-force/abuse (login, register, checkout) on a single box — not a
+ * hard security boundary, so it fails open on any error rather than
+ * blocking legitimate traffic.
+ *
+ * Prefers APCu (no I/O) when available, but this environment's PHP build
+ * doesn't have it loaded, so a small DB-backed counter (RateLimits table)
+ * is the fallback that actually works today. Written to prefer APCu
+ * automatically the moment it's installed, with no call-site changes.
+ */
+class RateLimiter
+{
+    /**
+     * Records one attempt for $key and reports whether it has exceeded
+     * $maxAttempts within the current $windowSeconds window. $db is only
+     * used for the fallback path and may be null if APCu is available.
+     */
+    public static function tooManyAttempts(?\PDO $db, string $key, int $maxAttempts, int $windowSeconds): bool
+    {
+        if (extension_loaded('apcu')) {
+            $cacheKey = "ratelimit:{$key}";
+
+            // Only seeds the counter if this is the first attempt in the
+            // window; a concurrent request that already created it is a no-op.
+            apcu_add($cacheKey, 0, $windowSeconds);
+            $count = apcu_inc($cacheKey);
+
+            return $count !== false && $count > $maxAttempts;
+        }
+
+        if ($db === null) {
+            return false;
+        }
+
+        try {
+            // A window "expires" by resetting the count to 1 the first time
+            // it's touched after WindowStart ages past $windowSeconds,
+            // rather than needing a separate cleanup/cron job.
+            $stmt = $db->prepare("
+                INSERT INTO RateLimits (RateKey, AttemptCount, WindowStart)
+                VALUES (?, 1, NOW())
+                ON DUPLICATE KEY UPDATE
+                    AttemptCount = IF(WindowStart < NOW() - INTERVAL ? SECOND, 1, AttemptCount + 1),
+                    WindowStart  = IF(WindowStart < NOW() - INTERVAL ? SECOND, NOW(), WindowStart)
+            ");
+            $stmt->execute([$key, $windowSeconds, $windowSeconds]);
+
+            $stmt = $db->prepare("SELECT AttemptCount FROM RateLimits WHERE RateKey = ? LIMIT 1");
+            $stmt->execute([$key]);
+
+            return (int)$stmt->fetchColumn() > $maxAttempts;
+        } catch (\PDOException $e) {
+            error_log("DB Error in RateLimiter: " . $e->getMessage());
+            return false;
+        }
     }
 }
 

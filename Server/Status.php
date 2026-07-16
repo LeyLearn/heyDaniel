@@ -1,8 +1,8 @@
 <?php
+
 include_once "Connect.php";
 
 if (isset($_SESSION['user_id'])) {
-
     $userId = (int)$_SESSION['user_id'];
     // full name
     $userName = (string)$_SESSION['user_name'];
@@ -15,7 +15,6 @@ if (isset($_SESSION['user_id'])) {
     $userPhone = (string)$_SESSION['user_phone'];
     $userCredits = (float)$_SESSION['user_credit'];
     $isMember = (bool)$_SESSION['is_member'];
-
 } else {
     $userId = 0;
     // full name

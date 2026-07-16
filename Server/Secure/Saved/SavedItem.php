@@ -1,4 +1,5 @@
 <?php
+
 include_once __DIR__ . "/../../Connect.php";
 include_once __DIR__ . "/../../Function/Components.php";
 
@@ -47,7 +48,7 @@ if (!empty($savedContent['error'])) {
     echo json_encode($response);
     exit;
 }
-if(!empty($savedContent['message'])){
+if (!empty($savedContent['message'])) {
     http_response_code(200);
     $response['message'] = $savedContent['message'];
     echo json_encode($response);

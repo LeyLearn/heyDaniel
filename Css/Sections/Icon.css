@@ -1,13 +1,6 @@
 /* ICON STYLES */
-
-:root {
-  --primary: #7a0d0d;
-  --primary-light: #8B1111;
-  --secondary: #013A52;
-  --secondary-light: #064863;
-  --text-dark: #333;
-  --text-light: #fff;
-}
+/* Color tokens (--primary, --secondary, --text-light, etc.) are defined
+   once in Header.css :root and shared across Button/Card/Icon.css. */
 
 /* ICON BASE */
 .Icon {
@@ -65,7 +58,7 @@
 }
 
 .Icon_Light {
-  color: #999;
+  color: var(--text-muted);
 }
 
 .Icon_Dark {
@@ -133,7 +126,7 @@
   align-items: center;
   justify-content: center;
   font-size: 0.75rem;
-  font-weight: bold;
+  font-weight: var(--font-weight);
   border: 2px solid #fff;
 }
 

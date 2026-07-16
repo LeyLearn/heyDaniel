@@ -1,5 +1,6 @@
 <?php
-include_once __DIR__ . "/../Connect.php";
+
+include_once __DIR__ . "/../../Connect.php";
 include_once __DIR__ . "/../../Function/Components.php";
 
 $response = [
@@ -46,13 +47,9 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
 
 $search = searchEngine($pdo, $searchTerm, $isSameDayEligible, $taxRate);
 
-if (!empty($)) {
+if (!empty($search['error'])) {
     http_response_code(400);
-    echo json_encode($response);
-    exit;
-}
-if (!empty($)) {
-    $response['message'] = $;
+    $response['error'] = $search['error'];
     echo json_encode($response);
     exit;
 }

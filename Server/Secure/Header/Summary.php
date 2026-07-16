@@ -1,5 +1,6 @@
 <?php
-include_once __DIR__ . "/../Connect.php";
+
+include_once __DIR__ . "/../../Connect.php";
 include_once __DIR__ . "/../../Function/Components.php";
 
 $response = [
@@ -43,13 +44,9 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
 
 $summary = Summary($pdo, $userId, $hasActiveOrder, $taxRate);
 
-if (!empty($)) {
-    http_response_code(400);
-    echo json_encode($response);
-    exit;
-}
-if (!empty($)) {
-    $response['message'] = $;
+if (!empty($summary['error'])) {
+    http_response_code(500);
+    $response['error'] = $summary['error'];
     echo json_encode($response);
     exit;
 }
