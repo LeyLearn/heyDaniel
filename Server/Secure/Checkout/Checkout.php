@@ -36,7 +36,7 @@ $paymentMethodId = '';
 $address         = [];
 
 if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
-    $userId          = (int)($data['user_id']           ?? 0);
+    $userId          = resolveMobileUserId($data);
     $taxRate         = (float)($data['tax_rate']        ?? 0.00);
     $isSameDay       = (bool)($data['is_same_day']      ?? false);
     $tipAmount       = (float)($data['tip_amount']      ?? 0.00);
@@ -46,7 +46,10 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
     session_start();
     $userId          = (int)($_SESSION['user_id']            ?? 0);
     $taxRate         = (float)($_SESSION['tax_rate']          ?? 0.00);
-    $isSameDay       = (bool)($_SESSION['same_day_eligible']  ?? false);
+    // isSameDay reflects what the shopper actually picked on the delivery
+    // step, not just whether their zip happens to qualify — submitCheckout()
+    // separately re-verifies membership before honoring it.
+    $isSameDay       = ($data['delivery_method'] ?? '') === 'same-day' && (bool)($_SESSION['same_day_eligible'] ?? false);
     $tipAmount       = (float)($data['tip_amount']            ?? 0.00);
     $paymentMethodId = trim($data['payment_method_id']  ?? '');
     $address         = $data['address']                 ?? [];

@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <!-- Definition for Shadows and Gradients -->
+  <defs>
+    <!-- Soft drop shadow for the cart basket -->
+    <filter id="cart-shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#0d1b2a" flood-opacity="0.15"/>
+    </filter>
+
+    <!-- Subtle gradient for the luxurious cream basket -->
+    <linearGradient id="basket-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fdfbf7"/>
+      <stop offset="100%" stop-color="#f4efe6"/>
+    </linearGradient>
+
+    <!-- Metallic silver gradient for wheels and accents -->
+    <linearGradient id="metal-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c7cdd4"/>
+      <stop offset="50%" stop-color="#f2f4f6"/>
+      <stop offset="100%" stop-color="#8b939c"/>
+    </linearGradient>
+
+    <!-- Rich red gradient for the notification badge -->
+    <linearGradient id="red-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b21f2d"/>
+      <stop offset="100%" stop-color="#801018"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Ground Shadow/Base Line -->
+  <ellipse cx="48" cy="78" rx="22" ry="3" fill="#e4dec3" opacity="0.6"/>
+
+  <!-- Cart Chassis & Handle (Sleek Navy Blue) -->
+  <path d="M 18 28
+           L 24 28
+           Q 26 28 27 30
+           L 36 62
+           Q 37 65 40 65
+           L 68 65
+           Q 71 65 72 62"
+        fill="none"
+        stroke="#0d1b2a"
+        stroke-width="3.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+
+  <!-- Handle Grip Accent (Silver) -->
+  <path d="M 18 28 L 22 28"
+        fill="none"
+        stroke="url(#metal-grad)"
+        stroke-width="4"
+        stroke-linecap="round"/>
+
+  <!-- Wheel Attachments/Axles (Navy) -->
+  <circle cx="40" cy="72" r="3" fill="#0d1b2a"/>
+  <circle cx="66" cy="72" r="3" fill="#0d1b2a"/>
+
+  <!-- Wheels (Silver Outer, Navy Center) -->
+  <!-- Rear Wheel -->
+  <circle cx="40" cy="72" r="6" fill="url(#metal-grad)"/>
+  <circle cx="40" cy="72" r="2.5" fill="#0d1b2a"/>
+
+  <!-- Front Wheel -->
+  <circle cx="66" cy="72" r="6" fill="url(#metal-grad)"/>
+  <circle cx="66" cy="72" r="2.5" fill="#0d1b2a"/>
+
+  <!-- Main Basket Body (Cream Layout with Premium Navy Outline) -->
+  <path d="M 31 34
+           L 74 34
+           Q 78 34 76 39
+           L 69 56
+           Q 68 59 65 59
+           L 38 59
+           Q 35 59 34 56
+           Z"
+        fill="url(#basket-grad)"
+        stroke="#0d1b2a"
+        stroke-width="2.5"
+        stroke-linejoin="round"
+        filter="url(#cart-shadow)"/>
+
+  <!-- Decorative Inner Grid Line (Minimalist Luxury Motif) -->
+  <path d="M 35 44 L 71 44 M 36 51 L 67 51"
+        fill="none"
+        stroke="#e4dec3"
+        stroke-width="1.5"
+        stroke-linecap="round"/>
+
+  <!-- Luxury Badge / Alert Element (Rich Deep Red) -->
+  <g transform="translate(68, 26)">
+    <!-- Badge Base -->
+    <circle cx="0" cy="0" r="8" fill="url(#red-grad)" stroke="#ffffff" stroke-width="1.5"/>
+    <!-- White Exclamation Mark Line -->
+    <line x1="0" y1="-4" x2="0" y2="1" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+    <!-- White Exclamation Mark Dot -->
+    <circle cx="0" cy="4" r="1" fill="#ffffff"/>
+  </g>
+</svg>

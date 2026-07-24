@@ -1,0 +1,792 @@
+/* ==========================================================================
+   INPUT.CSS — every rule that styles an <input>/<select>/<textarea>, its
+   wrapper, its attached icon/button, or its focus/placeholder state.
+   Loaded once, globally, right after Header.css/Button.css (see Head.php).
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Global <input> reset — applies site-wide to every input element
+   -------------------------------------------------------------------------- */
+
+/* For Chrome, Safari, and newer Edge */
+input::-webkit-search-decoration,
+input::-webkit-search-cancel-button,
+input::-webkit-search-results-button,
+input::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+}
+
+/* For Internet Explorer and older Edge */
+input::-ms-clear,
+input::-ms-reveal {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+input:focus {
+  outline: none;
+}
+
+input::placeholder {
+  color: var(--text-muted);
+  font-size: var(--regular-text);
+}
+
+input{
+  text-indent: 10px;
+}
+
+/* --------------------------------------------------------------------------
+   Header search bar (Interface/Sections/Header.php)
+   -------------------------------------------------------------------------- */
+
+.search-wrap {
+  position: relative;
+  width: calc(100% - 800px);
+  flex: 0 1 auto;
+}
+
+.search-bar {
+  width: 100%;
+  display: flex;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-light);
+}
+
+.search-bar .search {
+  flex: 1;
+  height: 45px;
+  border: none;
+  font-size: inherit;
+  font-weight: 400;
+  background: rgba(2, 22, 60, 0.05);
+  outline: none;
+  padding: 4px 0;
+  padding-left: 10px;
+
+}
+
+.search-bar .submit {
+  width: 50px;
+  height: 45px;
+  border: none;
+  background: var(--secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  border-radius: 0px;
+}
+
+.search-bar .submit:hover {
+  background-color: rgb(2, 22, 60, .9);
+}
+
+.search-bar .submit img {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  transition: opacity 0.3s ease-in-out;
+}
+
+/* search/close icon toggle inside the submit button above */
+.search-icon {
+  opacity: 1;
+}
+
+.close-icon {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   Header location/ZIP sidebar search (#side-bar in Header.php)
+   -------------------------------------------------------------------------- */
+
+.zip-code-search {
+  display: flex;
+  width: calc(100% - 30px);
+  margin: 0 auto;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-light);
+}
+
+.zip-code-search input {
+  flex: 1;
+  height: 45px;
+  border: none;
+  padding-left: 10px;
+  background: rgba(2, 22, 60, 0.05);
+}
+
+.zip-code-search button {
+  height: 45px;
+  width: 50px;
+  border: none;
+  background-color: rgb(2, 22, 60);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.zip-code-search button:hover {
+  background-color: rgb(2, 22, 60, .9);
+}
+
+.zip-code-search button img {
+  width: 20px;
+  height: 20px;
+  filter: brightness(0) invert(1);
+}
+
+/* --------------------------------------------------------------------------
+   Footer newsletter signup (Interface/Sections/Footer.php)
+   -------------------------------------------------------------------------- */
+
+.footer-newsletter-form{
+    display: flex;
+    width: 280px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg-light);
+}
+
+.footer-newsletter-form input[type="email"]{
+    flex: 1;
+    height: 45px;
+    font-size: var(--regular-text);
+    padding: 0 14px;
+    border: none;
+    background: rgba(2, 22, 60, 0.05);
+    outline: none;
+}
+
+.footer-newsletter-form button{
+    width: 50px;
+    height: 45px;
+    flex-shrink: 0;
+    background: var(--secondary, #02163C);
+    color: var(--text-light, #fff);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s ease-in-out;
+    border-radius: 0;
+}
+
+.footer-newsletter-form button:hover{
+    background-color: rgb(2, 22, 60, .9);
+}
+
+/* --------------------------------------------------------------------------
+   Login / Register / Forgot-password inputs (Interface/Sections/Credential.php)
+   -------------------------------------------------------------------------- */
+
+.input-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.input-wrapper{
+    position:relative;
+    width: 100%;
+    display: flex;
+    height: 50px;
+    border-radius: 5px;
+    align-items: center;
+    background: rgba(2, 22, 60, 0.05);
+    transition: box-shadow 0.25s ease;
+    overflow: hidden;
+}
+
+.input-wrapper img{
+    position:relative;
+    width: 50px;
+    padding: 12px;
+}
+
+.input-wrapper input {
+    width: calc(100% - 50px);
+    height: 100%;
+    background: transparent;
+    font-size: var(--regular-text);
+    outline: none;
+    transition: 0.25s ease;
+    text-indent: 0;
+    padding: 0;
+    border: none;
+}
+
+/* placeholder color inherits the global input::placeholder rule above */
+
+/* --------------------------------------------------------------------------
+   Cart promo code (Interface/Sheets/Cart.php)
+   -------------------------------------------------------------------------- */
+
+.Promo_Code_Input_Wrap {
+  display: flex;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-light);
+}
+
+.Promo_Code_Input_Wrap input {
+  flex: 1;
+  height: 45px;
+  border: none;
+  background: rgba(2, 22, 60, 0.05);
+  outline: none;
+  padding: 0 10px;
+  font-size: var(--regular-text);
+  box-sizing: border-box;
+}
+
+.Promo_Code_Input_Wrap input::placeholder {
+  font-size: var(--information);
+}
+
+.Cart_Promo_Apply_Btn {
+  width: 50px;
+  height: 45px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 0;
+  background: var(--secondary);
+  color: var(--text-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.Cart_Promo_Apply_Btn:hover {
+  background-color: rgb(2, 22, 60, .9);
+}
+
+/* --------------------------------------------------------------------------
+   Checkout address/payment form fields (Interface/Sheets/Checkout.php)
+   -------------------------------------------------------------------------- */
+
+.Checkout_Field {
+  margin-bottom: 16px;
+}
+
+.Checkout_Field_Row {
+  display: flex;
+  gap: 12px;
+}
+
+.Checkout_Field_Row .Checkout_Field {
+  flex: 1;
+  min-width: 0;
+}
+
+.Checkout_Field label {
+  display: block;
+  font-size: var(--information);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  margin-bottom: 6px;
+}
+
+.Checkout_Field input,
+.Checkout_Field select,
+.Checkout_Field textarea {
+  width: 100%;
+  height: 44px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  padding: 0 12px;
+  font-size: var(--regular-text);
+  color: var(--text-dark);
+  box-sizing: border-box;
+  font-family: inherit;
+  background: #fff;
+}
+
+.Checkout_Field textarea {
+  height: auto;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
+.Checkout_Field input::placeholder,
+.Checkout_Field textarea::placeholder {
+  color: #9aa0ab;
+}
+
+.Checkout_Field input:focus,
+.Checkout_Field select:focus,
+.Checkout_Field textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.Checkout_Field select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='16' height='16' fill='none' stroke='%23606775' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 34px;
+}
+
+/* icon-attached variant of the fields above (street address, city, zip, phone, gate code, delivery note, card name, expiry, cvc) */
+.Checkout_Field_Icon_Wrap {
+  display: flex;
+  align-items: center;
+  height: 50px;
+  border-radius: 5px;
+  background: rgba(2, 22, 60, 0.05);
+  overflow: hidden;
+}
+
+.Checkout_Field_Icon_Wrap i {
+  width: 50px;
+  flex-shrink: 0;
+  text-align: center;
+  color: var(--secondary);
+  font-size: var(--regular-text);
+  pointer-events: none;
+}
+
+.Checkout_Field_Icon_Wrap input,
+.Checkout_Field_Icon_Wrap select {
+  flex: 1;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 12px 0 0;
+}
+
+.Checkout_Field_Icon_Wrap select {
+  padding-right: 34px;
+}
+
+/* delivery-note textarea variant — needs to grow instead of a fixed 50px row */
+.Checkout_Field_Icon_Wrap--area {
+  height: auto;
+  align-items: stretch;
+  overflow: visible;
+}
+
+.Checkout_Field_Icon_Wrap--area i {
+  align-self: flex-start;
+  padding-top: 13px;
+}
+
+.Checkout_Field_Icon_Wrap--area textarea {
+  flex: 1;
+  height: auto;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 10px 12px 10px 0;
+  resize: vertical;
+}
+
+/* card fields inside the Payment Method card reuse .Membership_Modal_Card_*
+   (see below) so Checkout and the Membership modal render identically */
+
+/* --------------------------------------------------------------------------
+   Help & Support search bar (Interface/Sheets/HelpSupport.php)
+   -------------------------------------------------------------------------- */
+
+.Help_Search_Row {
+  display: flex;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-light);
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.Help_Search_Row input {
+  flex: 1;
+  height: 45px;
+  font-family: inherit;
+  font-size: var(--regular-text);
+  border: none;
+  background: rgba(2, 22, 60, 0.05);
+  outline: none;
+  padding: 0 14px;
+}
+
+.Help_Search_Btn {
+  width: 50px;
+  height: 45px;
+  flex-shrink: 0;
+  border: none;
+  background: var(--secondary);
+  color: var(--text-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.Help_Search_Btn:hover {
+  background-color: rgb(2, 22, 60, .9);
+}
+
+/* --------------------------------------------------------------------------
+   Orders page search bar (Interface/Sheets/Orders.php)
+   -------------------------------------------------------------------------- */
+
+.Orders_Search_Wrap {
+  display: flex;
+  align-items: center;
+  height: 50px;
+  min-width: 220px;
+  border-radius: 5px;
+  background: rgba(2, 22, 60, 0.05);
+  overflow: hidden;
+}
+
+.Orders_Search_Icon {
+  width: 50px;
+  flex-shrink: 0;
+  padding: 12px;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.Orders_Search_Input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 14px 0 0;
+  border: none;
+  font-size: var(--regular-text);
+  color: var(--text-dark);
+  background: transparent;
+}
+
+.Orders_Search_Input:focus {
+  outline: none;
+}
+
+/* --------------------------------------------------------------------------
+   Item page size select (Interface/Sheets/Item.php)
+   -------------------------------------------------------------------------- */
+
+.Item_Size_Select {
+  margin: 16px 0;
+  max-width: 220px;
+}
+
+.Item_Size_Select label {
+  display: block;
+  font-size: var(--information);
+  font-weight: var(--font-weight);
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.Item_Size_Select select {
+  width: 100%;
+  height: 42px;
+  border-radius: 5px;
+  border: 1px solid var(--border-light);
+  padding: 0 10px;
+  background: #fff;
+  color: var(--text-dark);
+  font-size: var(--regular-text);
+}
+
+/* --------------------------------------------------------------------------
+   Item review title/body input (Interface/Sheets/Item.php)
+   -------------------------------------------------------------------------- */
+
+.Item_Review_Field {
+  margin-bottom: 16px;
+}
+
+.Item_Review_Field label {
+  display: block;
+  font-size: var(--information);
+  font-weight: var(--font-weight);
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.Item_Review_Field input,
+.Item_Review_Field textarea {
+  width: 100%;
+  border-radius: 5px;
+  border: 1px solid var(--border-light);
+  padding: 10px;
+  font-size: var(--regular-text);
+  color: var(--text-dark);
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+/* --------------------------------------------------------------------------
+   Profile edit-mode name/phone input (Interface/Sections/Profile.php)
+   -------------------------------------------------------------------------- */
+
+.Profile_Field_Input {
+  width: 100%;
+  font-family: inherit;
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  border: 1px solid var(--border-light);
+  border-radius: 5px;
+  padding: 6px 10px;
+}
+
+.Profile_Field_Input:focus {
+  outline: none;
+  border-color: var(--secondary);
+}
+
+/* --------------------------------------------------------------------------
+   Profile -> Address modal fields (Interface/Sections/Profile.php)
+   -------------------------------------------------------------------------- */
+
+.Address_Modal_Field_Row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 12px;
+}
+
+.Address_Modal_Field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.Address_Modal_Field label {
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.Address_Modal_Field input,
+.Address_Modal_Field textarea {
+  width: 100%;
+  font-family: inherit;
+  font-size: var(--regular-text);
+  color: var(--text-dark);
+  border: 1px solid var(--border-light);
+  border-radius: 5px;
+  padding: 8px 10px;
+}
+
+.Address_Modal_Field input:focus,
+.Address_Modal_Field textarea:focus {
+  outline: none;
+  border-color: var(--secondary);
+}
+
+.Address_Modal_Field textarea {
+  resize: vertical;
+}
+
+/* --------------------------------------------------------------------------
+   Profile -> Membership modal card fields (Interface/Sections/Profile.php)
+   -------------------------------------------------------------------------- */
+
+.Membership_Modal_Card_Box {
+  margin-bottom: 20px;
+  border: 1px solid rgba(2, 22, 60, 0.08);
+  box-shadow: 0 2px 10px rgba(2, 22, 60, 0.05);
+  border-radius: 12px;
+  padding: 20px;
+  background: #fff;
+}
+
+.Membership_Modal_Card_Box label:not(.Checkout_Save_Card_Row) {
+  display: block;
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+}
+
+.Membership_Modal_Card_Brands {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 5px;
+
+}
+
+.Membership_Modal_Card_Brands img {
+  height: 20px;
+}
+
+/* cage: leading icon + Stripe element (or plain input for zip), extra
+   height so the field content has room to breathe top/bottom */
+.Membership_Modal_Card_Wrap {
+  display: flex;
+  align-items: center;
+  height: 50px;
+  border-radius: 5px;
+  background: rgba(2, 22, 60, 0.05);
+  overflow: hidden;
+}
+
+.Membership_Modal_Card_Wrap i {
+  width: 40px;
+  flex-shrink: 0;
+  text-align: center;
+  color: var(--secondary);
+  font-size: var(--regular-text);
+  pointer-events: none;
+}
+
+.Membership_Modal_Card_Wrap > div,
+.Membership_Modal_Card_Wrap input {
+  flex: 1;
+  min-width: 0;
+  padding: 0 12px 0 0;
+}
+
+.Membership_Modal_Card_Number {
+  margin-bottom: 12px;
+}
+
+.Membership_Modal_Card_Row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+}
+
+.Membership_Modal_Card_Field .Membership_Modal_Card_Wrap {
+  width: 100%;
+}
+
+.Membership_Modal_Card_Field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.Membership_Modal_Card_Field label {
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.Membership_Modal_Card_Zip input {
+  height: 100%;
+  border: none;
+  outline: none;
+  background: none;
+  font-size: 14px;
+  font-family: inherit;
+  color: #333;
+}
+
+.Membership_Modal_Card_Zip input::placeholder {
+  color: #9aa0ab;
+}
+
+/* --------------------------------------------------------------------------
+   Store filter sidebar — category select dropdowns (Interface/Sheets/Store.php)
+   -------------------------------------------------------------------------- */
+
+.Store_Filter_Group select {
+  width: 100%;
+  height: 40px;
+  border-radius: 5px;
+  border: 1px solid var(--border-light);
+  padding: 0 10px;
+  background: #fff;
+  color: var(--text-dark);
+  font-size: var(--regular-text);
+}
+
+.Store_Filter_Group select:disabled {
+  background: var(--bg-light);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------------------
+   Header search "clear" button — scoped override, no matching markup found
+   at time of writing (search field uses .search-bar, not .Search); kept in
+   case it's wired up later.
+   -------------------------------------------------------------------------- */
+
+.Search .Delete_Btn {
+  background: none;
+  right: 10px;
+  top: 10px;
+  box-shadow: none;
+  display: none;
+}
+
+/* ==========================================================================
+   RESPONSIVE — grouped by breakpoint, one comment per source component
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  /* Header search bar */
+  .search-bar {
+    width: 100%;
+    margin: 0 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Header search bar */
+  .search-bar {
+    order: 3;
+    width: 100%;
+    margin: 10px 0;
+  }
+
+  /* Footer newsletter signup */
+  .footer-newsletter-form{
+    width: 100%;
+  }
+
+  .footer-newsletter-form input[type="email"]{
+    flex: 1;
+    width: auto;
+  }
+
+  /* Checkout field-pair rows stack instead of sitting side by side */
+  .Checkout_Field_Row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* Profile -> Address modal field rows stack instead of a 3-column grid */
+  .Address_Modal_Field_Row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Header search bar */
+  .search-bar .search {
+    font-size: 0.9rem;
+  }
+}

@@ -53,10 +53,23 @@ $metaDescription = "Your order has been placed. Thank you for shopping with HeyD
             </div>
 
             <div class="Confirmation_Actions">
-                <button type="button" class="Place_Order_Btn" id="confirmation-track-btn">Track Your Order</button>
+                <button type="button" class="Place_Order_Btn Primary_Btn" id="confirmation-track-btn">Track Your Order</button>
                 <a href="/HeyDaniel/Interface/Sheets/Store.php" class="Continue_Shopping_Btn">Continue shopping</a>
                 <a href="/HeyDaniel/Interface/Sheets/Profile.php" class="Text_Btn">View order history</a>
             </div>
+        </div>
+
+        <div class="Confirmation_Card" id="confirmation-skeleton">
+            <div class="Skeleton_Block Skeleton_Confirmation_Icon"></div>
+            <div class="Skeleton_Block Skeleton_Confirmation_Line" style="width:60%;"></div>
+            <div class="Skeleton_Block Skeleton_Confirmation_Line" style="width:80%;"></div>
+            <div class="Skeleton_Confirmation_Summary">
+                <div class="Skeleton_Block"></div>
+                <div class="Skeleton_Block"></div>
+                <div class="Skeleton_Block"></div>
+                <div class="Skeleton_Block"></div>
+            </div>
+            <div class="Skeleton_Block Skeleton_Confirmation_Btn"></div>
         </div>
 
         <div class="Confirmation_Card" id="confirmation-not-found" style="display:none;">
@@ -77,6 +90,7 @@ $metaDescription = "Your order has been placed. Thank you for shopping with HeyD
             $("#confirmation-found").hide();
 
             if (!orderId || orderId <= 0) {
+                $("#confirmation-skeleton").hide();
                 $("#confirmation-not-found").show();
                 return;
             }
@@ -91,6 +105,8 @@ $metaDescription = "Your order has been placed. Thank you for shopping with HeyD
                     const order = (data.orders || []).find(function (o) {
                         return o.order_id === orderId;
                     });
+
+                    $("#confirmation-skeleton").hide();
 
                     if (!order) {
                         $("#confirmation-not-found").show();
@@ -117,6 +133,7 @@ $metaDescription = "Your order has been placed. Thank you for shopping with HeyD
                     $("#confirmation-found").show();
                 },
                 error: function () {
+                    $("#confirmation-skeleton").hide();
                     $("#confirmation-not-found").show();
                 }
             });

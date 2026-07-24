@@ -7,6 +7,8 @@ $metaDescription = "Sign in or create an account to start shopping with HeyDanie
 <html lang="en">
 <?php include_once $path . "Interface/Sections/Head.php"; ?>
 <body>
+    <?php require $path . "Interface/Sections/Credential.php"; ?>
 
+    <?php require $path . "Interface/Sections/Footer.php"; ?>
 </body>
 </html>

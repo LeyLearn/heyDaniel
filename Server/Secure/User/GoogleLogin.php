@@ -68,6 +68,7 @@ if ($userDeviceType === "Web") {
     $_SESSION['user_credit'] = $user['user']['credits'];
     $_SESSION['is_member']  = $user['user']['is_member'];
     $_SESSION['user_phone'] = $user['user']['user_phone'];
+    $_SESSION['user_time_register'] = $user['user']['time_register'];
     $_SESSION['redirectURL'] = $_SERVER['REQUEST_URI'];
     $response['success'] = true;
     echo json_encode($response);
@@ -85,6 +86,7 @@ $payloadJwt = base64_encode(json_encode([
   "credits"    => $user['user']['credits'],
   "phone"      => $user['user']['user_phone'],
   "is_member"  => $user['user']['is_member'],
+  "time_register" => $user['user']['time_register'],
   "exp"        => time() + 3600
 ]));
 

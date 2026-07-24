@@ -7,6 +7,7 @@ CREATE TABLE OrderSent (
   OrderLiability DECIMAL(10,2) NOT NULL,
   HandlerId INT(11) NOT NULL DEFAULT 0,
   TipAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  CreditsEarned DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   isSameDay TINYINT(1) NOT NULL DEFAULT 0,
   OrderStatus VARCHAR(50) NOT NULL DEFAULT 'pending',
   DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -24,6 +25,7 @@ CREATE TABLE OrderTracking (
   Id INT(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
   UserId INT(11) NOT NULL,
   ProductId INT(11) NOT NULL,
+  OrderId INT(11) NULL,
   ItemQuantity INT(11) NOT NULL,
   OrderRevenue DECIMAL(10,2) NOT NULL,
   OrderLiability DECIMAL(10,2) NOT NULL,
@@ -34,7 +36,9 @@ CREATE TABLE OrderTracking (
   TimeDelivered DATETIME NULL,
   FOREIGN KEY (UserId) REFERENCES Users(Id),
   FOREIGN KEY (ProductId) REFERENCES Products(Id),
+  FOREIGN KEY (OrderId) REFERENCES OrderSent(Id),
   INDEX idx_user_id (UserId),
   INDEX idx_product_id (ProductId),
+  INDEX idx_order_id (OrderId),
   INDEX idx_tracking_status (TrackingStatus)
 );

@@ -2,6 +2,103 @@
 
 include_once __DIR__ . '/Cache.php';
 
+// Verifies the HS256 JWT issued by Login.php / GoogleLogin.php (hand-rolled
+// there, not through a library, so this has to match their exact encoding —
+// header/payload are plain base64, only the signature is base64url with
+// padding stripped). Returns the decoded claims, or null if the token is
+// malformed, forged, or expired.
+function verifyJWT(string $jwt, string $secret): ?array
+{
+    if ($jwt === '' || $secret === '') {
+        return null;
+    }
+
+    $parts = explode('.', $jwt);
+
+    if (count($parts) !== 3) {
+        return null;
+    }
+
+    [$header, $payload, $signature] = $parts;
+
+    $expectedSignature = base64_encode(hash_hmac('sha256', "$header.$payload", $secret, true));
+    $expectedSignature = rtrim(strtr($expectedSignature, '+/', '-_'), '=');
+
+    if (!hash_equals($expectedSignature, $signature)) {
+        return null;
+    }
+
+    $claims = json_decode(base64_decode($payload), true);
+
+    if (!is_array($claims) || !isset($claims['exp']) || (int)$claims['exp'] < time()) {
+        return null;
+    }
+
+    return $claims;
+}
+
+// iOS/Android requests carry the JWT they were issued at login instead of a
+// session cookie. Never trust a client-supplied user_id directly — resolve
+// it from a verified token, or treat the caller as a guest (0).
+function resolveMobileUserId(array $data): int
+{
+    $claims = verifyJWT((string)($data['jwt'] ?? ''), $_ENV['JWT_SECRET'] ?? '');
+    return $claims !== null ? (int)($claims['user_id'] ?? 0) : 0;
+}
+
+function requireAuthenticatedUser(array $data): int
+{
+    if (!isset($data['device_type'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Device type is required.']);
+        exit;
+    }
+
+    $userDeviceType   = $data['device_type'];
+    $validDeviceTypes = ['iOS', 'Android', 'Web'];
+
+    if (!in_array($userDeviceType, $validDeviceTypes, true)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid device type.']);
+        exit;
+    }
+
+    if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
+        $userId = resolveMobileUserId($data);
+    } else {
+        session_start();
+        $userId = (int)($_SESSION['user_id'] ?? 0);
+    }
+
+    if ($userId <= 0) {
+        http_response_code(401);
+        echo json_encode(['error' => 'User not authenticated. Please log in.']);
+        exit;
+    }
+
+    return $userId;
+}
+
+// Single source of truth for "does this user have a same-day order that's
+// still pending/being processed" — used both to gate UI (Add to cart vs Add
+// to order, cart icon vs process icon) and to scope every Process-table
+// read/write to the one order it actually belongs to. Process rows are kept
+// forever (buy-again history spanning every past order), so nothing here can
+// assume "any row for this user" means "the active order" the way it could
+// when Process only ever held one order's worth of rows.
+function getActiveSameDayOrderId(\PDO $db, int $userId): ?int
+{
+    if ($userId <= 0) {
+        return null;
+    }
+
+    $stmt = $db->prepare("SELECT Id FROM OrderSent WHERE UserId = ? AND (OrderStatus = 'Processing' OR OrderStatus = 'Pending') ORDER BY DateAdded DESC LIMIT 1");
+    $stmt->execute([$userId]);
+    $orderId = $stmt->fetchColumn();
+
+    return $orderId !== false ? (int)$orderId : null;
+}
+
 function isSameDayEligible(\PDO $db, string $deviceSignature, int $userId): array
 {
     $response = [
@@ -50,13 +147,7 @@ function isSameDayEligible(\PDO $db, string $deviceSignature, int $userId): arra
             $response['same_day_eligible'] = (bool)$row['isSameDayEligible'];
 
             if ($response['same_day_eligible']) {
-                if ($userId > 0) {
-                    $stmt = $db->prepare("SELECT 1 FROM OrderSent WHERE UserID = ? AND (OrderStatus = 'Processing' OR OrderStatus = 'Pending') LIMIT 1");
-                    $stmt->execute([$userId]);
-                    $response['has_active_order'] = $stmt->fetchColumn() !== false;
-                } else {
-                    $response['has_active_order'] = false;
-                }
+                $response['has_active_order'] = getActiveSameDayOrderId($db, $userId) !== null;
             }
         } else {
             return $response; // Device not found, return with is_device_known = false
@@ -283,16 +374,17 @@ function cartIcon(\PDO $db, int $userId): array
     }
 
     try {
-        // check if user has active same-day order
-        $stmt = $db->prepare("SELECT 1 FROM Process WHERE UserId = ?");
-        $stmt->execute([$userId]);
-        $activeSameDayCount = (int)$stmt->fetchColumn();
-        $response['has_active_order'] = (bool)$activeSameDayCount;
-        $response['icon'] = $activeSameDayCount ? 'icon_process' : 'icon_cart';
+        $activeOrderId = getActiveSameDayOrderId($db, $userId);
+        $response['has_active_order'] = $activeOrderId !== null;
+        $response['icon'] = $activeOrderId !== null ? 'icon_process' : 'icon_cart';
 
-        $table = $activeSameDayCount ? 'Process' : 'Cart';
-        $stmt = $db->prepare("SELECT COUNT(*) FROM {$table} WHERE UserId = ? AND Quantity > 0");
-        $stmt->execute([$userId]);
+        if ($activeOrderId !== null) {
+            $stmt = $db->prepare("SELECT COUNT(*) FROM Process WHERE UserId = ? AND OrderId = ? AND Quantity > 0");
+            $stmt->execute([$userId, $activeOrderId]);
+        } else {
+            $stmt = $db->prepare("SELECT COUNT(*) FROM Cart WHERE UserId = ? AND Quantity > 0");
+            $stmt->execute([$userId]);
+        }
         $totalCount = (int)$stmt->fetchColumn();
 
         $response['total_count'] = $totalCount;
@@ -320,6 +412,7 @@ function cartContent(\PDO $db, int $userId, float $taxRate): array
             $sql = " SELECT
         src.ProductId,
         p.*,
+        pc.MainCategory,
         CASE WHEN s.Id IS NOT NULL THEN 1 ELSE 0 END AS isSaved,
         COALESCE(src.Quantity, 0)   AS ItemQuantity,
         COALESCE(r.avg_rating, 0)   AS avg_rating,
@@ -327,6 +420,8 @@ function cartContent(\PDO $db, int $userId, float $taxRate): array
     FROM Cart src
     INNER JOIN Products p
             ON src.ProductId = p.Id
+    LEFT JOIN ProductCategories pc
+           ON pc.ProductId = p.Id
     LEFT JOIN Saved s
            ON s.ProductId = src.ProductId AND s.UserId = ?
     LEFT JOIN (
@@ -349,6 +444,8 @@ function cartContent(\PDO $db, int $userId, float $taxRate): array
             }
         }
 
+        $sameDayCategories = ['Grocery', 'Frozen', 'Produce', 'Dairy'];
+
         foreach ($results as $row) {
             $rating = $row['review_count'] > 0
                 ? round((float)$row['avg_rating'], 2)
@@ -368,6 +465,7 @@ function cartContent(\PDO $db, int $userId, float $taxRate): array
                 'quantity'     => (int)$row['ItemQuantity'],
                 'ratings'      => $rating,
                 'review_count' => (int)$row['review_count'],
+                'same_day_eligible' => in_array($row['MainCategory'], $sameDayCategories, true),
                 'total_price'   => (float)round(
                     ($row['isOnSale'] ? $row['SalePrice'] : $row['Price']) * (1 + $taxRate) * (int)$row['ItemQuantity'],
                     2
@@ -490,19 +588,32 @@ function addProduct(\PDO $db, int $productId, int $userId, bool $hasActiveOrder,
     }
 
     try {
-        $table = $hasActiveOrder ? 'Process' : 'Cart';
+        // Process rows persist forever (buy-again history across every past
+        // order), so every read/write against it has to be scoped to the
+        // specific active OrderId — UserId+ProductId alone would also match
+        // rows from the user's old, already-delivered orders.
+        $activeOrderId = $hasActiveOrder ? getActiveSameDayOrderId($db, $userId) : null;
+        $table = $activeOrderId !== null ? 'Process' : 'Cart';
         $response['table_source'] = $table;
 
-        $stmt = $db->prepare("INSERT INTO {$table} (UserId, ProductId, Quantity) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE Quantity = Quantity + 1");
-        $stmt->execute([$userId, $productId]);
+        if ($table === 'Process') {
+            $stmt = $db->prepare("INSERT INTO Process (UserId, ProductId, OrderId, Quantity) VALUES (?, ?, ?, 1) ON DUPLICATE KEY UPDATE Quantity = Quantity + 1");
+            $stmt->execute([$userId, $productId, $activeOrderId]);
 
-        $stmt = $db->prepare("SELECT Quantity FROM {$table} WHERE UserId = ? AND ProductId = ?");
-        $stmt->execute([$userId, $productId]);
+            $stmt = $db->prepare("SELECT Quantity FROM Process WHERE UserId = ? AND ProductId = ? AND OrderId = ?");
+            $stmt->execute([$userId, $productId, $activeOrderId]);
+        } else {
+            $stmt = $db->prepare("INSERT INTO Cart (UserId, ProductId, Quantity) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE Quantity = Quantity + 1");
+            $stmt->execute([$userId, $productId]);
+
+            $stmt = $db->prepare("SELECT Quantity FROM Cart WHERE UserId = ? AND ProductId = ?");
+            $stmt->execute([$userId, $productId]);
+        }
         $quantity = (int)$stmt->fetchColumn();
 
         $response['quantity'] = $quantity;
 
-        $countStmt = $db->prepare("
+        $countSql = "
              SELECT
                 COUNT(*) AS ItemCount,
                 SUM(
@@ -515,9 +626,9 @@ function addProduct(\PDO $db, int $productId, int $userId, bool $hasActiveOrder,
             FROM {$table} CI
             INNER JOIN Products P
                 ON CI.ProductId = P.Id
-            WHERE CI.UserId = ?
-        ");
-        $countStmt->execute([$userId]);
+            WHERE CI.UserId = ?" . ($table === 'Process' ? " AND CI.OrderId = ?" : "");
+        $countStmt = $db->prepare($countSql);
+        $countStmt->execute($table === 'Process' ? [$userId, $activeOrderId] : [$userId]);
         $cartData = $countStmt->fetch(PDO::FETCH_ASSOC);
 
         $totaltax = (float)$cartData['TotalAmount'] * $taxRate;
@@ -555,22 +666,34 @@ function decrementProduct(\PDO $db, int $productId, int $userId, bool $hasActive
     }
 
     try {
-        $table = $hasActiveOrder ? 'Process' : 'Cart';
+        $activeOrderId = $hasActiveOrder ? getActiveSameDayOrderId($db, $userId) : null;
+        $table = $activeOrderId !== null ? 'Process' : 'Cart';
         $response['table_source'] = $table;
 
-        $stmt = $db->prepare("UPDATE {$table} SET Quantity = GREATEST(Quantity - 1, 0) WHERE UserId = ? AND ProductId = ?");
-        $stmt->execute([$userId, $productId]);
+        if ($table === 'Process') {
+            $stmt = $db->prepare("UPDATE Process SET Quantity = GREATEST(Quantity - 1, 0) WHERE UserId = ? AND ProductId = ? AND OrderId = ?");
+            $stmt->execute([$userId, $productId, $activeOrderId]);
 
-        $stmt = $db->prepare("DELETE FROM {$table} WHERE UserId = ? AND ProductId = ? AND Quantity = 0");
-        $stmt->execute([$userId, $productId]);
+            $stmt = $db->prepare("DELETE FROM Process WHERE UserId = ? AND ProductId = ? AND OrderId = ? AND Quantity = 0");
+            $stmt->execute([$userId, $productId, $activeOrderId]);
 
-        $stmt = $db->prepare("SELECT Quantity FROM {$table} WHERE UserId = ? AND ProductId = ?");
-        $stmt->execute([$userId, $productId]);
+            $stmt = $db->prepare("SELECT Quantity FROM Process WHERE UserId = ? AND ProductId = ? AND OrderId = ?");
+            $stmt->execute([$userId, $productId, $activeOrderId]);
+        } else {
+            $stmt = $db->prepare("UPDATE Cart SET Quantity = GREATEST(Quantity - 1, 0) WHERE UserId = ? AND ProductId = ?");
+            $stmt->execute([$userId, $productId]);
+
+            $stmt = $db->prepare("DELETE FROM Cart WHERE UserId = ? AND ProductId = ? AND Quantity = 0");
+            $stmt->execute([$userId, $productId]);
+
+            $stmt = $db->prepare("SELECT Quantity FROM Cart WHERE UserId = ? AND ProductId = ?");
+            $stmt->execute([$userId, $productId]);
+        }
         $quantity = (int)$stmt->fetchColumn();
 
         $response['quantity'] = $quantity;
 
-        $countStmt = $db->prepare("
+        $countSql = "
              SELECT
                 COUNT(*) AS ItemCount,
                 SUM(
@@ -583,9 +706,9 @@ function decrementProduct(\PDO $db, int $productId, int $userId, bool $hasActive
             FROM {$table} CI
             INNER JOIN Products P
                 ON CI.ProductId = P.Id
-            WHERE CI.UserId = ?
-        ");
-        $countStmt->execute([$userId]);
+            WHERE CI.UserId = ?" . ($table === 'Process' ? " AND CI.OrderId = ?" : "");
+        $countStmt = $db->prepare($countSql);
+        $countStmt->execute($table === 'Process' ? [$userId, $activeOrderId] : [$userId]);
         $cartData = $countStmt->fetch(PDO::FETCH_ASSOC);
 
         $totaltax = (float)$cartData['TotalAmount'] * $taxRate;
@@ -689,15 +812,17 @@ function savedContent(\PDO $db, int $userId, bool $hasActiveOrder, float $taxRat
         // Not logged in, return default response
     }
 
-    $table = $hasActiveOrder ? 'Process' : 'Cart';
+    $activeOrderId = $hasActiveOrder ? getActiveSameDayOrderId($db, $userId) : null;
+    $table = $activeOrderId !== null ? 'Process' : 'Cart';
 
     try {
-        $cacheKey = "saved_content:{$userId}";
+        $cacheKey = "saved_content:{$userId}:{$table}:" . ($activeOrderId ?? '0');
         $cachedResults = QueryCache::get($cacheKey);
 
         if ($cachedResults) {
             $results = $cachedResults;
         } else {
+            $joinOrderClause = $table === 'Process' ? " AND b.OrderId = ?" : "";
             $sql = "
             SELECT
                 src.ProductId,
@@ -710,7 +835,7 @@ function savedContent(\PDO $db, int $userId, bool $hasActiveOrder, float $taxRat
             INNER JOIN Products p
                     ON src.ProductId = p.Id
             LEFT JOIN {$table} b
-                   ON b.ProductId = src.ProductId AND b.UserId = ?
+                   ON b.ProductId = src.ProductId AND b.UserId = ?{$joinOrderClause}
             LEFT JOIN (
                 SELECT
                     ProductId,
@@ -723,8 +848,9 @@ function savedContent(\PDO $db, int $userId, bool $hasActiveOrder, float $taxRat
             ORDER BY src.DateAdded DESC
         ";
 
+            $params = $table === 'Process' ? [$userId, $activeOrderId, $userId] : [$userId, $userId];
             $stmt = $db->prepare($sql);
-            $stmt->execute([$userId, $userId]);
+            $stmt->execute($params);
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             if ($results) {
@@ -776,23 +902,24 @@ function Summary(\PDO $db, int $userId, bool $hasActiveOrder, float $taxRate): a
     }
 
     try {
-        $table = $hasActiveOrder ? 'Process' : 'Cart';
+        $activeOrderId = $hasActiveOrder ? getActiveSameDayOrderId($db, $userId) : null;
+        $table = $activeOrderId !== null ? 'Process' : 'Cart';
 
         $countStmt = $db->prepare("
-             SELECT 
+             SELECT
                 SUM(
                     CI.Quantity * COALESCE(
-                        CASE 
-                            WHEN P.isOnSale = 1 THEN P.SalePrice 
-                            ELSE P.Price 
+                        CASE
+                            WHEN P.isOnSale = 1 THEN P.SalePrice
+                            ELSE P.Price
                         END, P.Price)
                 ) AS TotalAmount
-            FROM {$table} CI 
-            INNER JOIN Products P 
-                ON CI.ProductId = P.Id 
-            WHERE CI.UserId = ?
+            FROM {$table} CI
+            INNER JOIN Products P
+                ON CI.ProductId = P.Id
+            WHERE CI.UserId = ?" . ($table === 'Process' ? " AND CI.OrderId = ?" : "") . "
         ");
-        $countStmt->execute([$userId]);
+        $countStmt->execute($table === 'Process' ? [$userId, $activeOrderId] : [$userId]);
         $cartData = $countStmt->fetch(PDO::FETCH_ASSOC);
 
         $totaltax = (float)$cartData['TotalAmount'] * $taxRate;
@@ -832,6 +959,8 @@ function pullingProducts(\PDO $db, bool $isSameDayEligible, string $table, int $
 
 
     try {
+        $activeOrderId = getActiveSameDayOrderId($db, $userId);
+
         $buildQuery = "
             SELECT
                 r.ProductId,
@@ -848,7 +977,7 @@ function pullingProducts(\PDO $db, bool $isSameDayEligible, string $table, int $
             LEFT JOIN Cart cart
                 ON cart.ProductId = r.ProductId AND cart.UserId = ?
             LEFT JOIN Process proc
-                ON proc.ProductId = r.ProductId AND proc.UserId = ?
+                ON proc.ProductId = r.ProductId AND proc.UserId = ? AND proc.OrderId = ?
             LEFT JOIN (
                 SELECT
                     ProductId,
@@ -864,7 +993,7 @@ function pullingProducts(\PDO $db, bool $isSameDayEligible, string $table, int $
         ";
 
         $stmt = $db->prepare($buildQuery);
-        $stmt->execute([$userId, $userId, $userId, (int)$isSameDayEligible]);
+        $stmt->execute([$userId, $userId, $userId, $activeOrderId, (int)$isSameDayEligible]);
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($results as $item) {
@@ -910,6 +1039,8 @@ function recentlyViewed(\PDO $db, int $userId, string $deviceSignature, bool $is
     }
 
     try {
+        $activeOrderId = getActiveSameDayOrderId($db, $userId);
+
         // The dedup (latest view per product) has to happen in its own
         // GROUP BY before joining Products — grouping by rv.ProductId at the
         // outer level while selecting p.* would violate ONLY_FULL_GROUP_BY,
@@ -936,7 +1067,7 @@ function recentlyViewed(\PDO $db, int $userId, string $deviceSignature, bool $is
             LEFT JOIN Cart cart
                 ON cart.ProductId = rv.ProductId AND cart.UserId = ?
             LEFT JOIN Process proc
-                ON proc.ProductId = rv.ProductId AND proc.UserId = ?
+                ON proc.ProductId = rv.ProductId AND proc.UserId = ? AND proc.OrderId = ?
             LEFT JOIN (
                 SELECT
                     ProductId,
@@ -950,7 +1081,7 @@ function recentlyViewed(\PDO $db, int $userId, string $deviceSignature, bool $is
             ORDER BY rv.LastViewed DESC
             LIMIT 16
         ");
-        $stmt->execute([$userId, $deviceSignature, $userId, $userId, $userId, (int)$isSameDayEligible]);
+        $stmt->execute([$userId, $deviceSignature, $userId, $userId, $userId, $activeOrderId, (int)$isSameDayEligible]);
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($results as $item) {
@@ -984,7 +1115,7 @@ function recentlyViewed(\PDO $db, int $userId, string $deviceSignature, bool $is
     return $response;
 }
 
-function searchEngine(\PDO $db, string $searchTerm, bool $isSameDayEligible, float $taxRate): array
+function searchEngine(\PDO $db, string $searchTerm, bool $isSameDayEligible, float $taxRate, int $userId = 0): array
 {
     $response = [
         'products' => [],
@@ -999,13 +1130,17 @@ function searchEngine(\PDO $db, string $searchTerm, bool $isSameDayEligible, flo
     $inputInfo = "%{$searchTerm}%";
 
     try {
+        $activeOrderId = getActiveSameDayOrderId($db, $userId);
+
         $eligibilityFilter = $isSameDayEligible
             ? ""
             : "AND pc.MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy')";
 
         $query = "
-            SELECT p.* FROM Products p
+            SELECT p.*, COALESCE(cart.Quantity, 0) AS CartQuantity, COALESCE(proc.Quantity, 0) AS ProcessQuantity FROM Products p
             LEFT JOIN ProductCategories pc ON pc.ProductId = p.Id
+            LEFT JOIN Cart cart ON cart.ProductId = p.Id AND cart.UserId = ?
+            LEFT JOIN Process proc ON proc.ProductId = p.Id AND proc.UserId = ? AND proc.OrderId = ?
             WHERE (
                 p.Brand           LIKE ? OR
                 pc.MainCategory   LIKE ? OR
@@ -1020,10 +1155,12 @@ function searchEngine(\PDO $db, string $searchTerm, bool $isSameDayEligible, flo
         ";
 
         $stmt = $db->prepare($query);
-        $stmt->execute([$inputInfo, $inputInfo, $inputInfo, $inputInfo, $inputInfo, $inputInfo, $inputInfo]);
+        $stmt->execute([$userId, $userId, $activeOrderId, $inputInfo, $inputInfo, $inputInfo, $inputInfo, $inputInfo, $inputInfo, $inputInfo]);
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($results as $row) {
+            $inProcess = $row['ProcessQuantity'] > 0;
+
             $response['products'][] = [
                 'product_id' => $row['Id'],
                 'brand'      => $row['Brand'],
@@ -1034,6 +1171,9 @@ function searchEngine(\PDO $db, string $searchTerm, bool $isSameDayEligible, flo
                 'is_on_sale' => (bool)$row['isOnSale'],
                 'sale_price' => (float)round($row['SalePrice'] * (1 + $taxRate), 2),
                 'is_bogo'    => (bool)$row['isBogo'],
+                'in_cart'    => $row['CartQuantity'] > 0,
+                'in_process' => $inProcess,
+                'quantity'   => $inProcess ? (int)$row['ProcessQuantity'] : (int)$row['CartQuantity'],
             ];
         }
     } catch (\PDOException $e) {
@@ -1053,13 +1193,13 @@ function store(\PDO $db, int $userId, bool $hasActiveOrder, bool $isSameDayEligi
         'error'             => null
     ];
 
-    $table = $hasActiveOrder ? 'Process' : 'Cart';
+    $activeOrderId = $hasActiveOrder ? getActiveSameDayOrderId($db, $userId) : null;
 
     $productFilters  = ['Brand', 'Name', 'Size', 'Price', 'isOnSale', 'SalePrice', 'isBogo', 'inStock'];
     $categoryFilters = ['MainCategory', 'SubCategory', 'ThirdCategory', 'ExtCategory'];
 
     $whereClauses = ["p.inStock = 1"];
-    $params       = [$userId, $userId, $userId];
+    $params       = [$userId, $userId, $userId, $activeOrderId];
 
     foreach ($filter as $key => $value) {
         if (in_array($key, $productFilters, true) && $value !== '' && $value !== null) {
@@ -1099,7 +1239,7 @@ function store(\PDO $db, int $userId, bool $hasActiveOrder, bool $isSameDayEligi
             LEFT JOIN Cart cart
                 ON cart.ProductId = p.Id AND cart.UserId = ?
             LEFT JOIN Process proc
-                ON proc.ProductId = p.Id AND proc.UserId = ?
+                ON proc.ProductId = p.Id AND proc.UserId = ? AND proc.OrderId = ?
             LEFT JOIN (
                 SELECT
                     ProductId,
@@ -1181,7 +1321,7 @@ function store(\PDO $db, int $userId, bool $hasActiveOrder, bool $isSameDayEligi
             ? "AND pc.MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy')"
             : "";
 
-        $simParams = [$userId, $userId, $userId, $anchor['MainCategory'], $anchor['Brand']];
+        $simParams = [$userId, $userId, $userId, $activeOrderId, $anchor['MainCategory'], $anchor['Brand']];
         $simParams = array_merge($simParams, $simExclude, [$limit]);
 
         $simSQL = "
@@ -1202,7 +1342,7 @@ function store(\PDO $db, int $userId, bool $hasActiveOrder, bool $isSameDayEligi
             LEFT JOIN Cart cart
                 ON cart.ProductId = p.Id AND cart.UserId = ?
             LEFT JOIN Process proc
-                ON proc.ProductId = p.Id AND proc.UserId = ?
+                ON proc.ProductId = p.Id AND proc.UserId = ? AND proc.OrderId = ?
             WHERE (pc.MainCategory = ? OR p.Brand = ?)
             AND p.Id NOT IN ({$placeholders})
             AND p.inStock = 1
@@ -1262,7 +1402,7 @@ function productDetails(\PDO $db, int $productId, int $userId, bool $hasActiveOr
         return $response;
     }
 
-    $table = $hasActiveOrder ? 'Process' : 'Cart';
+    $activeOrderId = $hasActiveOrder ? getActiveSameDayOrderId($db, $userId) : null;
 
     $eligibilityFilter = $isSameDayEligible
         ? ""
@@ -1289,7 +1429,7 @@ function productDetails(\PDO $db, int $productId, int $userId, bool $hasActiveOr
             LEFT JOIN Cart cart
                 ON cart.ProductId = p.Id AND cart.UserId = ?
             LEFT JOIN Process proc
-                ON proc.ProductId = p.Id AND proc.UserId = ?
+                ON proc.ProductId = p.Id AND proc.UserId = ? AND proc.OrderId = ?
             LEFT JOIN (
                 SELECT
                     ProductId,
@@ -1303,7 +1443,7 @@ function productDetails(\PDO $db, int $productId, int $userId, bool $hasActiveOr
             LIMIT 1
         ");
 
-        $stmt->execute([$userId, $userId, $userId, $productId]);
+        $stmt->execute([$userId, $userId, $userId, $activeOrderId, $productId]);
         $product = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$product) {
@@ -1539,11 +1679,15 @@ function loginUser(\PDO $db, string $email, string $password): array
             return $response;
         }
 
+        $phoneStmt = $db->prepare("SELECT Phone FROM UserAddresses WHERE UserId = ? AND Phone != '' ORDER BY DateAdded DESC LIMIT 1");
+        $phoneStmt->execute([(int)$user['Id']]);
+        $userPhone = $phoneStmt->fetchColumn();
+
         $response['user'] = [
             'user_id'       => (int)$user['Id'],
             'user_name'     => $user['Name'],
             'user_email'    => $user['Email'],
-            'user_phone'    => null,
+            'user_phone'    => $userPhone !== false ? $userPhone : null,
             'credits'       => (float)$user['Credits'],
             'is_member'     => (bool)$user['isMember'],
             'time_register' => $user['TimeRegister'],
@@ -1604,11 +1748,15 @@ function googleLoginUser(\PDO $db, string $email, string $name): array
             $db->commit();
         }
 
+        $phoneStmt = $db->prepare("SELECT Phone FROM UserAddresses WHERE UserId = ? AND Phone != '' ORDER BY DateAdded DESC LIMIT 1");
+        $phoneStmt->execute([(int)$user['Id']]);
+        $userPhone = $phoneStmt->fetchColumn();
+
         $response['user'] = [
             'user_id'       => (int)$user['Id'],
             'user_name'     => $user['Name'],
             'user_email'    => $user['Email'],
-            'user_phone'    => null,
+            'user_phone'    => $userPhone !== false ? $userPhone : null,
             'credits'       => (float)$user['Credits'],
             'is_member'     => (bool)$user['isMember'],
             'time_register' => $user['TimeRegister'],
@@ -1759,6 +1907,19 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
     // actually charged via Stripe) — clamp before it ever reaches the math.
     $tipAmount = max(0.0, $tipAmount);
 
+    // Same-day is a HeyDaniel+ perk — the client already gates this in the
+    // UI, but a stale page or a direct API call could still send
+    // is_same_day=true for a non-member, so re-check server-side rather
+    // than trusting the flag.
+    if ($isSameDay) {
+        $stmt = $db->prepare("SELECT IsMember FROM Users WHERE Id = ? LIMIT 1");
+        $stmt->execute([$userId]);
+        if (!(bool)$stmt->fetchColumn()) {
+            $isSameDay = false;
+            $tipAmount = 0.0;
+        }
+    }
+
     // Validate address
     $requiredAddressFields = ['Address', 'City', 'State', 'ZipCode', 'Phone'];
     foreach ($requiredAddressFields as $field) {
@@ -1810,7 +1971,8 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
             $stripeCustomerId = $paymentRow['StripeCustomerId'];
 
             // Attach new payment method to existing customer
-            \Stripe\PaymentMethod::attach($paymentMethodId, [
+            $paymentMethod = \Stripe\PaymentMethod::retrieve($paymentMethodId);
+            $paymentMethod->attach([
                 'customer' => $stripeCustomerId,
             ]);
         } else {
@@ -1889,37 +2051,8 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
             $address['Phone']
         ]);
 
-        // Move cart items to Process (same-day) or OrderTracking (standard
-        // shipping) — the two tables track different things per item, so
-        // they need different column lists rather than one shared insert.
-        if ($isSameDay) {
-            $insertStmt = $db->prepare("
-                INSERT INTO Process (UserId, ProductId, Quantity, isStocked)
-                VALUES (?, ?, ?, 1)
-            ");
-
-            foreach ($cartItems as $item) {
-                $insertStmt->execute([$userId, $item['ProductId'], $item['Quantity']]);
-            }
-        } else {
-            $insertStmt = $db->prepare("
-                INSERT INTO OrderTracking (UserId, ProductId, ItemQuantity, OrderRevenue, OrderLiability)
-                VALUES (?, ?, ?, ?, ?)
-            ");
-
-            foreach ($cartItems as $item) {
-                $itemRevenue = round($item['UnitPrice'] * $item['Quantity'], 2);
-                $insertStmt->execute([
-                    $userId,
-                    $item['ProductId'],
-                    $item['Quantity'],
-                    $itemRevenue,
-                    round($itemRevenue * $taxRate, 2)
-                ]);
-            }
-        }
-
-        // Insert into OrderSent
+        // Insert into OrderSent first so its Id is available to tag each
+        // line item below with the OrderId it belongs to.
         $stmt = $db->prepare("
             INSERT INTO OrderSent (
                 UserId, ItemQuantity, OrderRevenue, FinalOrderRevenue, OrderLiability,
@@ -1939,6 +2072,37 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
 
         $orderId = (int)$db->lastInsertId();
 
+        // Move cart items to Process (same-day) or OrderTracking (standard
+        // shipping) — the two tables track different things per item, so
+        // they need different column lists rather than one shared insert.
+        if ($isSameDay) {
+            $insertStmt = $db->prepare("
+                INSERT INTO Process (UserId, ProductId, OrderId, Quantity, isStocked)
+                VALUES (?, ?, ?, ?, 1)
+            ");
+
+            foreach ($cartItems as $item) {
+                $insertStmt->execute([$userId, $item['ProductId'], $orderId, $item['Quantity']]);
+            }
+        } else {
+            $insertStmt = $db->prepare("
+                INSERT INTO OrderTracking (UserId, ProductId, OrderId, ItemQuantity, OrderRevenue, OrderLiability)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+
+            foreach ($cartItems as $item) {
+                $itemRevenue = round($item['UnitPrice'] * $item['Quantity'], 2);
+                $insertStmt->execute([
+                    $userId,
+                    $item['ProductId'],
+                    $orderId,
+                    $item['Quantity'],
+                    $itemRevenue,
+                    round($itemRevenue * $taxRate, 2)
+                ]);
+            }
+        }
+
         // Clear cart
         $stmt = $db->prepare("DELETE FROM Cart WHERE UserId = ?");
         $stmt->execute([$userId]);
@@ -1946,10 +2110,175 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
         $db->commit();
 
         $response['order_id'] = $orderId;
+
+        createNotification(
+            $db,
+            $userId,
+            'order',
+            'Order placed',
+            "Your order #{$orderId} has been placed for \$" . number_format($total, 2) . "."
+        );
     } catch (\PDOException $e) {
         $db->rollBack();
         error_log("DB Error in submitCheckout: " . $e->getMessage());
         $response['error'] = "Internal server error during checkout.";
+    }
+
+    return $response;
+}
+
+function subscribeMembership(\PDO $db, int $userId, string $paymentMethodId): array
+{
+    $response = [
+        'success' => false,
+        'error'   => null
+    ];
+
+    if ($userId <= 0) {
+        $response['error'] = "User not authenticated.";
+        return $response;
+    }
+
+    if (empty($paymentMethodId)) {
+        $response['error'] = "Invalid payment method.";
+        return $response;
+    }
+
+    $priceId = $_ENV['STRIPE_MEMBERSHIP_PRICE_ID'] ?? '';
+    if (empty($priceId)) {
+        error_log("subscribeMembership: STRIPE_MEMBERSHIP_PRICE_ID is not configured.");
+        $response['error'] = "Membership is not available right now.";
+        return $response;
+    }
+
+    try {
+        \Stripe\Stripe::setApiKey($_ENV['STRIPE_SECRET_KEY'] ?? '');
+
+        $stmt = $db->prepare("SELECT StripeCustomerId, StripeSubscriptionId FROM CustomerPaymentMethod WHERE UserId = ? LIMIT 1");
+        $stmt->execute([$userId]);
+        $paymentRow = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!empty($paymentRow['StripeSubscriptionId'])) {
+            $existing = \Stripe\Subscription::retrieve($paymentRow['StripeSubscriptionId']);
+            if (in_array($existing->status, ['active', 'trialing'], true)) {
+                $response['error'] = "You're already subscribed.";
+                return $response;
+            }
+        }
+
+        if ($paymentRow) {
+            $stripeCustomerId = $paymentRow['StripeCustomerId'];
+
+            $paymentMethod = \Stripe\PaymentMethod::retrieve($paymentMethodId);
+            $paymentMethod->attach(['customer' => $stripeCustomerId]);
+
+            \Stripe\Customer::update($stripeCustomerId, [
+                'invoice_settings' => ['default_payment_method' => $paymentMethodId],
+            ]);
+        } else {
+            $stmt = $db->prepare("SELECT Name, Email FROM Users WHERE Id = ? LIMIT 1");
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            $customer = \Stripe\Customer::create([
+                'name'             => $user['Name'],
+                'email'            => $user['Email'],
+                'payment_method'   => $paymentMethodId,
+                'invoice_settings' => ['default_payment_method' => $paymentMethodId],
+            ]);
+
+            $stripeCustomerId = $customer->id;
+
+            $stmt = $db->prepare("
+                INSERT INTO CustomerPaymentMethod (UserId, PaymentMethod, StripeCustomerId)
+                VALUES (?, ?, ?)
+            ");
+            $stmt->execute([$userId, $paymentMethodId, $stripeCustomerId]);
+        }
+
+        $subscription = \Stripe\Subscription::create([
+            'customer'                => $stripeCustomerId,
+            'items'                   => [['price' => $priceId]],
+            'default_payment_method'  => $paymentMethodId,
+            'expand'                  => ['latest_invoice.payment_intent'],
+        ]);
+
+        if (!in_array($subscription->status, ['active', 'trialing'], true)) {
+            $paymentIntent = $subscription->latest_invoice->payment_intent ?? null;
+            // Leave the subscription as 'incomplete' rather than cancelling it —
+            // Stripe will retry the invoice, and the client can retry confirming
+            // the payment intent if it required additional authentication.
+            if ($paymentIntent && $paymentIntent->status === 'requires_action') {
+                $response['requires_action'] = true;
+                $response['client_secret']   = $paymentIntent->client_secret;
+                return $response;
+            }
+
+            $response['error'] = "Your card was declined.";
+            return $response;
+        }
+
+        $stmt = $db->prepare("UPDATE Users SET IsMember = 1, TimeMembership = NOW() WHERE Id = ?");
+        $stmt->execute([$userId]);
+
+        $stmt = $db->prepare("UPDATE CustomerPaymentMethod SET StripeSubscriptionId = ? WHERE UserId = ?");
+        $stmt->execute([$subscription->id, $userId]);
+
+        $response['success'] = true;
+
+        createNotification($db, $userId, 'membership', 'Membership activated', 'Your HeyDaniel+ membership is now active.');
+    } catch (\Stripe\Exception\ApiErrorException $e) {
+        error_log("Stripe Error in subscribeMembership: " . $e->getMessage());
+        $response['error'] = "Payment processing failed.";
+    } catch (\PDOException $e) {
+        error_log("DB Error in subscribeMembership: " . $e->getMessage());
+        $response['error'] = "Internal server error during subscription.";
+    }
+
+    return $response;
+}
+
+function cancelMembership(\PDO $db, int $userId): array
+{
+    $response = [
+        'success' => false,
+        'error'   => null
+    ];
+
+    if ($userId <= 0) {
+        $response['error'] = "User not authenticated.";
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("SELECT StripeSubscriptionId FROM CustomerPaymentMethod WHERE UserId = ? LIMIT 1");
+        $stmt->execute([$userId]);
+        $subscriptionId = $stmt->fetchColumn();
+
+        if ($subscriptionId) {
+            \Stripe\Stripe::setApiKey($_ENV['STRIPE_SECRET_KEY'] ?? '');
+            try {
+                \Stripe\Subscription::retrieve($subscriptionId)->cancel();
+            } catch (\Stripe\Exception\InvalidRequestException $e) {
+                // Already cancelled on Stripe's side (e.g. via a prior webhook) — treat as success.
+            }
+
+            $stmt = $db->prepare("UPDATE CustomerPaymentMethod SET StripeSubscriptionId = NULL WHERE UserId = ?");
+            $stmt->execute([$userId]);
+        }
+
+        $stmt = $db->prepare("UPDATE Users SET IsMember = 0 WHERE Id = ?");
+        $stmt->execute([$userId]);
+
+        $response['success'] = true;
+
+        createNotification($db, $userId, 'membership', 'Membership cancelled', 'Your HeyDaniel+ membership has been cancelled.');
+    } catch (\Stripe\Exception\ApiErrorException $e) {
+        error_log("Stripe Error in cancelMembership: " . $e->getMessage());
+        $response['error'] = "Unable to cancel membership.";
+    } catch (\PDOException $e) {
+        error_log("DB Error in cancelMembership: " . $e->getMessage());
+        $response['error'] = "Internal server error while cancelling membership.";
     }
 
     return $response;
@@ -1982,6 +2311,19 @@ function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): a
         if (!$order) {
             $response['error'] = "Order not found.";
             return $response;
+        }
+
+        // HeyDaniel+ members earn cash back on every completed order: a flat
+        // $9.99 (the value of the same-day delivery fee they don't pay) plus
+        // $0.05 for every full $50 of the order subtotal (OrderRevenue, i.e.
+        // before tax/tip). Non-members earn nothing.
+        $stmt = $db->prepare("SELECT IsMember FROM Users WHERE Id = ? LIMIT 1");
+        $stmt->execute([$userId]);
+        $isMember = (bool)$stmt->fetchColumn();
+
+        $creditsEarned = 0.00;
+        if ($isMember) {
+            $creditsEarned = round(9.99 + floor($order['OrderRevenue'] / 50) * 0.05, 2);
         }
 
         // Fetch Payment Intent ID
@@ -2023,6 +2365,7 @@ function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): a
             SET isClosed = 1,
                 isTipped = ?,
                 TipAmount = ?,
+                CreditsEarned = ?,
                 OrderStatus = 'delivered',
                 TimeDelivered = NOW()
             WHERE Id = ? AND UserId = ?
@@ -2030,17 +2373,23 @@ function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): a
         $stmt->execute([
             (int)($tipAmount > 0),
             $tipAmount,
+            $creditsEarned,
             $orderId,
             $userId
         ]);
 
         // Clear Payment Intent ID from CustomerPaymentMethod
         $stmt = $db->prepare("
-            UPDATE CustomerPaymentMethod 
-            SET StripePaymentIntentId = NULL 
+            UPDATE CustomerPaymentMethod
+            SET StripePaymentIntentId = NULL
             WHERE UserId = ?
         ");
         $stmt->execute([$userId]);
+
+        if ($creditsEarned > 0) {
+            $stmt = $db->prepare("UPDATE Users SET Credits = Credits + ? WHERE Id = ?");
+            $stmt->execute([$creditsEarned, $userId]);
+        }
 
         $response['success'] = true;
     } catch (\Stripe\Exception\ApiErrorException $e) {
@@ -2054,11 +2403,28 @@ function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): a
     return $response;
 }
 
-// Order-level summaries only. OrderSent has no foreign key linking it to the
-// Process/OrderTracking rows that held its line items at checkout time, so
-// there's no reliable way to show which products belonged to which order —
-// building that would mean guessing off timestamps, which can silently
-// misattribute items for orders placed close together.
+// Sum of CreditsEarned across orders delivered so far this calendar month —
+// powers the "You've saved $X this month" figure on the homepage member
+// banner. Scoped to TimeDelivered (when the credit was actually earned in
+// finalizeOrder()), not DateAdded (when the order was placed).
+function monthlySavings(\PDO $db, int $userId): float
+{
+    if ($userId <= 0) {
+        return 0.00;
+    }
+
+    $monthStart = date('Y-m-01 00:00:00');
+
+    $stmt = $db->prepare("
+        SELECT COALESCE(SUM(CreditsEarned), 0)
+        FROM OrderSent
+        WHERE UserId = ? AND isClosed = 1 AND TimeDelivered >= ?
+    ");
+    $stmt->execute([$userId, $monthStart]);
+
+    return (float)$stmt->fetchColumn();
+}
+
 function orderHistory(\PDO $db, int $userId, float $taxRate): array
 {
     $response = [
@@ -2074,7 +2440,7 @@ function orderHistory(\PDO $db, int $userId, float $taxRate): array
         $stmt = $db->prepare("
             SELECT
                 Id, ItemQuantity, OrderRevenue, FinalOrderRevenue, OrderLiability,
-                TipAmount, OrderStatus, DateAdded, TimeDelivered, isClosed
+                TipAmount, isSameDay, OrderStatus, DateAdded, TimeDelivered, isClosed
             FROM OrderSent
             WHERE UserId = ?
             ORDER BY DateAdded DESC, Id DESC
@@ -2082,9 +2448,34 @@ function orderHistory(\PDO $db, int $userId, float $taxRate): array
         $stmt->execute([$userId]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // Small preview of what was ordered — first few product pictures, plus
+        // the total distinct line count so the row can show a "+N" overflow —
+        // shown on the collapsed row before the full item list is expanded.
+        $processPicStmt = $db->prepare("
+            SELECT p.Picture FROM Process t JOIN Products p ON p.Id = t.ProductId
+            WHERE t.OrderId = ? AND t.UserId = ? LIMIT 3
+        ");
+        $trackingPicStmt = $db->prepare("
+            SELECT p.Picture FROM OrderTracking t JOIN Products p ON p.Id = t.ProductId
+            WHERE t.OrderId = ? AND t.UserId = ? LIMIT 3
+        ");
+        $processCountStmt = $db->prepare("SELECT COUNT(*) FROM Process WHERE OrderId = ? AND UserId = ?");
+        $trackingCountStmt = $db->prepare("SELECT COUNT(*) FROM OrderTracking WHERE OrderId = ? AND UserId = ?");
+
         foreach ($rows as $row) {
+            $orderId = (int)$row['Id'];
+            $isSameDay = (bool)$row['isSameDay'];
+
+            $picStmt = $isSameDay ? $processPicStmt : $trackingPicStmt;
+            $picStmt->execute([$orderId, $userId]);
+            $pictures = $picStmt->fetchAll(PDO::FETCH_COLUMN);
+
+            $countStmt = $isSameDay ? $processCountStmt : $trackingCountStmt;
+            $countStmt->execute([$orderId, $userId]);
+            $lineCount = (int)$countStmt->fetchColumn();
+
             $response['orders'][] = [
-                'order_id'       => (int)$row['Id'],
+                'order_id'       => $orderId,
                 'item_count'     => (int)$row['ItemQuantity'],
                 'subtotal'       => (float)$row['OrderRevenue'],
                 'tax'            => (float)$row['OrderLiability'],
@@ -2093,12 +2484,94 @@ function orderHistory(\PDO $db, int $userId, float $taxRate): array
                 'status'         => $row['OrderStatus'],
                 'date_added'     => $row['DateAdded'],
                 'time_delivered' => $row['TimeDelivered'],
-                'is_closed'      => (bool)$row['isClosed']
+                'is_closed'      => (bool)$row['isClosed'],
+                'pictures'       => $pictures,
+                'more_count'     => max(0, $lineCount - count($pictures))
             ];
         }
     } catch (\PDOException $e) {
         error_log("DB Error in orderHistory: " . $e->getMessage());
         $response['error'] = "Internal server error during order history retrieval.";
+    }
+
+    return $response;
+}
+
+function orderDetails(\PDO $db, int $userId, int $orderId): array
+{
+    $response = [
+        'order' => null,
+        'error' => null
+    ];
+
+    if ($userId <= 0 || $orderId <= 0) {
+        $response['error'] = "Invalid request.";
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            SELECT
+                Id, ItemQuantity, OrderRevenue, FinalOrderRevenue, OrderLiability,
+                TipAmount, isSameDay, OrderStatus, DateAdded, TimeDelivered, isClosed
+            FROM OrderSent
+            WHERE Id = ? AND UserId = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$orderId, $userId]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$order) {
+            $response['error'] = "Order not found.";
+            return $response;
+        }
+
+        // Process (same-day) uses `Quantity`; OrderTracking (standard) uses `ItemQuantity`.
+        // Process also tracks per-item isStocked; OrderTracking has no such column, so
+        // standard-shipping items are always reported as stocked.
+        $itemsTable = (bool)$order['isSameDay'] ? 'Process' : 'OrderTracking';
+        $quantityColumn = $itemsTable === 'Process' ? 'Quantity' : 'ItemQuantity';
+        $stockedColumn = $itemsTable === 'Process' ? 't.isStocked' : '1';
+        $stmt = $db->prepare("
+            SELECT t.ProductId, t.{$quantityColumn} AS Quantity, t.isMissing, {$stockedColumn} AS isStocked,
+                   p.Name, p.Brand, p.Picture, p.Price
+            FROM {$itemsTable} t
+            JOIN Products p ON p.Id = t.ProductId
+            WHERE t.OrderId = ? AND t.UserId = ?
+        ");
+        $stmt->execute([$orderId, $userId]);
+        $itemRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $items = [];
+        foreach ($itemRows as $row) {
+            $items[] = [
+                'product_id' => (int)$row['ProductId'],
+                'name'       => $row['Name'],
+                'brand'      => $row['Brand'],
+                'picture'    => $row['Picture'],
+                'price'      => (float)$row['Price'],
+                'quantity'   => (int)$row['Quantity'],
+                'is_missing' => (int)$row['isMissing'],
+                'in_stock'   => (bool)$row['isStocked']
+            ];
+        }
+
+        $response['order'] = [
+            'order_id'       => (int)$order['Id'],
+            'item_count'     => (int)$order['ItemQuantity'],
+            'subtotal'       => (float)$order['OrderRevenue'],
+            'tax'            => (float)$order['OrderLiability'],
+            'tip'            => (float)$order['TipAmount'],
+            'total'          => (float)$order['FinalOrderRevenue'],
+            'status'         => $order['OrderStatus'],
+            'date_added'     => $order['DateAdded'],
+            'time_delivered' => $order['TimeDelivered'],
+            'is_closed'      => (bool)$order['isClosed'],
+            'items'          => $items
+        ];
+    } catch (\PDOException $e) {
+        error_log("DB Error in orderDetails: " . $e->getMessage());
+        $response['error'] = "Internal server error during order detail retrieval.";
     }
 
     return $response;
@@ -2207,6 +2680,40 @@ function collectEmail(\PDO $db, string $userEmail, bool $isUpdatingPassword): ar
     return $response;
 }
 
+function validateResetCode(\PDO $db, string $userEmail, string $uniqueCode): ?string
+{
+    if (!filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+        return 'Invalid email format.';
+    }
+
+    if (!preg_match('/^\d{6}$/', $uniqueCode)) {
+        return 'Invalid code format.';
+    }
+
+    date_default_timezone_set('America/New_York');
+    $currentTime = date('Y-m-d H:i:s');
+
+    $stmt = $db->prepare("SELECT UniqueCode, ExpiredAt FROM PasswordResetCodes WHERE Email = ? LIMIT 1");
+    $stmt->execute([$userEmail]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$row) {
+        return 'No code was sent to this email. Please request a code first.';
+    }
+
+    if ($currentTime > $row['ExpiredAt']) {
+        $stmt = $db->prepare("DELETE FROM PasswordResetCodes WHERE Email = ?");
+        $stmt->execute([$userEmail]);
+        return 'The code has expired. Please request a new one.';
+    }
+
+    if ($uniqueCode !== $row['UniqueCode']) {
+        return 'The code entered was not valid.';
+    }
+
+    return null;
+}
+
 function verifyCode(\PDO $db, string $userEmail, string $uniqueCode): array
 {
     $response = [
@@ -2214,38 +2721,11 @@ function verifyCode(\PDO $db, string $userEmail, string $uniqueCode): array
         'error'   => null
     ];
 
-    if (!filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
-        $response['error'] = 'Invalid email format.';
-        return $response;
-    }
-
-    if (!preg_match('/^\d{6}$/', $uniqueCode)) {
-        $response['error'] = 'Invalid code format.';
-        return $response;
-    }
-
     try {
-        date_default_timezone_set('America/New_York');
-        $currentTime = date('Y-m-d H:i:s');
+        $error = validateResetCode($db, $userEmail, $uniqueCode);
 
-        $stmt = $db->prepare("SELECT UniqueCode, ExpiredAt FROM PasswordResetCodes WHERE Email = ? LIMIT 1");
-        $stmt->execute([$userEmail]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$row) {
-            $response['error'] = 'No code was sent to this email. Please request a code first.';
-            return $response;
-        }
-
-        if ($currentTime > $row['ExpiredAt']) {
-            $stmt = $db->prepare("DELETE FROM PasswordResetCodes WHERE Email = ?");
-            $stmt->execute([$userEmail]);
-            $response['error'] = 'The code has expired. Please request a new one.';
-            return $response;
-        }
-
-        if ($uniqueCode !== $row['UniqueCode']) {
-            $response['error'] = 'The code entered was not valid.';
+        if ($error !== null) {
+            $response['error'] = $error;
             return $response;
         }
 
@@ -2258,16 +2738,12 @@ function verifyCode(\PDO $db, string $userEmail, string $uniqueCode): array
     return $response;
 }
 
-function updatePassword(\PDO $db, string $userEmail, string $password, string $confirmPassword): array
+function updatePassword(\PDO $db, string $userEmail, string $uniqueCode, string $password, string $confirmPassword): array
 {
     $response = [
         "error" => null
     ];
 
-    if ($userEmail === "" || !filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
-        $response['error'] = 'Invalid email format.';
-        return $response;
-    }
     if (
         strlen($password) < 8 ||
         !preg_match('/[A-Z]/', $password) ||     // at least one uppercase
@@ -2285,6 +2761,13 @@ function updatePassword(\PDO $db, string $userEmail, string $password, string $c
     }
 
     try {
+        $codeError = validateResetCode($db, $userEmail, $uniqueCode);
+
+        if ($codeError !== null) {
+            $response['error'] = $codeError;
+            return $response;
+        }
+
         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
         $stmt = $db->prepare("UPDATE Users SET Password = ? WHERE Email = ?");
         $success = $stmt->execute([$hashedPassword, $userEmail]);
@@ -2300,6 +2783,378 @@ function updatePassword(\PDO $db, string $userEmail, string $password, string $c
     } catch (\PDOException $e) {
         error_log("DB Error in updating passoword: " . $e->getMessage());
         $response['error'] = "Internal server error during password update.";
+    }
+
+    return $response;
+}
+
+function changeAccountPassword(\PDO $db, int $userId, string $currentPassword, string $newPassword, string $confirmPassword): array
+{
+    $response = [
+        'success' => false,
+        'error'   => null
+    ];
+
+    if ($userId <= 0) {
+        $response['error'] = 'Invalid request.';
+        return $response;
+    }
+
+    if (
+        strlen($newPassword) < 8 ||
+        !preg_match('/[A-Z]/', $newPassword) ||
+        !preg_match('/[a-z]/', $newPassword) ||
+        !preg_match('/[0-9]/', $newPassword) ||
+        !preg_match('/[^A-Za-z0-9]/', $newPassword)
+    ) {
+        $response['error'] = 'New password did not match the criteria. Must be 8+ chars with uppercase, lowercase, number, and symbol.';
+        return $response;
+    }
+
+    if ($newPassword !== $confirmPassword) {
+        $response['error'] = 'New passwords do not match.';
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("SELECT Password FROM Users WHERE Id = ? LIMIT 1");
+        $stmt->execute([$userId]);
+        $hash = $stmt->fetchColumn();
+
+        if (!$hash || !password_verify($currentPassword, $hash)) {
+            $response['error'] = 'Current password is incorrect.';
+            return $response;
+        }
+
+        $stmt = $db->prepare("UPDATE Users SET Password = ? WHERE Id = ?");
+        $stmt->execute([password_hash($newPassword, PASSWORD_DEFAULT), $userId]);
+
+        $response['success'] = true;
+    } catch (\PDOException $e) {
+        error_log("DB Error in changeAccountPassword: " . $e->getMessage());
+        $response['error'] = "Internal server error while changing password.";
+    }
+
+    return $response;
+}
+
+function updateProfile(\PDO $db, int $userId, string $name, string $phone): array
+{
+    $response = [
+        'success' => false,
+        'name'    => null,
+        'phone'   => null,
+        'error'   => null
+    ];
+
+    if ($userId <= 0) {
+        $response['error'] = 'Invalid request.';
+        return $response;
+    }
+
+    $name = trim($name);
+    if ($name === '' || mb_strlen($name) > 100) {
+        $response['error'] = 'Please enter a valid name.';
+        return $response;
+    }
+
+    $digitsOnly = preg_replace('/\D/', '', $phone);
+    if (strlen($digitsOnly) < 10 || strlen($digitsOnly) > 15) {
+        $response['error'] = 'Please enter a valid phone number.';
+        return $response;
+    }
+
+    try {
+        $db->beginTransaction();
+
+        $stmt = $db->prepare("UPDATE Users SET Name = ? WHERE Id = ?");
+        $stmt->execute([$name, $userId]);
+
+        // Phone lives on the user's most recent address, not on Users —
+        // mirrors the same "latest address" lookup loginUser() uses to read it.
+        $stmt = $db->prepare("SELECT Id FROM UserAddresses WHERE UserId = ? ORDER BY DateAdded DESC LIMIT 1");
+        $stmt->execute([$userId]);
+        $addressId = $stmt->fetchColumn();
+
+        if ($addressId) {
+            $stmt = $db->prepare("UPDATE UserAddresses SET Phone = ? WHERE Id = ?");
+            $stmt->execute([$digitsOnly, $addressId]);
+        }
+
+        $db->commit();
+
+        $response['success'] = true;
+        $response['name'] = $name;
+        $response['phone'] = $digitsOnly;
+    } catch (\PDOException $e) {
+        $db->rollBack();
+        error_log("DB Error in updateProfile: " . $e->getMessage());
+        $response['error'] = "Internal server error while updating profile.";
+    }
+
+    return $response;
+}
+
+function saveAddress(\PDO $db, int $userId, array $address, int $addressId = 0): array
+{
+    $response = [
+        'success'    => false,
+        'address_id' => null,
+        'error'      => null
+    ];
+
+    if ($userId <= 0) {
+        $response['error'] = 'Invalid request.';
+        return $response;
+    }
+
+    $label    = trim((string)($address['Label'] ?? '')) ?: 'Home';
+    $street   = trim((string)($address['Address'] ?? ''));
+    $apt      = trim((string)($address['Apt'] ?? ''));
+    $city     = trim((string)($address['City'] ?? ''));
+    $state    = trim((string)($address['State'] ?? ''));
+    $zip      = trim((string)($address['ZipCode'] ?? ''));
+    $gateCode = trim((string)($address['GateCode'] ?? ''));
+    $note     = trim((string)($address['Note'] ?? ''));
+    $phone    = preg_replace('/\D/', '', (string)($address['Phone'] ?? ''));
+
+    if ($street === '' || $city === '' || $state === '' || $zip === '') {
+        $response['error'] = 'Please fill in address, city, state, and zip code.';
+        return $response;
+    }
+
+    if ($phone !== '' && (strlen($phone) < 10 || strlen($phone) > 15)) {
+        $response['error'] = 'Please enter a valid phone number.';
+        return $response;
+    }
+
+    try {
+        if ($addressId > 0) {
+            $stmt = $db->prepare("SELECT Id FROM UserAddresses WHERE Id = ? AND UserId = ? LIMIT 1");
+            $stmt->execute([$addressId, $userId]);
+            if (!$stmt->fetchColumn()) {
+                $response['error'] = 'Address not found.';
+                return $response;
+            }
+
+            $stmt = $db->prepare("
+                UPDATE UserAddresses
+                SET Label = ?, Address = ?, Apt = ?, City = ?, State = ?, ZipCode = ?, GateCode = ?, Note = ?, Phone = ?
+                WHERE Id = ? AND UserId = ?
+            ");
+            $stmt->execute([$label, $street, $apt, $city, $state, $zip, $gateCode, $note, $phone, $addressId, $userId]);
+            $response['address_id'] = $addressId;
+        } else {
+            $stmt = $db->prepare("SELECT COUNT(*) FROM UserAddresses WHERE UserId = ?");
+            $stmt->execute([$userId]);
+            if ((int)$stmt->fetchColumn() >= 10) {
+                $response['error'] = 'You can save up to 10 addresses.';
+                return $response;
+            }
+
+            $stmt = $db->prepare("
+                INSERT INTO UserAddresses (UserId, Label, Address, Apt, City, State, ZipCode, LatnLong, GateCode, Note, Phone)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([$userId, $label, $street, $apt, $city, $state, $zip, '', $gateCode, $note, $phone]);
+            $response['address_id'] = (int)$db->lastInsertId();
+        }
+
+        $response['success'] = true;
+    } catch (\PDOException $e) {
+        error_log("DB Error in saveAddress: " . $e->getMessage());
+        $response['error'] = "Internal server error while saving address.";
+    }
+
+    return $response;
+}
+
+function deleteAddress(\PDO $db, int $userId, int $addressId): array
+{
+    $response = [
+        'success' => false,
+        'error'   => null
+    ];
+
+    if ($userId <= 0 || $addressId <= 0) {
+        $response['error'] = 'Invalid request.';
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("DELETE FROM UserAddresses WHERE Id = ? AND UserId = ?");
+        $stmt->execute([$addressId, $userId]);
+
+        if ($stmt->rowCount() === 0) {
+            $response['error'] = 'Address not found.';
+            return $response;
+        }
+
+        $response['success'] = true;
+    } catch (\PDOException $e) {
+        error_log("DB Error in deleteAddress: " . $e->getMessage());
+        $response['error'] = "Internal server error while deleting address.";
+    }
+
+    return $response;
+}
+
+function listAddresses(\PDO $db, int $userId): array
+{
+    $response = [
+        'addresses' => [],
+        'error'     => null
+    ];
+
+    if ($userId <= 0) {
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("SELECT * FROM UserAddresses WHERE UserId = ? ORDER BY DateAdded DESC");
+        $stmt->execute([$userId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as $index => $row) {
+            $response['addresses'][] = [
+                'address_id' => (int)$row['Id'],
+                'label'      => $row['Label'],
+                'address'    => $row['Address'],
+                'apt'        => $row['Apt'],
+                'city'       => $row['City'],
+                'state'      => $row['State'],
+                'zip'        => $row['ZipCode'],
+                'gate_code'  => $row['GateCode'],
+                'note'       => $row['Note'],
+                'phone'      => $row['Phone'],
+                'is_default' => $index === 0
+            ];
+        }
+    } catch (\PDOException $e) {
+        error_log("DB Error in listAddresses: " . $e->getMessage());
+        $response['error'] = "Internal server error while loading addresses.";
+    }
+
+    return $response;
+}
+
+function listPaymentMethods(\PDO $db, int $userId): array
+{
+    $response = [
+        'payment_methods' => [],
+        'error'           => null
+    ];
+
+    if ($userId <= 0) {
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("SELECT StripeCustomerId FROM CustomerPaymentMethod WHERE UserId = ? LIMIT 1");
+        $stmt->execute([$userId]);
+        $stripeCustomerId = $stmt->fetchColumn();
+
+        // No checkout yet means no Stripe customer, and therefore no cards
+        // to list — an empty result here is a legitimate first-time state,
+        // not an error.
+        if (!$stripeCustomerId) {
+            return $response;
+        }
+
+        \Stripe\Stripe::setApiKey($_ENV['STRIPE_SECRET_KEY'] ?? '');
+        $cards = \Stripe\PaymentMethod::all(['customer' => $stripeCustomerId, 'type' => 'card']);
+
+        foreach ($cards->data as $card) {
+            $response['payment_methods'][] = [
+                'id'        => $card->id,
+                'brand'     => $card->card->brand,
+                'last4'     => $card->card->last4,
+                'exp_month' => $card->card->exp_month,
+                'exp_year'  => $card->card->exp_year
+            ];
+        }
+    } catch (\Stripe\Exception\ApiErrorException $e) {
+        error_log("Stripe Error in listPaymentMethods: " . $e->getMessage());
+        $response['error'] = "Unable to load payment methods.";
+    } catch (\PDOException $e) {
+        error_log("DB Error in listPaymentMethods: " . $e->getMessage());
+        $response['error'] = "Internal server error while loading payment methods.";
+    }
+
+    return $response;
+}
+
+// Nothing in the app generates rows here yet (no order-status listener,
+// no price-drop watcher) — this is intentionally a real, currently-empty
+// feature rather than a stub, per project decision.
+function getNotifications(\PDO $db, int $userId): array
+{
+    $response = [
+        'notifications' => [],
+        'error'         => null
+    ];
+
+    if ($userId <= 0) {
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("SELECT * FROM Notifications WHERE UserId = ? ORDER BY DateAdded DESC");
+        $stmt->execute([$userId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as $row) {
+            $response['notifications'][] = [
+                'id'         => (int)$row['Id'],
+                'type'       => $row['Type'],
+                'title'      => $row['Title'],
+                'body'       => $row['Body'],
+                'is_read'    => (bool)$row['IsRead'],
+                'date_added' => $row['DateAdded']
+            ];
+        }
+    } catch (\PDOException $e) {
+        error_log("DB Error in getNotifications: " . $e->getMessage());
+        $response['error'] = "Internal server error while loading notifications.";
+    }
+
+    return $response;
+}
+
+// Failing to write a notification should never break the flow that
+// triggered it (an order, a subscription change) — log and move on.
+function createNotification(\PDO $db, int $userId, string $type, string $title, string $body): void
+{
+    try {
+        $stmt = $db->prepare("
+            INSERT INTO Notifications (UserId, Type, Title, Body)
+            VALUES (?, ?, ?, ?)
+        ");
+        $stmt->execute([$userId, $type, $title, $body]);
+    } catch (\PDOException $e) {
+        error_log("DB Error in createNotification: " . $e->getMessage());
+    }
+}
+
+function markNotificationRead(\PDO $db, int $userId, int $notificationId): array
+{
+    $response = [
+        'success' => false,
+        'error'   => null
+    ];
+
+    if ($userId <= 0 || $notificationId <= 0) {
+        $response['error'] = "Invalid request.";
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("UPDATE Notifications SET IsRead = 1 WHERE Id = ? AND UserId = ?");
+        $stmt->execute([$notificationId, $userId]);
+        $response['success'] = true;
+    } catch (\PDOException $e) {
+        error_log("DB Error in markNotificationRead: " . $e->getMessage());
+        $response['error'] = "Internal server error while updating notification.";
     }
 
     return $response;

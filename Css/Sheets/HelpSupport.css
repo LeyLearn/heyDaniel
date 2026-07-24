@@ -1,0 +1,68 @@
+/* HELP & SUPPORT PAGE */
+.Help_Search_Wrap {
+  background: var(--bg-light);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 18px 0 28px;
+  text-align: center;
+}
+
+.Help_Search_Label {
+  display: block;
+  font-size: var(--subtitle);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  margin-bottom: 14px;
+}
+
+/* .Help_Search_Row / .Help_Search_Btn moved to Input.css */
+
+.Help_Topics_Heading {
+  font-size: var(--subtitle);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  margin-bottom: 14px;
+}
+
+.Help_Topics_Grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.Help_Topic_Card {
+  display: block;
+  text-align: left;
+  background: none;
+  border: 1px solid rgba(2, 22, 60, 0.08);
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.Help_Topic_Card:hover {
+  background: var(--bg-light);
+}
+
+.Help_Topic_Title {
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  margin-bottom: 4px;
+}
+
+.Help_Topic_Desc {
+  font-size: var(--information);
+  color: var(--text-muted);
+}
+
+.Help_Contact_Row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-light);
+  border-radius: 8px;
+  padding: 20px 24px;
+}

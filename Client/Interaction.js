@@ -138,6 +138,9 @@ $(function () {
     cartIcon();
     savedCount();
     showSearchIcon();
+    if ($("#account-nav-notifications-badge").length) {
+        notificationsBadge();
+    }
 
     // ============================
     // Search Input
@@ -280,12 +283,30 @@ $(function () {
         register(userName, userEmail, userPassword);
     })
 
+    // ============================
+    // forgot password
+    // ============================
+    $(".forgot-send-code-bnt").click(function () {
+        $(".credential-error").hide();
+        const email = $(".forgot-email").val().trim();
+        sendResetCode(email);
+    })
+
+    $(".forgot-reset-password-bnt").click(function () {
+        $(".credential-error").hide();
+        const email = $(".forgot-email").val().trim();
+        const code = $(".forgot-code").val().trim();
+        const newPassword = $(".forgot-new-password").val().trim();
+        const confirmPassword = $(".forgot-confirm-password").val().trim();
+        resetPassword(email, code, newPassword, confirmPassword);
+    })
+
 
 
     // showing register
     $(document).on("click", "p .show-login", function (e) {
         e.preventDefault();
-        $(".credential-register").fadeOut(200, function () {
+        $(".credential-register, .credential-forgot").fadeOut(200, function () {
             $(".switch-auth").html(`New to heyDaniel ? <a href="#" id="show-register" class="show-register">Create an account</a>`);
             $(".credential-login").fadeIn(200);
         });
@@ -296,6 +317,23 @@ $(function () {
         $(".credential-login").fadeOut(200, function () {
             $(".switch-auth").html(`Already have an account ? <a href="#" id="show-login" class="show-login">Login</a>`);
             $(".credential-register").fadeIn(200);
+        });
+    })
+    // showing forgot password
+    $(document).on("click", "p .show-forgot", function (e) {
+        e.preventDefault();
+        $(".credential-login").fadeOut(200, function () {
+            $(".credential-forgot").fadeIn(200);
+        });
+    })
+    // back to login from forgot password
+    $(document).on("click", "p .show-login-from-forgot", function (e) {
+        e.preventDefault();
+        $(".credential-forgot").fadeOut(200, function () {
+            $(".forgot-step-reset").addClass("hidden").hide();
+            $(".forgot-step-request").removeClass("hidden").show();
+            $(".forgot-email, .forgot-code, .forgot-new-password, .forgot-confirm-password").val("");
+            $(".credential-login").fadeIn(200);
         });
     })
 
@@ -327,4 +365,162 @@ $(function () {
     $(".hero-slider-track").each(function () {
         startHeroAutoSlide($(this));
     });
+
+    // ============================
+    // Coming Soon Stubs
+    // ============================
+    $(document).on("click", "[data-coming-soon]", function () {
+        alert($(this).data("coming-soon") + " is coming soon.");
+    });
+
+    // ============================
+    // HeyDaniel+ Membership Modal
+    // (mounted once in Header.php, so any page can trigger it)
+    // ============================
+    if (typeof Stripe !== "undefined" && $("#membership-modal-overlay").length) {
+        const membershipStripe = Stripe(stripePublishableKey);
+        const membershipElements = membershipStripe.elements();
+        const membershipCardStyle = {
+            base: {
+                fontSize: "14px",
+                fontFamily: "inherit",
+                color: "#333",
+                "::placeholder": { color: "#9aa0ab" }
+            }
+        };
+        const membershipCardNumberElement = membershipElements.create("cardNumber", { style: membershipCardStyle });
+        const membershipCardExpiryElement = membershipElements.create("cardExpiry", { style: membershipCardStyle });
+        const membershipCardCvcElement = membershipElements.create("cardCvc", { style: membershipCardStyle });
+        let membershipCardMounted = false;
+        let membershipCardFieldsVisible = false;
+        let membershipSavedCardId = null;
+
+        function revealMembershipCardFields() {
+            if (!membershipCardMounted) {
+                membershipCardNumberElement.mount("#membership-card-number");
+                membershipCardExpiryElement.mount("#membership-card-expiry");
+                membershipCardCvcElement.mount("#membership-card-cvc");
+                membershipCardMounted = true;
+            }
+            $("#membership-card-fields").show();
+            membershipCardFieldsVisible = true;
+        }
+
+        window.openMembershipModal = function () {
+            $("#membership-modal-error").hide();
+            $("#membership-modal-overlay").css("display", "flex");
+
+            membershipCardFieldsVisible = false;
+            $("#membership-card-fields").hide();
+
+            $.ajax({
+                method: "POST",
+                url: "/HeyDaniel/Server/index.php",
+                contentType: "application/json",
+                dataType: "json",
+                data: JSON.stringify({ action: "payment_methods", device_type: "Web" }),
+                success: function (data) {
+                    const cards = data.payment_methods || [];
+                    if (!cards.length) {
+                        revealMembershipCardFields();
+                        return;
+                    }
+
+                    const card = cards[0];
+                    membershipSavedCardId = card.id;
+
+                    $("#membership-saved-card-icon").html(cardBrandIconHTML(card.brand));
+                    $("#membership-saved-card-detail").text(
+                        card.brand.charAt(0).toUpperCase() + card.brand.slice(1) +
+                        " •••• " + card.last4 + " · Expires " + card.exp_month + "/" + card.exp_year
+                    );
+
+                    $("#membership-saved-card").show();
+                    $("#membership-card-fields").hide();
+                },
+                error: function () {
+                    // couldn't check for a saved card — fall back to letting them enter one
+                    revealMembershipCardFields();
+                }
+            });
+        };
+
+        function closeMembershipModal() {
+            $("#membership-modal-overlay").hide();
+        }
+
+        $(document).on("click", "[data-open-membership-modal]", function () {
+            window.openMembershipModal();
+        });
+
+        $("#membership-modal-close, #membership-modal-cancel").on("click", closeMembershipModal);
+
+        $("#membership-card-toggle").on("click", function () {
+            const $suggestion = $("#membership-saved-card");
+            const $badge = $suggestion.find(".Checkout_Selected_Badge");
+            const usingSaved = $suggestion.hasClass("Selected");
+
+            if (usingSaved) {
+                $suggestion.removeClass("Selected");
+                revealMembershipCardFields();
+                $badge.hide();
+                $("#membership-card-toggle-label").text("Select");
+            } else {
+                $suggestion.addClass("Selected");
+                $("#membership-card-fields").hide();
+                membershipCardFieldsVisible = false;
+                $badge.show();
+                $("#membership-card-toggle-label").text("Edit");
+            }
+        });
+
+        $("#membership-modal-subscribe").on("click", function () {
+            const usingSavedCard = membershipSavedCardId && $("#membership-saved-card").hasClass("Selected");
+
+            if (!usingSavedCard && !membershipCardFieldsVisible) {
+                revealMembershipCardFields();
+                return;
+            }
+
+            const $btn = $(this);
+            const $label = $("#membership-modal-subscribe-label");
+            const $error = $("#membership-modal-error");
+            $error.hide();
+            $btn.prop("disabled", true);
+            $label.text("Subscribing...");
+
+            function finishSubscribe(paymentMethodId) {
+                subscribeMembership(paymentMethodId, function () {
+                    closeMembershipModal();
+                    window.location.reload();
+                }, function (message) {
+                    $error.text(message).show();
+                    $btn.prop("disabled", false);
+                    $label.text("Subscribe for $9.99/mo");
+                });
+            }
+
+            if (usingSavedCard) {
+                finishSubscribe(membershipSavedCardId);
+                return;
+            }
+
+            membershipStripe.createPaymentMethod({
+                type: "card",
+                card: membershipCardNumberElement,
+                billing_details: {
+                    address: { postal_code: $("#membership-card-zip").val() }
+                }
+            }).then(function (result) {
+                if (result.error) {
+                    $error.text(result.error.message).show();
+                    $btn.prop("disabled", false);
+                    $label.text("Subscribe for $9.99/mo");
+                    return;
+                }
+
+                finishSubscribe(result.paymentMethod.id);
+            });
+        });
+    }
 });

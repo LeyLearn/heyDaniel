@@ -1,6 +1,7 @@
 CREATE TABLE UserAddresses (
   Id         INT(11)      AUTO_INCREMENT PRIMARY KEY NOT NULL,
   UserId     INT(11)      NOT NULL,
+  Label      VARCHAR(50)  NOT NULL DEFAULT 'Home',
   Address    VARCHAR(255) NOT NULL,
   Apt        VARCHAR(50)  NOT NULL DEFAULT '',
   City       VARCHAR(100) NOT NULL,

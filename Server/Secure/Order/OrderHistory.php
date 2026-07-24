@@ -21,7 +21,7 @@ if (!in_array($userDeviceType, $validDeviceTypes, true)) {
 }
 
 if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
-    $userId  = (int)($data['user_id'] ?? 0);
+    $userId  = resolveMobileUserId($data);
     $taxRate = (float)($data['tax_rate'] ?? 0.00);
 } else {
     session_start();

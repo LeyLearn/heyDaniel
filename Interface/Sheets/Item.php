@@ -10,7 +10,17 @@ $metaDescription = "View product details on HeyDaniel.";
     <?php require $path . "Interface/Sections/Header.php"; ?>
 
     <section class="Container Item_Layout">
-        <p id="item-loading" class="Store_Empty">Loading product...</p>
+        <div id="item-loading" class="Item_Main">
+            <div class="Skeleton_Block" style="width:420px;height:420px;border-radius:8px;flex-shrink:0;"></div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:14px;">
+                <div class="Skeleton_Block" style="width:30%;height:10px;"></div>
+                <div class="Skeleton_Block" style="width:70%;height:28px;"></div>
+                <div class="Skeleton_Block" style="width:40%;height:14px;"></div>
+                <div class="Skeleton_Block" style="width:25%;height:26px;"></div>
+                <div class="Skeleton_Block" style="width:50%;height:14px;"></div>
+                <div class="Skeleton_Block" style="width:100%;height:50px;border-radius:5px;margin-top:10px;"></div>
+            </div>
+        </div>
         <p id="item-not-found" class="Store_Empty" style="display:none;">Product not found.</p>
 
         <div id="item-content" style="display:none;">

@@ -27,6 +27,7 @@ $userDeviceType = $data['device_type'];
 $validDeviceTypes = ['iOS', 'Android', 'Web'];
 $taxRate = 0.00;
 $isSameDayEligible = false;
+$userId = 0;
 
 if (!in_array($userDeviceType, $validDeviceTypes, true)) {
     http_response_code(400);
@@ -36,6 +37,7 @@ if (!in_array($userDeviceType, $validDeviceTypes, true)) {
 }
 
 if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
+    $userId = resolveMobileUserId($data);
     $taxRate = (float)($data['tax_rate'] ?? 0.00);
     $isSameDayEligible = (bool)($data['same_day_eligible'] ?? false);
 } else {
@@ -45,7 +47,7 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
     $isSameDayEligible = (bool)($_SESSION['same_day_eligible'] ?? false);
 }
 
-$search = searchEngine($pdo, $searchTerm, $isSameDayEligible, $taxRate);
+$search = searchEngine($pdo, $searchTerm, $isSameDayEligible, $taxRate, $userId);
 
 if (!empty($search['error'])) {
     http_response_code(400);

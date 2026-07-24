@@ -1,127 +1,296 @@
 /* CHECKOUT PAGE */
 
-/* STEPS */
+.Checkout_Layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.Checkout_Form {
+  flex: 1;
+  min-width: 0;
+  max-width: 800px;
+  background: #fff;
+  border: 1px solid rgba(2, 22, 60, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(2, 22, 60, 0.04);
+  padding: 28px;
+  box-sizing: border-box;
+}
+
+.Checkout_Page_Header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.Checkout_Page_Header h1 {
+  margin: 0;
+  font-size: var(--page-title);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+}
+
+.Checkout_Secure_Badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--information);
+  font-weight: var(--font-weight);
+  color: var(--text-muted);
+}
+
+/* STEPS — sticky so it stays visible (and visibly updates) while scrolling
+   through the form; the negative margin cancels .Checkout_Form's own
+   padding so the bar sits flush against the card edges while stuck */
 .Checkout_Steps {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 40px;
-  margin-bottom: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #fff;
+  margin: -28px -28px 28px;
+  padding: 20px 28px;
+  border-radius: 12px 12px 0 0;
+  border-bottom: 1px solid rgba(2, 22, 60, 0.06);
 }
 
 .Checkout_Step {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: var(--regular-text);
+  font-size: var(--information);
   font-weight: var(--font-weight);
   color: var(--text-muted);
+  flex-shrink: 0;
+  cursor: pointer;
 }
 
 .Checkout_Step_Num {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  background: var(--bg-light);
+  border: 1px solid var(--border-light);
+  background: #fff;
   color: var(--text-muted);
-  font-size: var(--information);
-}
-
-.Checkout_Step_Done .Checkout_Step_Num {
-  background: var(--secondary);
-  color: var(--text-light);
-}
-
-.Checkout_Step_Done {
-  color: var(--text-dark);
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
 }
 
 .Checkout_Step_Active .Checkout_Step_Num {
   background: var(--primary);
+  border-color: var(--primary);
   color: var(--text-light);
 }
 
-.Checkout_Step_Active {
+.Checkout_Step_Label {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.Checkout_Step_Active .Checkout_Step_Label {
+  color: var(--primary);
+}
+
+.Checkout_Step_Connector {
+  flex: 1;
+  height: 2px;
+  background: var(--bg-light);
+  margin: 0 12px;
+}
+
+.Checkout_Step_Connector_Active {
+  background: var(--primary);
+}
+
+/* SECTION HEADERS */
+.Checkout_Section_Header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 16px;
+}
+
+.Checkout_Section_Header h2 {
+  margin: 0;
+  font-size: var(--title);
+  font-weight: var(--font-weight);
   color: var(--text-dark);
 }
 
-.Checkout_Layout {
+/* flex-center/circle shape comes from .Icon_Circle (Card.css) */
+.Checkout_Section_Icon {
+  width: 36px;
+  height: 36px;
+  background: rgba(2, 22, 60, 0.05);
+  color: var(--secondary);
+  font-size: var(--regular-text);
+}
+
+/* SAVED ADDRESS / CARD SUGGESTIONS */
+.Checkout_Suggestion_Card {
   display: flex;
-  align-items: flex-start;
-  gap: 32px;
-}
-
-.Checkout_Form {
-  flex: 1;
-  min-width: 0;
-  max-width: 560px;
-}
-
-.Checkout_Field {
+  align-items: center;
+  gap: 14px;
+  background: #fff;
+  border: 1px solid rgba(2, 22, 60, 0.07);
+  border-radius: 8px;
+  padding: 18px 20px;
   margin-bottom: 16px;
 }
 
-.Checkout_Field_Row {
-  display: flex;
-  gap: 12px;
+.Checkout_Suggestion_Card.Selected {
+  border: 1px solid rgba(2, 22, 60, 0.07);
+  background: rgba(2, 22, 60, 0.05);
 }
 
-.Checkout_Field_Row .Checkout_Field {
+/* flex-center/circle shape comes from .Icon_Circle (Card.css) */
+.Checkout_Suggestion_Icon {
+  width: 36px;
+  height: 36px;
+  background: rgba(2, 22, 60, 0.07);
+  color: var(--secondary);
+  font-size: var(--regular-text);
+  overflow: hidden;
+}
+
+.Card_Brand_Logo {
+  display: block;
+  width: 26px;
+  height: auto;
+  border-radius: 3px;
+}
+
+.Checkout_Suggestion_Info {
   flex: 1;
   min-width: 0;
 }
 
-.Checkout_Field label {
-  display: block;
+.Checkout_Suggestion_Label {
+  margin: 0 0 2px;
   font-size: var(--information);
   font-weight: var(--font-weight);
-  color: var(--text-muted);
-  margin-bottom: 6px;
+  color: var(--text-dark);
 }
 
-.Checkout_Field input,
-.Checkout_Field textarea {
-  width: 100%;
-  border-radius: 5px;
-  border: 1px solid var(--border-light);
-  padding: 10px;
-  font-size: var(--regular-text);
-  color: var(--text-dark);
-  box-sizing: border-box;
-  font-family: inherit;
+.Checkout_Suggestion_Detail {
+  margin: 0;
+  font-size: var(--information);
+  color: var(--status-info);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+.Checkout_Selected_Badge {
+  display: inline-block;
+  align-self: flex-start;
+  width: fit-content;
+  margin-top: 8px;
+  padding: 3px 8px;
+  background: var(--status-success);
+  color: #fff;
+  font-size: 11px;
+  font-weight: var(--font-weight);
+  border-radius: 4px;
+}
+
+.Checkout_Badges {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  width: fit-content;
+}
+
+.Checkout_Suggestion_Toggle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--secondary);
+  border-radius: 8px;
+  background: var(--secondary);
+  color: var(--text-light);
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  cursor: pointer;
+}
+
+.Checkout_Suggestion_Toggle:hover {
+  background: var(--secondary-light);
+}
+
+.Checkout_Suggestion_Toggle_Label {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.Checkout_Suggestion_Toggle_Icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--text-light);
+  font-size: var(--regular-text);
+}
+
+/* FORM FIELDS — all moved to Input.css (.Checkout_Field*, .Checkout_Field_Icon_Wrap*) */
 
 /* DELIVERY METHOD */
 .Delivery_Method_Options {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
   margin-bottom: 20px;
 }
 
 .Delivery_Method_Card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
   background: #fff;
-  border: 1px solid var(--border-light);
+  border: 1px solid rgba(2, 22, 60, 0.07);
   border-radius: 8px;
   padding: 16px;
   cursor: pointer;
 }
 
 .Delivery_Method_Card.Selected {
-  border: 2px solid var(--secondary);
-  padding: 15px;
+  border: 1px solid rgba(2, 22, 60, 0.07);
+  background: rgba(2, 22, 60, 0.05);
+  padding: 16px;
+}
+
+.Delivery_Method_Recommended {
+  position: absolute;
+  top: -10px;
+  right: 14px;
+  background: var(--primary);
+  color: var(--text-light);
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 10px;
 }
 
 .Delivery_Method_Card input[type="radio"] {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
+  accent-color: var(--secondary);
 }
 
 .Delivery_Method_Card img {
@@ -157,6 +326,43 @@
   color: var(--text-dark);
 }
 
+.Delivery_Method_Locked {
+  cursor: default;
+  background: rgba(2, 22, 60, 0.02);
+}
+
+.Delivery_Method_Locked img {
+  opacity: 0.5;
+}
+
+.Delivery_Method_Locked .Delivery_Method_Name i {
+  color: var(--text-muted);
+  font-size: var(--information);
+  margin-right: 2px;
+}
+
+.Delivery_Method_Join_Btn {
+  flex-shrink: 0;
+  height: 36px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  border: none;
+  border-radius: 8px;
+  background: var(--secondary);
+  color: var(--text-light);
+  font-family: inherit;
+  font-size: var(--information);
+  font-weight: var(--font-weight);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.Delivery_Method_Join_Btn:hover {
+  background: var(--secondary-light);
+}
+
 /* PAYMENT METHOD */
 .Payment_Method_Options {
   display: flex;
@@ -166,23 +372,37 @@
 
 .Payment_Method_Option {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: #fff;
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  padding: 14px 10px;
-  cursor: pointer;
-  font-size: var(--information);
-  font-weight: var(--font-weight);
+  height: 52px;
+  border: 1px solid rgba(2, 22, 60, 0.15);
+  border-radius: 12px;
+  background: rgba(2, 22, 60, 0.05);
   color: var(--text-dark);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  padding: 0 10px;
+  transition: 0.25s ease;
+}
+
+.Payment_Method_Option:hover {
+  background: var(--bg-light);
+}
+
+.Payment_Method_Option span {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
 }
 
 .Payment_Method_Option.Selected {
   border: 2px solid var(--secondary);
-  padding: 13px 9px;
+  background: rgba(2, 22, 60, 0.05);
+  color: var(--secondary);
+  padding: 0 9px;
 }
 
 .Payment_Method_Option input[type="radio"] {
@@ -190,20 +410,30 @@
 }
 
 .Payment_Method_Option img {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
 .Payment_Method_Card {
-  background: #fff;
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  padding: 16px;
   margin-bottom: 12px;
 }
 
-.Payment_Method_Card .Checkout_Field {
-  margin-bottom: 0;
+/* .Checkout_Suggestion_Card and .Membership_Modal_Card_Box (Input.css) carry
+   their own border/shadow/padding — this is just a layout wrapper */
+
+.Checkout_Save_Card_Row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--information);
+  color: var(--text-dark);
+  cursor: pointer;
+}
+
+.Checkout_Save_Card_Row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
 }
 
 .Payment_Method_Coming_Soon {
@@ -212,27 +442,35 @@
   margin-bottom: 20px;
 }
 
-#checkout-card-element {
-  border: 1px solid var(--border-light);
-  border-radius: 5px;
-  padding: 12px 10px;
-  background: #fff;
-}
-
-#checkout-submit-btn {
-  width: 100%;
+/* solid red sizing/color/radius comes from .Btn_Checkout (Button.css) */
+.Checkout_Submit_Btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   margin-top: 8px;
+  cursor: pointer;
 }
 
+.Checkout_Submit_Btn i,
+.Checkout_Submit_Btn span {
+  color: #fff !important;
+}
+
+.Checkout_Submit_Btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ORDER SUMMARY */
 .Checkout_Summary {
-  width: 320px;
+  width: 380px;
 }
 
-/* ITEMIZED ORDER SUMMARY */
 .Checkout_Summary_Items {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   margin-bottom: 16px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--bg-light);
@@ -241,20 +479,20 @@
 .Checkout_Summary_Item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .Checkout_Summary_Item_Image {
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: 6px;
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
   background-origin: content-box;
-  background-color: rgba(2, 22, 60, 0.1);
-  padding: 4px;
+  background-color: rgba(2, 22, 60, 0.06);
+  padding: 6px;
   box-sizing: border-box;
 }
 
@@ -264,7 +502,7 @@
 }
 
 .Checkout_Summary_Item_Name {
-  font-size: var(--information);
+  font-size: var(--regular-text);
   font-weight: var(--font-weight);
   color: var(--text-dark);
   overflow: hidden;
@@ -279,9 +517,75 @@
 
 .Checkout_Summary_Item_Price {
   flex-shrink: 0;
-  font-size: var(--information);
+  font-size: var(--regular-text);
   font-weight: var(--font-weight);
   color: var(--text-dark);
+}
+
+/* TRUST BADGES (red variant, with subtitle line) */
+.Checkout_Trust_Badges {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 20px 0 0;
+  border-top: 1px solid var(--bg-light);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.Checkout_Trust_Badges li {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+/* flex-center/circle shape comes from .Icon_Circle (Card.css); size/tint
+   match .Trust_Badge_Icon (Cart.css) so the same component looks identical
+   on both pages */
+.Checkout_Trust_Badge_Icon {
+  width: 36px;
+  height: 36px;
+  background: var(--bg-light);
+  color: var(--secondary);
+  font-size: 1rem;
+}
+
+.Checkout_Trust_Badge_Label {
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+}
+
+.Checkout_Trust_Badge_Sub {
+  font-size: var(--fine-print);
+  color: var(--text-muted);
+}
+
+.Checkout_Security_Note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 20px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--bg-light);
+  color: var(--text-muted);
+  font-size: var(--fine-print);
+}
+
+.Checkout_Security_Note i {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.Checkout_Security_Note span {
+  color: var(--text-muted);
+  font-size: var(--fine-print);
+  line-height: 1.5;
 }
 
 @media (max-width: 768px) {
@@ -293,10 +597,7 @@
     max-width: 100%;
   }
 
-  .Checkout_Field_Row {
-    flex-direction: column;
-    gap: 0;
-  }
+  /* .Checkout_Field_Row responsive rule moved to Input.css */
 
   .Checkout_Summary {
     width: 100%;
@@ -304,7 +605,7 @@
   }
 
   .Checkout_Steps {
-    gap: 20px;
+    gap: 8px;
   }
 
   .Checkout_Step_Label {

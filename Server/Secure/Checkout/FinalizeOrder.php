@@ -32,7 +32,7 @@ $orderId   = 0;
 $tipAmount = 0.00;
 
 if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
-    $userId    = (int)($data['user_id']    ?? 0);
+    $userId    = resolveMobileUserId($data);
     $orderId   = (int)($data['order_id']   ?? 0);
     $tipAmount = (float)($data['tip_amount'] ?? 0.00);
 } else {

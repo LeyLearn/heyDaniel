@@ -4,6 +4,7 @@ CREATE TABLE CustomerPaymentMethod (
   PaymentMethod VARCHAR(50) NOT NULL,
   StripeCustomerId VARCHAR(255) NOT NULL,
   StripePaymentIntentId VARCHAR(255) NULL,
+  StripeSubscriptionId VARCHAR(255) NULL,
   DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (UserId) REFERENCES Users(Id) ON DELETE CASCADE,
   INDEX idx_user_id (UserId),

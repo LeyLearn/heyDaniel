@@ -1,6 +1,21 @@
 /* CARD & CONTAINER STYLES */
 /* Color tokens (--primary, --secondary, --text-light, etc.) are defined
-   once in Header.css :root and shared across Button/Card/Icon.css. */
+   once in Header.css :root and shared across Button/Card.css. */
+
+/* ICON CIRCLE — shared shape for the small icon badges used throughout
+   Profile/Checkout/Cart/Orders/Notifications/Payment Methods (stat icons,
+   address/order/payment row icons, trust badges, benefit icons, etc).
+   Each consumer keeps its own width/height/background/color — sizes are
+   deliberately different per context (36px compact badge rows, 40px
+   standard, 44-48px emphasis rows) — this just removes the duplicated
+   flex-center-circle boilerplate from every one of them. */
+.Icon_Circle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
 
 /* PRODUCT CARD */
 .Product_Card {
@@ -200,10 +215,16 @@
 .Product_Card_Delivery {
   font-size: var(--fine-print);
   font-weight: var(--font-weight);
-  color: #3b6d11;
-  background: #eaf3de;
+  color: var(--status-success);
+  background: var(--status-success-bg);
   padding: 3px 8px;
   border-radius: 10px;
+  white-space: nowrap;
+}
+
+.Product_Card_Delivery.Standard {
+  color: var(--secondary);
+  background: var(--secondary-accent);
 }
 
 .Product_Card_Line_Total {
@@ -222,32 +243,37 @@
 .Row_Card {
   display: flex;
   align-items: center;
-  gap: 16px;
-  background: #fff;
+  gap: 20px;
+  background: rgba(2, 22, 60, 0.05);
   border: 1px solid rgba(2, 22, 60, 0.1);
   border-radius: 8px;
-  padding: 14px;
+  padding: 20px;
 }
 
 .Row_Card_Image_Wrap {
   position: relative;
   flex-shrink: 0;
   display: block;
-  width: 80px;
-  height: 80px;
+  width: 120px;
+  height: 120px;
   border-radius: 8px;
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
   background-origin: content-box;
   background-color: rgba(2, 22, 60, 0.1);
-  padding: 10px;
+  padding: 12px;
   box-sizing: border-box;
 }
 
 .Row_Card_Info {
   flex: 1;
   min-width: 0;
+}
+
+.Row_Card_Info .Product_Card_Rating {
+  margin: 0 0 8px;
+  font-size: var(--information);
 }
 
 .Row_Card_Title {
@@ -272,6 +298,7 @@
 .Row_Card_Meta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -314,8 +341,8 @@
   }
 
   .Row_Card_Image_Wrap {
-    width: 64px;
-    height: 64px;
+    width: 90px;
+    height: 90px;
   }
 
   .Row_Card_Price {
@@ -330,7 +357,64 @@
   }
 }
 
+/* GENERIC LIST PAGINATION (Cart, Wishlist, and similar item lists) */
+.List_Pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--bg-light);
+}
+
+.List_Pagination_Label {
+  font-size: var(--information);
+  color: var(--text-muted);
+}
+
+.List_Pagination_Pages {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.List_Pagination_Numbers {
+  display: flex;
+  gap: 6px;
+}
+
+.List_Page_Btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text-dark);
+  font-size: var(--regular-text);
+  cursor: pointer;
+}
+
+.List_Page_Btn.active {
+  background: var(--secondary);
+  border-color: var(--secondary);
+  color: #fff;
+}
+
+.List_Page_Btn:hover:not(.active):not(:disabled) {
+  background: var(--bg-light);
+}
+
+.List_Page_Nav:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* MODAL & DIALOG */
+/* backdrop/radius/shadow match .Address_Modal_Overlay/.Address_Modal_Box
+   (Profile.css) so every dialog in the app shares one shell language */
 .Modal {
   display: none;
   position: fixed;
@@ -338,7 +422,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(2, 22, 60, 0.45);
   z-index: 1000;
   align-items: center;
   justify-content: center;
@@ -350,8 +434,8 @@
 
 .Modal_Content {
   background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(2, 22, 60, 0.25);
   max-height: 90vh;
   width: 100%;
   max-width: 420px;
@@ -368,12 +452,6 @@
   border-bottom: 1px solid #e0e0e0;
   background: var(--secondary);
   color: var(--text-light);
-}
-
-.Modal_Header .Back_Arrow {
-  font-size: 1.5rem;
-  cursor: pointer;
-  margin-right: 12px;
 }
 
 .Modal_Header .Close_Btn {
@@ -424,6 +502,7 @@
   text-align: center;
 }
 
+/* icon/hover/color comes from .Btn_Icon_Ghost.Btn_Icon_Ghost--inverse (Button.css) */
 .Zip_Conflict_Header .Close_Btn {
   position: absolute;
   top: 50%;
@@ -431,10 +510,6 @@
   transform: translateY(-50%);
   font-size: 1.5rem;
   line-height: 1;
-  cursor: pointer;
-  background: none;
-  border: none;
-  color: var(--text-light);
 }
 
 .Zip_Conflict_Body {
@@ -471,6 +546,7 @@
 }
 
 .Zip_Conflict_Warning_Row p {
+  font-size: var(--regular-text);
   color: var(--secondary);
   font-weight: var(--font-weight);
   line-height: 1.4;
@@ -495,32 +571,9 @@
   gap: 12px;
 }
 
-.Zip_Conflict_Cancel_Btn,
-.Zip_Conflict_Continue_Btn {
-  border-radius: 999px;
-  padding: 12px 28px;
-  font-weight: var(--font-weight);
-}
-
-.Zip_Conflict_Cancel_Btn {
-  background: #fff;
-  border: 2px solid var(--border-light);
-  color: var(--text-dark);
-}
-
-.Zip_Conflict_Cancel_Btn:hover {
-  background: var(--bg-light);
-}
-
-.Zip_Conflict_Continue_Btn {
-  background: var(--secondary);
-  border: 2px solid var(--secondary);
-  color: var(--text-light);
-}
-
-.Zip_Conflict_Continue_Btn:hover {
-  background: var(--secondary-light);
-}
+/* .Zip_Conflict_Cancel_Btn styling comes from .Secondary_Light_Btn;
+   .Zip_Conflict_Continue_Btn styling comes from .Primary_Btn.Primary_Btn--auto
+   (both Button.css) */
 
 .Zip_Conflict_Art {
   flex: 1 1 45%;
@@ -630,18 +683,6 @@
   right: -40px;
 }
 
-.Container_Fluid {
-  width: 100%;
-  padding: 0 16px;
-}
-
-.Container_Small {
-  width: 100%;
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 0 16px;
-}
-
 /* AUTH PROMO (guest sign-in pitch / signed-in product ad) */
 .auth-promo {
   position: relative;
@@ -683,61 +724,8 @@
   gap: 12px;
 }
 
-.auth-promo-btn {
-  display: inline-block;
-  padding: 12px 24px;
-  border-radius: 24px;
-  font-size: var(--regular-text);
-  font-weight: var(--font-weight);
-  text-decoration: none;
-  cursor: pointer;
-  border: 1px solid transparent;
-}
-
-.auth-promo-btn.Primary {
-  background: var(--secondary, #02163C);
-  color: var(--text-light, #fff);
-}
-
-.auth-promo-btn.Primary:hover {
-  background: var(--secondary-light, #0a2c5c);
-}
-
-.auth-promo-btn.Outline {
-  background: transparent;
-  color: var(--secondary, #02163C);
-  border-color: var(--secondary, #02163C);
-}
-
-.auth-promo-btn.Outline:hover {
-  background: var(--secondary-accent, #B7C6DD);
-}
-
-.auth-promo-ad {
-  background: linear-gradient(120deg, #02163C 0%, #0a2c5c 60%, #013a52 100%);
-  border: none;
-}
-
-.auth-promo-ad .auth-promo-copy h2,
-.auth-promo-ad .auth-promo-copy p {
-  color: var(--text-light, #fff);
-}
-
-.auth-promo-was {
-  text-decoration: line-through;
-  opacity: 0.7;
-}
-
-.auth-promo-tag {
-  display: inline-block;
-  background: var(--primary, #8d1111);
-  color: var(--text-light, #fff);
-  font-size: var(--fine-print);
-  font-weight: var(--font-weight);
-  padding: 4px 10px;
-  border-radius: 10px;
-  margin-bottom: 10px;
-}
+/* display/fill/outline/shape comes from .Primary_Btn.Primary_Btn--auto and
+   .Secondary_Light_Btn (Button.css) */
 
 .auth-promo-scene {
   position: absolute;
@@ -758,44 +746,538 @@
   object-fit: cover;
 }
 
-.auth-promo-pedestal {
-  position: absolute;
-  bottom: 22px;
-  background: #f2e3d5;
-  border-radius: 50%;
+/* PLUS PROMO (HeyDaniel+ subscribe banner, signed-in users) */
+.plus-promo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 260px;
+  border-radius: 16px;
+  overflow: hidden;
+  padding: 32px 40px;
+  background: linear-gradient(135deg, #f8ecdc 0%, #f0dcc0 55%, #e8cfa8 100%);
 }
 
-
-.auth-promo-product {
-  position: absolute;
-  object-fit: contain;
-  filter: drop-shadow(0 10px 10px rgba(0, 0, 0, 0.2));
+.plus-promo-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 480px;
 }
 
-.auth-promo-product-1 {
-  left: 42px;
-  bottom: 46px;
-  width: 116px;
-  height: 96px;
+.plus-promo-badge {
+  display: inline-block;
+  background: var(--primary, #8d1111);
+  color: var(--text-light, #fff);
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  padding: 4px 10px;
+  border-radius: 10px;
+  margin-bottom: 10px;
 }
 
-.auth-promo-product-2 {
-  right: 44px;
-  bottom: 40px;
-  width: 92px;
-  height: 92px;
+.plus-promo-heading {
+  font-size: var(--hero-title);
+  font-weight: var(--font-weight);
+  line-height: 1.25;
+  color: var(--secondary);
+  margin: 0 0 8px;
 }
 
-.auth-promo-image {
-  position: absolute;
-  right: 40px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 160px;
-  height: 160px;
+.plus-promo-heading span {
+  font-size: inherit;
+  color: var(--primary, #8d1111);
+}
+
+.plus-promo-desc {
+  font-size: var(--regular-text);
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+
+.plus-promo-desc strong {
+  color: var(--primary, #8d1111);
+  font-weight: var(--font-weight);
+}
+
+.plus-promo-features {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.plus-promo-feature {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.plus-promo-feature span:last-child {
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  letter-spacing: 0.02em;
+  color: var(--secondary);
+  line-height: 1.3;
+}
+
+/* same solid-fill circle system as .member-promo-feature-icon */
+.plus-promo-feature-icon {
+  width: 48px;
+  height: 48px;
+  background: var(--primary-accent);
+  color: var(--primary);
+  font-size: 1.1rem;
+}
+
+.plus-promo-divider {
+  width: 1px;
+  height: 36px;
+  background: rgba(2, 22, 60, 0.1);
+  flex-shrink: 0;
+}
+
+.plus-promo-cta-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.plus-promo-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 45px;
+  background: var(--primary, #8d1111);
+  color: var(--text-light, #fff);
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border: none;
+  border-radius: 8px;
+  padding: 0 24px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.plus-promo-cta:hover {
+  background: var(--primary-light, #a31c1c);
+}
+
+.plus-promo-divider--cta {
+  height: 30px;
+}
+
+.plus-promo-tagline {
+  font-size: var(--regular-text);
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.plus-promo-tagline strong {
+  color: var(--primary, #8d1111);
+  font-weight: var(--font-weight);
+}
+
+/* shown at full clarity, no fade/blend (matches .member-promo-image) */
+.plus-promo-image {
+  position: relative;
+  flex-shrink: 0;
+  width: 460px;
+  margin-right: -40px;
+  aspect-ratio: 1;
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
+}
+
+@media (max-width: 900px) {
+  .plus-promo {
+    flex-direction: column;
+    padding: 28px;
+  }
+
+  .plus-promo-image {
+    width: 240px;
+    margin-right: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .plus-promo-features {
+    flex-wrap: wrap;
+    row-gap: 20px;
+  }
+
+  .plus-promo-divider {
+    display: none;
+  }
+
+  .plus-promo-cta-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .plus-promo-divider--cta {
+    display: none;
+  }
+}
+
+/* MEMBER PROMO (welcome-back banner, signed-in HeyDaniel+ members only) */
+.member-promo {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #faf3e9 0%, #f3e4d0 55%, #ecd8bb 100%);
+  border: 1px solid rgba(2, 22, 60, 0.08);
+}
+
+.member-promo-main {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(320px, 500px) 240px 340px;
+  align-items: center;
+  gap: 24px;
+  min-height: 280px;
+  padding: 36px 40px 28px;
+}
+
+.member-promo-copy {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+}
+
+.member-promo-badge {
+  display: inline-block;
+  background: var(--primary);
+  color: var(--text-light);
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  padding: 4px 10px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+
+.member-promo-heading {
+  font-size: var(--hero-title);
+  font-weight: var(--font-weight);
+  line-height: 1.25;
+  color: var(--text-dark);
+  margin: 0 0 10px;
+}
+
+.member-promo-heading span {
+  font-size: inherit;
+  color: var(--primary);
+  border-bottom: 2px solid var(--primary-accent);
+}
+
+.member-promo-desc {
+  font-size: var(--regular-text);
+  color: var(--text-dark);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.member-promo-desc strong {
+  color: var(--primary);
+  font-weight: var(--font-weight);
+}
+
+.member-promo-rule {
+  height: 1px;
+  background: rgba(2, 22, 60, 0.12);
+  margin: 18px 0 20px;
+  max-width: 420px;
+}
+
+.member-promo-features {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.member-promo-feature {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 92px;
+  text-align: center;
+}
+
+.member-promo-feature-icon {
+  width: 48px;
+  height: 48px;
+  background: var(--primary-accent);
+  color: var(--primary);
+  font-size: 1.1rem;
+}
+
+.member-promo-feature-title {
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  letter-spacing: 0.02em;
+  color: var(--text-dark);
+  line-height: 1.3;
+}
+
+.member-promo-feature-sub {
+  font-size: var(--fine-print);
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.member-promo-divider {
+  width: 1px;
+  height: 60px;
+  background: rgba(2, 22, 60, 0.12);
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.member-promo-cta-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* shape/layout come from .Primary_Btn.Primary_Btn--auto (Button.css); red
+   fill overridden here since this is a promo CTA, not a checkout action,
+   matching the banner's red accent throughout (badge/amount/icons) */
+.member-promo-cta {
+  width: auto;
+  white-space: nowrap;
+  background: var(--primary);
+}
+
+.member-promo-cta:hover {
+  background: var(--primary-light);
+}
+
+/* fill/color/shape come from .Primary_Btn.Primary_Btn--auto (Button.css) */
+.member-promo-shop-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  text-decoration: underline;
+}
+
+.member-promo-shop-link:hover {
+  color: var(--primary);
+}
+
+.member-promo-shop-link i {
+  font-size: var(--fine-print);
+}
+
+.member-promo-stats {
+  position: relative;
+  z-index: 2;
+}
+
+.member-promo-saved-label {
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.member-promo-saved-amount {
+  font-size: 2.1rem;
+  font-weight: var(--font-weight);
+  color: var(--primary);
+  line-height: 1.1;
+}
+
+.member-promo-saved-sub {
+  font-size: var(--information);
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+.member-promo-reward-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(2, 22, 60, 0.08);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.member-promo-reward-icon {
+  width: 36px;
+  height: 36px;
+  background: #fff;
+  color: var(--primary);
+  font-size: var(--regular-text);
+}
+
+.member-promo-reward-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.member-promo-reward-title {
+  font-size: var(--information);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  margin-bottom: 8px;
+}
+
+.member-promo-reward-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(2, 22, 60, 0.1);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.member-promo-reward-bar-fill {
+  width: 78%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.member-promo-reward-note {
+  font-size: var(--fine-print);
+  color: var(--text-muted);
+}
+
+.member-promo-reward-note strong {
+  color: var(--primary);
+  font-weight: var(--font-weight);
+}
+
+/* decorative box+crown photo — lives in its own grid column (column 3) so
+   it can never overlap .member-promo-stats in column 2: `left: 0` pins it
+   flush to that column's left edge, `right` bleeds it past the card's own
+   edge (cropped by .member-promo's overflow:hidden above) while staying
+   centered on the photo via background-position. Shown at full clarity,
+   no fade/blend. */
+.member-promo-image {
+  grid-column: 3;
+  position: absolute;
+  z-index: 1;
+  inset: 0 -10px 0 0;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+.member-promo-footer {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 40px;
+  border-top: 1px solid rgba(2, 22, 60, 0.1);
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.member-promo-footer-icon {
+  flex-shrink: 0;
+  font-size: 1.2rem;
+  color: var(--text-dark);
+  display: flex;
+  align-items: center;
+}
+
+.member-promo-footer-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.member-promo-footer-title {
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+}
+
+.member-promo-footer-sub {
+  font-size: var(--information);
+  color: var(--text-muted);
+}
+
+.member-promo-tagline {
+  flex-shrink: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 1.2rem;
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-color: var(--primary-accent);
+}
+
+@media (max-width: 900px) {
+  .member-promo-main {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    padding: 28px;
+  }
+
+  .member-promo-image {
+    grid-column: 1;
+    grid-row: 1;
+    position: relative;
+    inset: auto;
+    width: 100%;
+    height: 220px;
+    order: -1;
+  }
+
+  .member-promo-copy {
+    grid-row: 2;
+  }
+
+  .member-promo-stats {
+    grid-row: 3;
+    width: 100%;
+  }
+
+  .member-promo-footer {
+    flex-wrap: wrap;
+    padding: 18px 28px;
+  }
+
+  .member-promo-tagline {
+    margin-left: 50px;
+  }
+}
+
+@media (max-width: 600px) {
+  .member-promo-features {
+    flex-wrap: wrap;
+    row-gap: 16px;
+  }
+
+  .member-promo-divider {
+    display: none;
+  }
+
+  .member-promo-cta-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
 }
 
 .Section_Header {
@@ -817,17 +1299,6 @@
   font-weight: 400;
   color: var(--text-muted);
 }
-/*
-.Section_Header .See_All {
-  color: var(--primary);
-  font-weight: var(--font-weight);
-  text-decoration: none;
-}
-
-.Section_Header .See_All:hover {
-  text-decoration: underline;
-} */
-
 /* ROW & COLUMN */
 .Row {
   display: flex;
@@ -840,11 +1311,7 @@
   min-width: 100px;
 }
 
-.Col_1 { flex: 1; }
-.Col_2 { flex: 2; }
 .Col_3 { flex: 3; }
-.Col_4 { flex: 4; }
-.Col_6 { flex: 6; }
 
 /* RESPONSIVE DESIGN */
 
@@ -967,4 +1434,125 @@
   .Row {
     gap: 16px;
   }
+}
+
+/* =========================
+   SKELETON LOADING
+   (shimmer keyframe defined once in Header.css, reused here so every
+   page's content-area placeholders animate identically to the header's)
+========================= */
+.Skeleton_Block {
+  background: linear-gradient(90deg,
+      rgba(2, 22, 60, 0.06) 25%,
+      rgba(2, 22, 60, 0.12) 37%,
+      rgba(2, 22, 60, 0.06) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.2s infinite linear;
+  border-radius: 6px;
+}
+
+/* Sized to match .Product_Card exactly so swapping in real cards causes
+   no layout shift. Used by Store/Saved grids and product sliders. */
+.Skeleton_Product_Card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 350px;
+  height: 450px;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(2, 22, 60, 0.1);
+}
+
+.Skeleton_Product_Card_Image {
+  height: 200px;
+  border-radius: 0;
+}
+
+.Skeleton_Product_Card_Content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+
+.Skeleton_Product_Card_Content .Skeleton_Block:nth-child(1) { width: 40%; height: 9px; }
+.Skeleton_Product_Card_Content .Skeleton_Block:nth-child(2) { width: 90%; height: 14px; }
+.Skeleton_Product_Card_Content .Skeleton_Block:nth-child(3) { width: 55%; height: 14px; }
+.Skeleton_Product_Card_Content .Skeleton_Block:nth-child(4) { width: 45%; height: 12px; }
+.Skeleton_Product_Card_Content .Skeleton_Block:nth-child(5) { width: 35%; height: 20px; }
+.Skeleton_Product_Card_Content .Skeleton_Block:last-child { height: 45px; margin-top: auto; border-radius: 5px; }
+
+/* Sized to match .Row_Card. Used by Cart. */
+.Skeleton_Row_Card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: rgba(2, 22, 60, 0.05);
+  border: 1px solid rgba(2, 22, 60, 0.1);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.Skeleton_Row_Card_Image {
+  flex-shrink: 0;
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+}
+
+.Skeleton_Row_Card_Info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.Skeleton_Row_Card_Info .Skeleton_Block:nth-child(1) { width: 55%; height: 14px; }
+.Skeleton_Row_Card_Info .Skeleton_Block:nth-child(2) { width: 25%; height: 10px; }
+.Skeleton_Row_Card_Info .Skeleton_Block:nth-child(3) { width: 40%; height: 10px; }
+
+.Skeleton_Row_Card_Price {
+  flex-shrink: 0;
+  width: 70px;
+  height: 18px;
+}
+
+/* Generic icon+text row. Used by Notifications, Payment Methods, Orders,
+   Order History, and Addresses. */
+.Skeleton_List_Row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(2, 22, 60, 0.08);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.Skeleton_List_Row_Icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.Skeleton_List_Row_Info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.Skeleton_List_Row_Info .Skeleton_Block:nth-child(1) { width: 45%; height: 12px; }
+.Skeleton_List_Row_Info .Skeleton_Block:nth-child(2) { width: 70%; height: 10px; }
+
+.Skeleton_List_Row_Trailing {
+  flex-shrink: 0;
+  width: 70px;
+  height: 14px;
 }

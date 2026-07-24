@@ -22,7 +22,7 @@ $userId = 0;
 $token  = '';
 
 if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
-    $userId = (int)($data['user_id'] ?? 0);
+    $userId = resolveMobileUserId($data);
     $token  = trim($data['token']    ?? '');
 
     if (empty($token)) {

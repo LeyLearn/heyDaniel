@@ -15,6 +15,7 @@ if (isset($_SESSION['user_id'])) {
     $userPhone = (string)$_SESSION['user_phone'];
     $userCredits = (float)$_SESSION['user_credit'];
     $isMember = (bool)$_SESSION['is_member'];
+    $userTimeRegister = (string)$_SESSION['user_time_register'];
 } else {
     $userId = 0;
     // full name
@@ -28,14 +29,17 @@ if (isset($_SESSION['user_id'])) {
     $userPhone = "";
     $userCredits = 0.00;
     $isMember = false;
+    $userTimeRegister = "";
 }
 
-$sql = "SELECT * FROM UserAddresses WHERE UserId = ?";
+$sql = "SELECT * FROM UserAddresses WHERE UserId = ? ORDER BY DateAdded DESC";
 $stmt = $pdo->prepare($sql);
 $stmt->execute([$userId]);
 $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 foreach ($results as $row) {
+    $userAddressId = $row['Id'];
+    $userLabel = $row['Label'];
     $userAddress = $row['Address'];
     $userUnit = $row['Apt'];
     $userCity = $row['City'];
@@ -45,4 +49,6 @@ foreach ($results as $row) {
     $userGateCode = $row['GateCode'];
     $userNote = $row['Note'];
     $Coordinates = $row['LatnLong'];
+    $userPhoneOnAddress = $row['Phone'];
+    break;
 }

@@ -22,7 +22,7 @@ $metaDescription = "Browse our store and get same-day delivery with HeyDaniel.";
             <h2>Categories</h2>
 
             <div class="Store_Category_List" id="store-category-list">
-                <button type="button" class="Store_Category_Item Active" data-value="">All Categories</button>
+                <button type="button" class="Store_Category_Item Btn_Nav_Row Active" data-value="">All Categories</button>
             </div>
 
             <div class="Store_Filter_Group" id="store-subcategory-group" style="display:none;">
@@ -64,7 +64,21 @@ $metaDescription = "Browse our store and get same-day delivery with HeyDaniel.";
             <div class="Section_Header">
                 <h2>Best Sellers</h2>
             </div>
-            <div class="Row" id="store-grid"></div>
+            <div class="Row" id="store-grid">
+                <?php for ($i = 0; $i < 6; $i++) { ?>
+                    <div class="Skeleton_Product_Card">
+                        <div class="Skeleton_Block Skeleton_Product_Card_Image"></div>
+                        <div class="Skeleton_Product_Card_Content">
+                            <div class="Skeleton_Block"></div>
+                            <div class="Skeleton_Block"></div>
+                            <div class="Skeleton_Block"></div>
+                            <div class="Skeleton_Block"></div>
+                            <div class="Skeleton_Block"></div>
+                            <div class="Skeleton_Block"></div>
+                        </div>
+                    </div>
+                <?php } ?>
+            </div>
         </div>
     </section>
 
@@ -115,7 +129,7 @@ $metaDescription = "Browse our store and get same-day delivery with HeyDaniel.";
                         const $list = $("#store-category-list");
                         data.categories.forEach(function (category) {
                             $list.append(
-                                $('<button type="button" class="Store_Category_Item"></button>')
+                                $('<button type="button" class="Store_Category_Item Btn_Nav_Row"></button>')
                                     .attr("data-value", category.name)
                                     .text(category.name)
                             );

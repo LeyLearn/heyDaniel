@@ -56,7 +56,7 @@
 }
 
 .Item_Info h1 {
-  font-size: 1.6rem;
+  font-size: var(--page-title);
   font-weight: var(--font-weight);
   color: var(--text-dark);
   margin: 0 0 10px;
@@ -68,29 +68,7 @@
   margin-bottom: 8px;
 }
 
-.Item_Size_Select {
-  margin: 16px 0;
-  max-width: 220px;
-}
-
-.Item_Size_Select label {
-  display: block;
-  font-size: var(--information);
-  font-weight: var(--font-weight);
-  color: var(--text-muted);
-  margin-bottom: 6px;
-}
-
-.Item_Size_Select select {
-  width: 100%;
-  height: 42px;
-  border-radius: 5px;
-  border: 1px solid var(--border-light);
-  padding: 0 10px;
-  background: #fff;
-  color: var(--text-dark);
-  font-size: var(--regular-text);
-}
+/* .Item_Size_Select moved to Input.css */
 
 .Item_Actions {
   display: flex;
@@ -103,17 +81,12 @@
   margin: 0 0 20px;
 }
 
+/* background/border/color/font-weight come from .Text_Btn (Button.css) */
 .Item_Wishlist_Btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: none;
-  border: none;
   padding: 0;
-  font-size: var(--regular-text);
-  font-weight: var(--font-weight);
-  color: var(--secondary);
-  cursor: pointer;
 }
 
 .Item_Wishlist_Btn:hover {
@@ -179,29 +152,7 @@
   max-width: 500px;
 }
 
-.Item_Review_Field {
-  margin-bottom: 16px;
-}
-
-.Item_Review_Field label {
-  display: block;
-  font-size: var(--information);
-  font-weight: var(--font-weight);
-  color: var(--text-muted);
-  margin-bottom: 6px;
-}
-
-.Item_Review_Field input,
-.Item_Review_Field textarea {
-  width: 100%;
-  border-radius: 5px;
-  border: 1px solid var(--border-light);
-  padding: 10px;
-  font-size: var(--regular-text);
-  color: var(--text-dark);
-  box-sizing: border-box;
-  font-family: inherit;
-}
+/* .Item_Review_Field moved to Input.css */
 
 .Item_Star_Picker {
   display: flex;

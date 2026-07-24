@@ -1,0 +1,448 @@
+/* ORDERS PAGE */
+.Orders_Page_Header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.Orders_Page_Header_Text h1 {
+  margin: 0 0 4px;
+  font-size: var(--page-title);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  padding: 5px 0;
+}
+
+.Orders_Page_Subtitle {
+  margin: 0;
+  font-size: var(--information);
+  color: var(--text-muted);
+  padding: 0 0 20px;
+}
+
+.Orders_Page_Header_Actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* .Orders_Search_Wrap / .Orders_Search_Icon / .Orders_Search_Input moved to Input.css */
+
+.Orders_Sort_Wrap {
+  position: relative;
+}
+
+.Orders_Filter_Btn {
+  height: 40px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--secondary);
+  border-radius: 8px;
+  background: var(--secondary);
+  color: var(--text-light);
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  cursor: pointer;
+}
+
+.Orders_Filter_Btn span {
+  color: var(--text-light);
+}
+
+.Orders_Filter_Btn img {
+  width: 16px;
+  height: 16px;
+  filter: brightness(0) invert(1);
+}
+
+.Orders_Filter_Btn:hover {
+  background: var(--secondary-light);
+}
+
+.Orders_Sort_Dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
+  min-width: 170px;
+  background: #fff;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(2, 22, 60, 0.12);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* base flex row / hover come from .Btn_Nav_Row (Button.css) */
+.Orders_Sort_Option {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: var(--information);
+  color: var(--text-dark);
+}
+
+.Orders_Sort_Option:hover {
+  background: var(--bg-light);
+}
+
+.Orders_Sort_Option.active {
+  color: var(--secondary);
+  font-weight: var(--font-weight);
+  background: var(--secondary-accent);
+}
+
+.Order_Status_Tabs {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.Filter_Btn_Count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  background: var(--secondary);
+  color: #fff;
+}
+
+.Filter_Btn.active .Filter_Btn_Count {
+  background: #fff;
+  color: var(--secondary);
+}
+
+/* Persistent helper banner above the order list */
+.Order_Help_Banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  border-radius: 10px;
+  background: rgba(2, 22, 60, 0.05);
+}
+
+/* flex-center/circle shape comes from .Icon_Circle (Card.css) */
+.Order_Help_Banner_Icon_Wrap {
+  width: 48px;
+  height: 48px;
+  background: rgba(2, 22, 60, 0.08);
+}
+
+.Order_Help_Banner_Icon {
+  width: 30px;
+  height: 30px;
+}
+
+.Order_Help_Banner_Text {
+  flex: 1;
+  min-width: 0;
+}
+
+.Order_Help_Banner_Title {
+  margin: 0 0 2px;
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+}
+
+.Order_Help_Banner_Subtitle {
+  margin: 0;
+  font-size: var(--information);
+  color: var(--text-muted);
+}
+
+.Order_Help_Banner_Link {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: var(--secondary);
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  color: var(--text-light);
+  text-decoration: none;
+}
+
+.Order_Help_Banner_Link:hover {
+  background: var(--secondary-light);
+}
+
+/* Order rows (full page) */
+.Orders_Row_Thumb {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  background-color: var(--bg-light);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.Orders_Row_Thumb_Empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.Orders_Row_Thumb_Empty img {
+  width: 24px;
+  height: 24px;
+  opacity: 0.4;
+}
+
+#orders-list-container .Order_Row_Info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#orders-list-container .Order_Row_Number {
+  padding: 0;
+}
+
+#orders-list-container .Order_Row_Status {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.Order_Row_Substatus {
+  margin: 0;
+  font-size: var(--information);
+  color: var(--text-muted);
+}
+
+.Order_Row_Right {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+#orders-list-container .Order_Row_Total {
+  width: auto;
+}
+
+/* Status filter tabs take on each status's signature color
+   (matches .Order_Row_Status_* badge colors in Profile.css) */
+.Filter_Btn[data-status="pending"] {
+  color: var(--status-warning);
+  border-color: var(--status-warning);
+}
+
+.Filter_Btn[data-status="pending"]:hover {
+  background: rgba(202, 138, 4, 0.1);
+}
+
+.Filter_Btn[data-status="pending"].active {
+  color: var(--text-light);
+  background: var(--status-warning);
+  border-color: var(--status-warning);
+}
+
+.Filter_Btn[data-status="pending"].active:hover {
+  background: #a16f03;
+}
+
+.Filter_Btn[data-status="pending"] .Filter_Btn_Count {
+  background: var(--status-warning);
+}
+
+.Filter_Btn[data-status="pending"].active .Filter_Btn_Count {
+  background: #fff;
+  color: var(--status-warning);
+}
+
+.Filter_Btn[data-status="processing"] {
+  color: var(--status-info);
+  border-color: var(--status-info);
+}
+
+.Filter_Btn[data-status="processing"]:hover {
+  background: rgba(26, 86, 219, 0.1);
+}
+
+.Filter_Btn[data-status="processing"].active {
+  color: var(--text-light);
+  background: var(--status-info);
+  border-color: var(--status-info);
+}
+
+.Filter_Btn[data-status="processing"].active:hover {
+  background: #1443ad;
+}
+
+.Filter_Btn[data-status="processing"] .Filter_Btn_Count {
+  background: var(--status-info);
+}
+
+.Filter_Btn[data-status="processing"].active .Filter_Btn_Count {
+  background: #fff;
+  color: var(--status-info);
+}
+
+.Filter_Btn[data-status="shipped"] {
+  color: var(--status-purple);
+  border-color: var(--status-purple);
+}
+
+.Filter_Btn[data-status="shipped"]:hover {
+  background: rgba(107, 63, 212, 0.1);
+}
+
+.Filter_Btn[data-status="shipped"].active {
+  color: var(--text-light);
+  background: var(--status-purple);
+  border-color: var(--status-purple);
+}
+
+.Filter_Btn[data-status="shipped"].active:hover {
+  background: #5730b0;
+}
+
+.Filter_Btn[data-status="shipped"] .Filter_Btn_Count {
+  background: var(--status-purple);
+}
+
+.Filter_Btn[data-status="shipped"].active .Filter_Btn_Count {
+  background: #fff;
+  color: var(--status-purple);
+}
+
+.Filter_Btn[data-status="delivered"] {
+  color: var(--status-success);
+  border-color: var(--status-success);
+}
+
+.Filter_Btn[data-status="delivered"]:hover {
+  background: rgba(29, 122, 60, 0.1);
+}
+
+.Filter_Btn[data-status="delivered"].active {
+  color: var(--text-light);
+  background: var(--status-success);
+  border-color: var(--status-success);
+}
+
+.Filter_Btn[data-status="delivered"].active:hover {
+  background: #145c2d;
+}
+
+.Filter_Btn[data-status="delivered"] .Filter_Btn_Count {
+  background: var(--status-success);
+}
+
+.Filter_Btn[data-status="delivered"].active .Filter_Btn_Count {
+  background: #fff;
+  color: var(--status-success);
+}
+
+.Filter_Btn[data-status="cancelled"] {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.Filter_Btn[data-status="cancelled"]:hover {
+  background: var(--primary-accent);
+}
+
+.Filter_Btn[data-status="cancelled"].active {
+  color: var(--text-light);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.Filter_Btn[data-status="cancelled"].active:hover {
+  background: var(--primary-light);
+}
+
+.Filter_Btn[data-status="cancelled"] .Filter_Btn_Count {
+  background: var(--primary);
+}
+
+.Filter_Btn[data-status="cancelled"].active .Filter_Btn_Count {
+  background: #fff;
+  color: var(--primary);
+}
+
+/* outline/color comes from .Secondary_Light_Btn (Button.css) */
+.Order_Row_View_Details {
+  flex-shrink: 0;
+  font-size: var(--information);
+}
+
+.Orders_Pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--bg-light);
+}
+
+.Orders_Pagination_Label {
+  font-size: var(--information);
+  color: var(--text-muted);
+}
+
+.Orders_Pagination_Pages {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.Orders_Pagination_Numbers {
+  display: flex;
+  gap: 6px;
+}
+
+.Orders_Page_Btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text-dark);
+  font-size: var(--regular-text);
+  cursor: pointer;
+}
+
+.Orders_Page_Btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.Orders_Page_Btn:hover:not(.active):not(:disabled) {
+  background: var(--bg-light);
+}
+
+.Orders_Page_Nav:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

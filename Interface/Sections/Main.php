@@ -1,4 +1,6 @@
 <?php
+include_once __DIR__ . "/../../Server/Function/Components.php";
+
 $mainCategories = [
     'Baby'        => 'Baby.png',
     'Beauty'      => 'Beauty.png',
@@ -98,76 +100,6 @@ $saleCollectionsRow2 = [
 
 include_once $path . "Interface/Sections/ProductCard.php";
 
-$popularProducts = [
-    [
-        'image'     => 'Frozen.png',
-        'brand'     => "Birds Eye",
-        'name'      => 'Steamfresh Cheesy Broccoli',
-        'size'      => '10.8 oz',
-        'rating'    => '4.6',
-        'reviews'   => '890',
-        'price'     => '2.79',
-        'was_price' => '3.49',
-        'badge'     => 'Sale',
-        'same_day'  => true,
-    ],
-    [
-        'image'    => 'iphone.png',
-        'brand'    => 'Apple',
-        'name'     => 'iPhone 15 Pro, 128GB',
-        'size'     => '128GB',
-        'rating'   => '4.9',
-        'reviews'  => '1.2k',
-        'price'    => '999.00',
-        'badge'    => null,
-        'same_day' => false,
-    ],
-    [
-        'image'    => 'Windex.png',
-        'brand'    => 'Windex',
-        'name'     => 'Glass Cleaner, 23oz',
-        'size'     => '23 oz',
-        'rating'   => '4.7',
-        'reviews'  => '412',
-        'price'    => '4.29',
-        'badge'    => 'BOGO',
-        'same_day' => true,
-    ],
-    [
-        'image'    => 'razor.png',
-        'brand'    => "Gillette Venus",
-        'name'     => 'Comfortglide Razor, 2ct',
-        'size'     => '2 ct',
-        'rating'   => '4.5',
-        'reviews'  => '203',
-        'price'    => '9.99',
-        'badge'    => null,
-        'same_day' => true,
-    ],
-    [
-        'image'    => 'Microwave.png',
-        'brand'    => 'Insignia',
-        'name'     => 'Countertop Microwave, 0.9 cu ft',
-        'size'     => '0.9 cu ft',
-        'rating'   => '4.4',
-        'reviews'  => '156',
-        'price'    => '69.99',
-        'badge'    => null,
-        'same_day' => false,
-    ],
-    [
-        'image'    => 'parsley.png',
-        'brand'    => 'Fresh Farms',
-        'name'     => 'Organic Parsley Bunch',
-        'size'     => '1 bunch',
-        'rating'   => '4.8',
-        'reviews'  => '64',
-        'price'    => '1.99',
-        'badge'    => null,
-        'same_day' => true,
-    ],
-];
-
 $heroSlides = [
     [
         'tag'     => 'New in beauty',
@@ -230,7 +162,7 @@ function renderHeroSlider($slides, $path)
                         <div class="main-container-ad">
                             <p><?php echo htmlspecialchars($slide['tag']) ?></p>
                             <h1><?php echo $slide['heading'] ?></h1>
-                            <button class="Main_Cta_Btn"><?php echo htmlspecialchars($slide['cta']) ?></button>
+                            <a href="/HeyDaniel/Interface/Sheets/Store.php" class="Primary_Btn Primary_Btn--auto Main_Cta_Btn"><?php echo htmlspecialchars($slide['cta']) ?></a>
                         </div>
                         <div class="hero-slide-picture-wrap">
                             <div class="hero-slide-circle" style="background-color: <?php echo htmlspecialchars(darkenHexColor($slide['accent'], 0.45)) ?>"></div>
@@ -280,11 +212,30 @@ function renderExploreCategories($categories, $path)
 <?php
 }
 
+// Matches the .Skeleton_Product_Card markup Store.php uses for its grid, so
+// the loading state looks consistent everywhere a product list can load.
+function renderSkeletonProductCards($count)
+{
+    for ($i = 0; $i < $count; $i++) { ?>
+        <div class="Skeleton_Product_Card">
+            <div class="Skeleton_Block Skeleton_Product_Card_Image"></div>
+            <div class="Skeleton_Product_Card_Content">
+                <div class="Skeleton_Block"></div>
+                <div class="Skeleton_Block"></div>
+                <div class="Skeleton_Block"></div>
+                <div class="Skeleton_Block"></div>
+                <div class="Skeleton_Block"></div>
+                <div class="Skeleton_Block"></div>
+            </div>
+        </div>
+    <?php }
+}
+
 function renderProductSlider($title, $table, $path)
 {
     $sliderId = 'Product_Slider_' . $table;
 ?>
-    <section class="Container Product_Slider_Section" id="<?php echo $sliderId ?>_Section" data-table="<?php echo htmlspecialchars($table) ?>" style="display:none;">
+    <section class="Container Product_Slider_Section" id="<?php echo $sliderId ?>_Section" data-table="<?php echo htmlspecialchars($table) ?>">
         <div class="Section_Header">
             <h2><?php echo htmlspecialchars($title) ?></h2>
         </div>
@@ -293,7 +244,7 @@ function renderProductSlider($title, $table, $path)
                 <button class="Slider_Arrow Slider_Arrow_Prev" type="button" aria-label="Scroll left">
                     <img src="<?php echo $path ?>Assets/Icons/chevron-right.svg" alt="" />
                 </button>
-                <div class="product-slider" id="<?php echo $sliderId ?>"></div>
+                <div class="product-slider" id="<?php echo $sliderId ?>"><?php renderSkeletonProductCards(5); ?></div>
                 <button class="Slider_Arrow Slider_Arrow_Next" type="button" aria-label="Scroll right">
                     <img src="<?php echo $path ?>Assets/Icons/chevron-left.svg" alt="" />
                 </button>
@@ -303,7 +254,7 @@ function renderProductSlider($title, $table, $path)
     <?php
 }
 
-function renderAuthPromo($userId, $featuredProduct, $path)
+function renderAuthPromo($userId, $isMember, $firstName, $monthlySavingsAmount, $path)
 {
     if ($userId === 0) { ?>
         <section class="Container">
@@ -312,8 +263,8 @@ function renderAuthPromo($userId, $featuredProduct, $path)
                     <h2>Sign in for faster checkout</h2>
                     <p>Save your address and payment info, track orders, and unlock member-only deals.</p>
                     <div class="auth-promo-actions">
-                        <a href="/HeyDaniel/Interface/Sheets/Credential.php" class="auth-promo-btn Primary">Sign in</a>
-                        <a href="/HeyDaniel/Interface/Sheets/Credential.php" class="auth-promo-btn Outline">Create account</a>
+                        <a href="/HeyDaniel/Interface/Sheets/Credential.php" class="Primary_Btn Primary_Btn--auto auth-promo-btn Primary">Sign in</a>
+                        <a href="/HeyDaniel/Interface/Sheets/Credential.php" class="Secondary_Light_Btn auth-promo-btn Outline">Create account</a>
                     </div>
                 </div>
                 <div class="auth-promo-scene">
@@ -321,16 +272,105 @@ function renderAuthPromo($userId, $featuredProduct, $path)
                 </div>
             </div>
         </section>
+    <?php } elseif ($isMember) { ?>
+        <section class="Container">
+            <div class="member-promo">
+                <div class="member-promo-main">
+                    <div class="member-promo-copy">
+                        <span class="member-promo-badge">HeyDaniel+</span>
+                        <h2 class="member-promo-heading">Welcome back, <span><?php echo htmlspecialchars($firstName) ?>!</span></h2>
+                        <p class="member-promo-desc">Thanks for being a <strong>HeyDaniel+</strong> member.<br>You're saving more every time you shop.</p>
+                        <div class="member-promo-rule"></div>
+                        <div class="member-promo-features">
+                            <div class="member-promo-feature">
+                                <span class="member-promo-feature-icon Icon_Circle"><i class="fas fa-truck" aria-hidden="true"></i></span>
+                                <p class="member-promo-feature-title">FREE DELIVERY</p>
+                                <p class="member-promo-feature-sub">On all orders</p>
+                            </div>
+                            <div class="member-promo-divider"></div>
+                            <div class="member-promo-feature">
+                                <span class="member-promo-feature-icon Icon_Circle"><i class="fas fa-tags" aria-hidden="true"></i></span>
+                                <p class="member-promo-feature-title">EXCLUSIVE PRICES</p>
+                                <p class="member-promo-feature-sub">Members save more</p>
+                            </div>
+                            <div class="member-promo-divider"></div>
+                            <div class="member-promo-feature">
+                                <span class="member-promo-feature-icon Icon_Circle"><i class="fas fa-crown" aria-hidden="true"></i></span>
+                                <p class="member-promo-feature-title">EARLY ACCESS</p>
+                                <p class="member-promo-feature-sub">To new arrivals</p>
+                            </div>
+                            <div class="member-promo-divider"></div>
+                            <div class="member-promo-feature">
+                                <span class="member-promo-feature-icon Icon_Circle"><i class="fas fa-headset" aria-hidden="true"></i></span>
+                                <p class="member-promo-feature-title">VIP SUPPORT</p>
+                                <p class="member-promo-feature-sub">Priority assistance</p>
+                            </div>
+                        </div>
+                        <div class="member-promo-cta-row">
+                            <a href="/HeyDaniel/Interface/Sheets/Profile.php" class="Primary_Btn Primary_Btn--auto member-promo-cta">View Member Benefits <i class="fas fa-chevron-right" aria-hidden="true"></i></a>
+                            <a href="/HeyDaniel/Interface/Sheets/Store.php" class="member-promo-shop-link">Shop Now <i class="fas fa-chevron-right" aria-hidden="true"></i></a>
+                        </div>
+                    </div>
+                    <div class="member-promo-stats">
+                        <p class="member-promo-saved-label">YOU'VE SAVED</p>
+                        <p class="member-promo-saved-amount">$<?php echo number_format($monthlySavingsAmount, 2) ?></p>
+                        <p class="member-promo-saved-sub">this month with HeyDaniel+</p>
+                        <div class="member-promo-reward-card">
+                            <span class="member-promo-reward-icon Icon_Circle"><i class="fas fa-gift" aria-hidden="true"></i></span>
+                            <div class="member-promo-reward-text">
+                                <p class="member-promo-reward-title">Your next reward is almost ready!</p>
+                                <div class="member-promo-reward-bar"><div class="member-promo-reward-bar-fill"></div></div>
+                                <p class="member-promo-reward-note">You're <strong>$18</strong> away from your next reward</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="member-promo-image" style="background-image: url('<?php echo $path ?>Assets/Build/MembershipHero.PNG')"></div>
+                </div>
+                <div class="member-promo-footer">
+                    <span class="member-promo-footer-icon"><i class="fas fa-shield-alt" aria-hidden="true"></i></span>
+                    <div class="member-promo-footer-text">
+                        <p class="member-promo-footer-title">Premium benefits. Exclusive savings. Just for you.</p>
+                        <p class="member-promo-footer-sub">Thank you for being part of the HeyDaniel+ family.</p>
+                    </div>
+                    <p class="member-promo-tagline">You deserve the best.</p>
+                </div>
+            </div>
+        </section>
     <?php } else { ?>
         <section class="Container">
-            <div class="auth-promo auth-promo-ad">
-                <div class="auth-promo-image" style="background-image: url('<?php echo $path ?>Assets/Build/<?php echo $featuredProduct['image'] ?>')"></div>
-                <div class="auth-promo-copy">
-                    <span class="auth-promo-tag">Deal of the day</span>
-                    <h2><?php echo htmlspecialchars($featuredProduct['name']) ?></h2>
-                    <p>Now $<?php echo $featuredProduct['price'] ?> <span class="auth-promo-was">$<?php echo $featuredProduct['was_price'] ?></span> &mdash; same-day delivery available in your area.</p>
-                    <a href="/HeyDaniel/Interface/Sheets/Store.php" class="auth-promo-btn Primary">Shop now</a>
+            <div class="plus-promo">
+                <div class="plus-promo-copy">
+                    <span class="plus-promo-badge">HeyDaniel+</span>
+                    <h2 class="plus-promo-heading">Subscribe &amp; <span>Save More</span></h2>
+                    <p class="plus-promo-desc">Enjoy exclusive benefits, special offers, and early access &mdash; only for <strong>HeyDaniel+</strong> members.</p>
+                    <div class="plus-promo-features">
+                        <div class="plus-promo-feature">
+                            <span class="plus-promo-feature-icon Icon_Circle"><i class="fas fa-truck" aria-hidden="true"></i></span>
+                            <span>FREE &amp; FAST<br>DELIVERY</span>
+                        </div>
+                        <div class="plus-promo-divider"></div>
+                        <div class="plus-promo-feature">
+                            <span class="plus-promo-feature-icon Icon_Circle"><i class="fas fa-tags" aria-hidden="true"></i></span>
+                            <span>EXCLUSIVE<br>DISCOUNTS</span>
+                        </div>
+                        <div class="plus-promo-divider"></div>
+                        <div class="plus-promo-feature">
+                            <span class="plus-promo-feature-icon Icon_Circle"><i class="fas fa-crown" aria-hidden="true"></i></span>
+                            <span>MEMBER-ONLY<br>DEALS</span>
+                        </div>
+                        <div class="plus-promo-divider"></div>
+                        <div class="plus-promo-feature">
+                            <span class="plus-promo-feature-icon Icon_Circle"><i class="fas fa-gift" aria-hidden="true"></i></span>
+                            <span>EARLY ACCESS<br>TO NEW ARRIVALS</span>
+                        </div>
+                    </div>
+                    <div class="plus-promo-cta-row">
+                        <button type="button" class="plus-promo-cta" data-open-membership-modal>Join HeyDaniel+ Today!</button>
+                        <div class="plus-promo-divider plus-promo-divider--cta"></div>
+                        <p class="plus-promo-tagline">More perks. More value.<br><strong>Just for you.</strong></p>
+                    </div>
                 </div>
+                <div class="plus-promo-image" style="background-image: url('<?php echo $path ?>Assets/Build/MembershipHero.PNG')"></div>
             </div>
         </section>
 <?php }
@@ -380,10 +420,13 @@ function renderAuthPromo($userId, $featuredProduct, $path)
         </div>
     </div>
 </section>
+<!-- sign-in pitch for guests, member welcome-back for members, join pitch for signed-in non-members -->
+<?php
+$memberMonthlySavings = ($userId !== 0 && $isMember) ? monthlySavings($pdo, $userId) : 0.00;
+renderAuthPromo($userId, $isMember, $firstName, $memberMonthlySavings, $path);
+?>
 <!-- popular products -->
 <?php renderProductSlider('Popular Products', 'Popular', $path); ?>
-<!-- sign-in pitch for guests, product ad for signed-in users -->
-<?php renderAuthPromo($userId, $popularProducts[0], $path); ?>
 <!-- discover great deals -->
 <?php renderProductSlider('Discover Great Deals', 'Recommendations', $path); ?>
 <!-- second row of sale collections -->

@@ -1,7 +1,7 @@
 <?php
 
 include_once __DIR__ . "/../Connect.php";
-include_once __DIR__ . "/../../Function/Components.php";
+include_once __DIR__ . "/../Function/Components.php";
 
 $response = [
     "is_registered" => false,

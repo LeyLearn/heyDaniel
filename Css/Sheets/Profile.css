@@ -1,49 +1,119 @@
 /* PROFILE PAGE */
 .Profile_Layout {
+  width: 85%;
   display: flex;
   align-items: flex-start;
-  gap: 32px;
+  padding: 30px 0;
+  margin: 0 auto; 
 }
 
 /* SIDEBAR NAV */
 .Profile_Nav {
-  width: 220px;
+  width: 280px;
   flex-shrink: 0;
   background: #fff;
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  border: 1px solid rgba(2, 22, 60, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(2, 22, 60, 0.04);
+  margin: 0 24px 0 0;
   position: sticky;
   top: 20px;
+  overflow: hidden;
 }
 
-.Profile_Nav_Link {
+.Profile_Nav_Header {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
-  border-radius: 6px;
-  text-decoration: none;
-  color: var(--text-dark);
+  padding: 18px;
+  border-bottom: 1px solid rgba(2, 22, 60, 0.08);
+}
+
+.Profile_Nav_Avatar {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--text-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: var(--font-weight);
+  text-transform: uppercase;
+}
+
+.Profile_Nav_Identity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.Profile_Nav_Name {
+  margin: 0;
   font-size: var(--regular-text);
   font-weight: var(--font-weight);
-  background: none;
-  border: none;
-  width: 100%;
-  text-align: left;
+  color: var(--text-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.Profile_Nav_Member_Badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  color: #8a6100;
+  padding: 2px 0;
+}
+
+.Profile_Nav_Count_Badge {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: rgba(141, 17, 17, 0.12);
+  color: var(--primary);
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.Profile_Nav_Link.Active .Profile_Nav_Count_Badge {
+  background: var(--text-light);
+  color: var(--primary);
+}
+
+/* base flex row / width / hover come from .Btn_Nav_Row (Button.css) */
+.Profile_Nav_Link {
+  padding: 18px;
+  text-decoration: none;
+  color: var(--text-dark);
+  font-weight: var(--font-weight);
   cursor: pointer;
 }
 
 .Profile_Nav_Link:hover {
-  background: var(--bg-light);
+  background: var(--secondary-accent);
+}
+
+.Profile_Nav_Link.Active span {
+  color: #fff;
 }
 
 .Profile_Nav_Link.Active {
-  background: var(--secondary-accent);
-  color: var(--secondary);
+  background: var(--secondary);
 }
 
 .Profile_Nav_Link img {
@@ -52,15 +122,33 @@
   flex-shrink: 0;
 }
 
+.Profile_Nav_Link.Active img {
+  filter: brightness(0) invert(1);
+}
+
 .Profile_Nav_Logout {
   margin-top: 8px;
   padding-top: 12px;
-  border-top: 1px solid var(--bg-light);
+  border-top: 1px solid rgba(2, 22, 60, 0.08);
+  color: var(--primary);
+  border-radius: 0;
+}
+
+.Profile_Nav_Logout span {
   color: var(--primary);
 }
 
 .Profile_Nav_Logout:hover {
-  background: var(--primary-accent);
+  background: var(--primary);
+  color: #fff;
+}
+
+.Profile_Nav_Logout:hover span {
+  color: #fff;
+}
+
+.Profile_Nav_Logout:hover img {
+  filter: brightness(0) invert(1);
 }
 
 .Profile_Main {
@@ -82,19 +170,28 @@
   flex: 1;
 }
 
+/* outline/color comes from .Secondary_Light_Btn (Button.css) */
 .Edit_Profile_Btn {
-  width: auto;
-  height: 40px;
-  padding: 0 20px;
   flex-shrink: 0;
 }
 
-.Profile_Avatar {
-  width: 64px;
-  height: 64px;
+.Profile_Avatar_Wrap {
   flex-shrink: 0;
+  width: 78px;
+  height: 78px;
   border-radius: 50%;
-  background: var(--secondary);
+  border: 2px solid rgba(2, 22, 60, 0.15);
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.Profile_Avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--primary);
   color: var(--text-light);
   display: flex;
   align-items: center;
@@ -111,21 +208,175 @@
 }
 
 .Profile_Welcome_Text h1 {
-  font-size: 1.5rem;
+  font-size: var(--page-title);
   font-weight: var(--font-weight);
   color: var(--text-dark);
   margin: 0;
 }
 
-.Profile_Member_Badge {
-  display: inline-block;
+.Profile_Badges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin-top: 8px;
+}
+
+.Profile_Member_Badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--fine-print);
   font-weight: var(--font-weight);
-  color: var(--primary);
-  background: var(--primary-accent);
-  padding: 3px 10px;
+  color: #8a6100;
+  background: var(--status-warning-bg);
+  padding: 4px 12px;
   border-radius: 10px;
+}
+
+.Profile_Member_Since {
+  font-size: var(--information);
+  color: var(--text-muted);
+}
+
+/* STATS BAR */
+.Profile_Stats {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border: 1px solid rgba(2, 22, 60, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(2, 22, 60, 0.04);
+  padding: 24px;
+}
+
+.Stat_Item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* flex-center/circle shape comes from .Icon_Circle (Card.css) */
+.Stat_Icon {
+  position: relative;
+  width: 40px;
+  height: 40px;
+}
+
+.Stat_Icon::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.Stat_Icon_Orders {
+  background: var(--secondary-accent);
+}
+
+.Stat_Icon_Orders::before {
+  -webkit-mask-image: url(../../Assets/Icons/cart.svg);
+  mask-image: url(../../Assets/Icons/cart.svg);
+  background-color: var(--secondary);
+}
+
+.Stat_Icon_Wishlist {
+  background: var(--status-info-bg);
+}
+
+.Stat_Icon_Wishlist::before {
+  -webkit-mask-image: url(../../Assets/Icons/heart.svg);
+  mask-image: url(../../Assets/Icons/heart.svg);
+  background-color: var(--status-info);
+}
+
+.Stat_Icon_Spent {
+  background: var(--status-warning-bg);
+}
+
+.Stat_Icon_Spent::before {
+  -webkit-mask-image: url(../../Assets/Icons/tag.svg);
+  mask-image: url(../../Assets/Icons/tag.svg);
+  background-color: #8a6100;
+}
+
+.Stat_Icon_Rewards {
+  background: var(--status-success-bg);
+}
+
+.Stat_Icon_Rewards::before {
+  -webkit-mask-image: url(../../Assets/Icons/star.svg);
+  mask-image: url(../../Assets/Icons/star.svg);
+  background-color: var(--status-success);
+}
+
+.Stat_Text {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.Stat_Number {
+  font-size: 1.3rem;
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  line-height: 1.2;
+}
+
+.Stat_Number_Orders {
+  color: var(--secondary);
+}
+
+.Stat_Number_Wishlist {
+  color: var(--status-info);
+}
+
+.Stat_Number_Spent {
+  color: var(--status-warning);
+}
+
+.Stat_Number_Rewards {
+  color: var(--status-success);
+}
+
+.Stat_Label {
+  font-size: var(--regular-text);
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+.Stat_Link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: var(--information);
+  font-weight: var(--font-weight);
+  color: var(--primary);
+  text-decoration: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.Stat_Link:hover {
+  text-decoration: underline;
+}
+
+.Stat_Divider {
+  width: 1px;
+  height: 48px;
+  background: var(--bg-light);
+  flex-shrink: 0;
+  margin: 0 20px;
 }
 
 /* TWO-COLUMN GRID: Profile Info | Order History */
@@ -144,6 +395,19 @@
   box-shadow: 0 2px 10px rgba(2, 22, 60, 0.04);
 }
 
+.Profile_Info_Header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+/* sizing/hover comes from .Btn_Icon_Ghost (Button.css) */
+.Profile_Info_Edit {
+  flex-shrink: 0;
+  font-size: var(--information);
+}
+
 .Profile_Section h3 {
   font-size: var(--subtitle);
   font-weight: var(--font-weight);
@@ -151,14 +415,82 @@
   margin: 0 0 18px;
 }
 
+.Profile_Info_Header h3 {
+  margin: 0;
+}
+
+/* ORDER HISTORY EMPTY STATE */
+.Order_Empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 12px 0 8px;
+}
+
+.Order_Empty_Icon_Wrap {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(2, 22, 60, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.Order_Empty_Icon {
+  width: 88px;
+  height: 88px;
+}
+
+.Order_Empty_Text {
+  font-size: var(--regular-text);
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.Order_Empty_Link {
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.Order_Empty_Link:hover {
+  color: var(--primary);
+}
+
 .Profile_Field {
-  padding: 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
   border-bottom: 1px solid var(--bg-light);
 }
 
 .Profile_Field:last-child {
   border-bottom: none;
   padding-bottom: 0;
+}
+
+/* flex-center/circle shape comes from .Icon_Circle (Card.css) */
+.Profile_Field_Icon {
+  width: 40px;
+  height: 40px;
+  background: var(--bg-light);
+  color: var(--text-muted);
+}
+
+.Profile_Field_Icon_Premium {
+  background: var(--status-warning-bg);
+  color: #8a6100;
+}
+
+.Profile_Field_Text {
+  flex: 1;
+  min-width: 0;
 }
 
 .Profile_Field label {
@@ -177,6 +509,106 @@
   font-weight: var(--font-weight);
 }
 
+/* .Profile_Field_Input moved to Input.css */
+
+.Profile_Info_Edit_Actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 14px;
+}
+
+.Profile_Info_Save_Btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--secondary);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  padding: 8px 20px;
+  cursor: pointer;
+}
+
+.Profile_Info_Save_Btn:hover {
+  background: var(--secondary-light);
+}
+
+.Profile_Info_Save_Btn span {
+  color: inherit;
+  font-size: inherit;
+}
+
+.Profile_Field p.Profile_Premium_Active {
+  color: var(--status-success);
+}
+
+.Profile_Field p.Profile_Premium_Inactive {
+  color: var(--primary);
+}
+
+.Toggle_Switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 24px;
+  padding: 3px;
+  border: none;
+  border-radius: 999px;
+  background: var(--primary);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.Toggle_Switch.Toggle_On {
+  background: var(--status-success);
+}
+
+.Toggle_Knob {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(2, 22, 60, 0.3);
+  transition: transform 0.2s ease;
+}
+
+.Toggle_Switch.Toggle_On .Toggle_Knob {
+  transform: translateX(20px);
+}
+
+/* ORDER HISTORY HEADER/FOOTER */
+.Order_History_Header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.Order_History_Header h3 {
+  margin: 0;
+}
+
+.Order_History_View_All {
+  font-size: var(--information);
+  font-weight: var(--font-weight);
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.Order_History_View_All:hover {
+  text-decoration: underline;
+}
+
+/* outline/color/sizing comes from .Secondary_Light_Btn.Secondary_Light_Btn--full (Button.css) */
+.Order_History_Footer_Btn {
+  margin-top: 18px;
+}
+
 /* ADDRESS BOOK */
 .Address_Book_Grid {
   display: grid;
@@ -185,32 +617,86 @@
 }
 
 .Address_Card {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  background: var(--bg-light);
+  background: rgba(2, 22, 60, 0.05);
   border-radius: 8px;
   padding: 16px;
 }
 
-.Add_Address_Card {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: none;
-  border: 1px dashed var(--border-light);
-  border-radius: 8px;
-  padding: 16px;
-  color: var(--primary);
-  font-size: var(--regular-text);
+/* flex-center/circle shape comes from .Icon_Circle (Card.css) */
+.Address_Card_Icon {
+  width: 40px;
+  height: 40px;
+  background: rgba(2, 22, 60, 0.07);
+}
+
+.Address_Card_Icon img {
+  width: 18px;
+  height: 18px;
+}
+
+.Address_Card_Body {
+  flex: 1;
+  min-width: 0;
+}
+
+.Address_Default_Badge {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: var(--fine-print);
   font-weight: var(--font-weight);
-  cursor: pointer;
-  min-height: 68px;
+  color: var(--primary);
+  background: var(--primary-accent);
+  padding: 2px 8px;
+  border-radius: 8px;
+  text-transform: none;
 }
 
-.Add_Address_Card:hover {
-  background: var(--primary-accent);
+/* sizing/hover comes from .Btn_Icon_Ghost.Btn_Icon_Ghost--sm (Button.css) */
+
+.Address_Card_Menu_Wrap {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.Address_Card_Menu_Dropdown {
+  display: none;
+  position: absolute;
+  top: 26px;
+  right: 0;
+  min-width: 130px;
+  background: #fff;
+  border: 1px solid rgba(2, 22, 60, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(2, 22, 60, 0.12);
+  overflow: hidden;
+  z-index: 5;
+}
+
+.Address_Card_Menu_Dropdown.Open {
+  display: block;
+}
+
+/* base flex row / hover come from .Btn_Nav_Row (Button.css) */
+.Address_Card_Menu_Dropdown button {
+  display: block;
+  padding: 10px 14px;
+  color: var(--text-dark);
+}
+
+.Address_Card_Menu_Dropdown button:hover {
+  background: var(--bg-light);
+}
+
+/* outline/dash/color/hover come from .Secondary_Light_Btn.Secondary_Light_Btn--dashed (Button.css) */
+.Add_Address_Card {
+  justify-content: center;
+  padding: 16px;
+  min-height: 68px;
 }
 
 .Add_Address_Plus {
@@ -238,33 +724,97 @@
 }
 
 /* ORDER ROWS */
+.Order_Row_Wrap {
+  border-bottom: 1px solid var(--bg-light);
+}
+
+.Order_Row_Wrap:last-child {
+  border-bottom: none;
+}
+
 .Order_Row {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 16px 0;
-  border-bottom: 1px solid var(--bg-light);
+  padding: 20px 16px;
+  cursor: pointer;
+  border-radius: 5px;
 }
 
-.Order_Row:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
+.Order_Row_Pending {
+  background: var(--status-warning-bg);
 }
 
-.Order_Row_Icon {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
+.Order_Row_Processing {
+  background: var(--status-info-bg);
+}
+
+.Order_Row_Delivered {
+  background: var(--status-success-bg);
+}
+
+.Order_Row_Shipped {
+  background: var(--status-purple-bg);
+}
+
+.Order_Row_Cancelled {
   background: var(--bg-light);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+}
+
+.Order_Row_Chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: var(--information);
+  transition: transform 0.2s ease;
+  transform: rotate(-90deg);
+}
+
+.Order_Row_Wrap.expanded .Order_Row_Chevron {
+  transform: rotate(0deg);
+}
+
+/* flex-center/circle shape comes from .Icon_Circle (Card.css) */
+.Order_Row_Icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(2, 22, 60, 0.07);
 }
 
 .Order_Row_Icon img {
   width: 18px;
   height: 18px;
+}
+
+.Order_Row_Thumbs {
+  flex-shrink: 0;
+  display: flex;
+}
+
+.Order_Row_Thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--bg-light);
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(2, 22, 60, 0.08);
+  margin-left: -14px;
+}
+
+.Order_Row_Thumb:first-child {
+  margin-left: 0;
+}
+
+.Order_Row_Thumb_More {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-light);
+  color: var(--text-muted);
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
 }
 
 .Order_Row_Info {
@@ -273,6 +823,7 @@
 }
 
 .Order_Row_Number {
+  padding: 10px 0;
   font-weight: var(--font-weight);
   color: var(--text-dark);
 }
@@ -286,10 +837,40 @@
   font-size: var(--fine-print);
   font-weight: var(--font-weight);
   color: var(--secondary);
-  background: var(--bg-light);
+  background: rgba(2, 22, 60, 0.07);
   padding: 4px 10px;
   border-radius: 10px;
   text-transform: capitalize;
+}
+
+.Order_Row_Status_Delivered {
+  color: var(--status-success);
+  background: rgba(2, 22, 60, 0.05);
+}
+
+.Order_Row_Status_Pending {
+  color: var(--status-warning);
+  background: rgba(2, 22, 60, 0.05);
+}
+
+.Order_Row_Status_Processing {
+  color: var(--status-info);
+  background: rgba(2, 22, 60, 0.05);
+}
+
+.Order_Row_Status_Issue {
+  color: var(--primary);
+  background: rgba(2, 22, 60, 0.05);
+}
+
+.Order_Row_Status_Shipped {
+  color: var(--status-purple);
+  background: rgba(2, 22, 60, 0.05);
+}
+
+.Order_Row_Status_Cancelled {
+  color: var(--text-muted);
+  background: rgba(2, 22, 60, 0.05);
 }
 
 .Order_Row_Total {
@@ -297,6 +878,404 @@
   color: var(--primary);
   width: 80px;
   text-align: right;
+}
+
+/* ORDER ROW INLINE DETAIL */
+.Order_Row_Detail {
+  padding: 4px 0 18px 62px;
+}
+
+.Order_Row_Detail_Loading {
+  font-size: var(--regular-text);
+  color: var(--text-muted);
+}
+
+.Order_Detail_Item_List {
+  background: var(--bg-light);
+  border-radius: 8px;
+  padding: 4px 14px;
+}
+
+.Order_Detail_Item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 28px 12px 0;
+  border-bottom: 1px solid rgba(2, 22, 60, 0.08);
+}
+
+.Order_Detail_Item_Menu {
+  position: absolute;
+  top: 10px;
+  right: 0;
+}
+
+/* sizing/hover comes from .Btn_Icon_Ghost.Btn_Icon_Ghost--sm (Button.css) */
+.Order_Detail_Item_Menu_Btn {
+  font-size: var(--information);
+}
+
+.Order_Detail_Item_Menu_Dropdown {
+  display: none;
+  position: absolute;
+  top: 28px;
+  right: 0;
+  min-width: 150px;
+  background: #fff;
+  border: 1px solid rgba(2, 22, 60, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(2, 22, 60, 0.12);
+  overflow: hidden;
+  z-index: 5;
+}
+
+.Order_Detail_Item_Menu.Open .Order_Detail_Item_Menu_Dropdown {
+  display: block;
+}
+
+/* base flex row / hover come from .Btn_Nav_Row (Button.css) */
+.Order_Detail_Item_Menu_Dropdown button {
+  display: block;
+  padding: 10px 14px;
+  color: var(--text-dark);
+}
+
+.Order_Detail_Item_Menu_Dropdown button:hover {
+  background: var(--bg-light);
+}
+
+.Order_Detail_Item:last-child {
+  border-bottom: none;
+}
+
+.Order_Detail_Item_Image {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background-color: #fff;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.Order_Detail_Item_Info {
+  flex: 1;
+  min-width: 0;
+}
+
+.Order_Detail_Item_Name {
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+}
+
+.Order_Detail_Item_Qty {
+  font-size: var(--information);
+  color: var(--text-muted);
+}
+
+.Order_Detail_Item_Price_Wrap {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.Order_Detail_Item_Price {
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+}
+
+.Order_Detail_Totals {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--bg-light);
+}
+
+.Order_Detail_Total_Row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--regular-text);
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+
+.Order_Detail_Total_Row_Grand {
+  font-size: var(--subtitle);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  margin-top: 6px;
+}
+
+/* ADDRESS MODAL */
+.Address_Modal_Overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(2, 22, 60, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.Address_Modal_Box {
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(2, 22, 60, 0.25);
+}
+
+.Address_Modal_Header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--bg-light);
+}
+
+.Address_Modal_Header h3 {
+  font-size: var(--subtitle);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+}
+
+/* sizing/hover comes from .Btn_Icon_Ghost (Button.css) */
+.Address_Modal_Close_Btn {
+  color: var(--text-muted);
+  font-size: var(--regular-text);
+}
+
+.Address_Modal_Body {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* .Address_Modal_Field_Row / .Address_Modal_Field moved to Input.css */
+
+.Address_Modal_Footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px 24px;
+}
+
+.Membership_Modal_Box {
+  position: relative;
+  width: 100%;
+  max-width: 680px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(2, 22, 60, 0.25);
+  padding: 18px 28px 24px;
+}
+
+/* sizing comes from .Btn_Icon_Ghost (Button.css); background overridden so
+   the close x always sits on a navy tint instead of Ghost's default
+   transparent/hover-only fill */
+.Membership_Modal_Close_Btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(2, 22, 60, 0.05);
+  z-index: 1;
+}
+
+.Membership_Modal_Close_Btn:hover {
+  background: rgba(2, 22, 60, 0.08);
+}
+
+.Membership_Modal_Close_Btn img {
+  width: 14px;
+  height: 14px;
+  filter: brightness(0);
+}
+
+.Membership_Modal_Top {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  margin-bottom: 20px;
+}
+
+.Membership_Modal_Hero {
+  position: relative;
+  flex-shrink: 0;
+  width: 190px;
+  height: 165px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.Membership_Modal_Hero::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--primary);
+}
+
+.Membership_Modal_Hero img {
+  position: relative;
+  width: 115%;
+  height: 115%;
+  object-fit: contain;
+}
+
+.Membership_Modal_Intro {
+  flex: 1;
+  min-width: 0;
+}
+
+.Membership_Modal_Intro h3 {
+  font-size: var(--hero-title);
+  font-weight: var(--font-weight);
+  padding-bottom: 5px;
+}
+
+.Membership_Modal_Title_Join {
+  color: var(--text-dark);
+  font-size: inherit;
+}
+
+.Membership_Modal_Title_Brand {
+  color: var(--primary);
+  font-size: inherit;
+}
+
+.Membership_Modal_Subtitle {
+  font-size: var(--regular-text);
+  color: var(--text-muted);
+  padding-bottom: 10px
+}
+
+.Membership_Modal_Price {
+  margin-top: 14px;
+}
+
+.Membership_Modal_Price_Amount {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.Membership_Modal_Price_Interval {
+  margin-left: 4px;
+  font-size: var(--regular-text);
+  color: var(--text-muted);
+}
+
+.Membership_Modal_Benefits {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid rgba(2, 22, 60, 0.08);
+  box-shadow: 0 2px 10px rgba(2, 22, 60, 0.05);
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.Membership_Modal_Benefit {
+  padding: 20px 14px;
+  text-align: center;
+}
+
+.Membership_Modal_Benefit:not(:last-child) {
+  border-right: 1px solid rgba(2, 22, 60, 0.08);
+}
+
+/* flex-center/circle shape comes from .Icon_Circle (Card.css) */
+.Membership_Modal_Benefit_Icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 12px;
+  background: rgba(2, 22, 60, 0.05);
+  color: var(--secondary);
+  font-size: 1.1rem;
+}
+
+.Membership_Modal_Benefit_Title {
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  margin-bottom: 4px;
+}
+
+.Membership_Modal_Benefit_Desc {
+  font-size: var(--fine-print);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* #membership-card-fields / .Membership_Modal_Card_Wrap moved to Input.css */
+
+.Membership_Modal_Footer {
+  display: flex;
+  gap: 12px;
+}
+
+/* outline/color comes from .Secondary_Light_Btn (Button.css) */
+.Membership_Modal_Cancel_Btn {
+  flex: 1;
+  height: 45px;
+  font-size: 0.85rem;
+}
+
+/* fill/color/height come from .Primary_Btn (Button.css) */
+.Membership_Modal_Subscribe_Btn {
+  flex: 2;
+  gap: 8px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+
+.Membership_Modal_Subscribe_Btn span {
+  color: inherit;
+  font-size: inherit;
+}
+
+.Membership_Modal_Subscribe_Btn:hover {
+  background: var(--secondary-light);
+}
+
+.Membership_Modal_Secure_Note {
+  margin-top: 16px;
+  text-align: center;
+  font-size: var(--fine-print);
+  color: var(--text-muted);
+}
+
+@media (max-width: 640px) {
+  .Membership_Modal_Top {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .Membership_Modal_Benefits {
+    grid-template-columns: 1fr;
+  }
+
+  .Membership_Modal_Benefit:not(:last-child) {
+    border-right: none;
+    border-bottom: 1px solid rgba(2, 22, 60, 0.08);
+  }
 }
 
 @media (max-width: 768px) {
@@ -313,6 +1292,7 @@
     flex-direction: row;
     flex-wrap: wrap;
     position: static;
+    margin: 0 0 20px;
   }
 
   .Profile_Nav_Link {
@@ -321,8 +1301,12 @@
     justify-content: center;
   }
 
-  .Profile_Nav_Link span {
+  .Profile_Nav_Link span:not(.Profile_Nav_Count_Badge) {
     display: none;
+  }
+
+  .Profile_Nav_Count_Badge {
+    margin-left: 4px;
   }
 
   .Profile_Nav_Logout {
@@ -330,4 +1314,15 @@
     padding-top: 12px;
     border-top: none;
   }
+
+  .Profile_Stats {
+    flex-wrap: wrap;
+    row-gap: 20px;
+  }
+
+  .Stat_Divider {
+    display: none;
+  }
+
+  /* .Address_Modal_Field_Row responsive rule moved to Input.css */
 }

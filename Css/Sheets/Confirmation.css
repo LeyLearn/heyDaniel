@@ -44,7 +44,7 @@
 }
 
 .Confirmation_Card h1 {
-  font-size: 1.6rem;
+  font-size: var(--page-title);
   font-weight: var(--font-weight);
   color: var(--text-dark);
   margin: 0 0 8px;
@@ -120,10 +120,38 @@
   align-items: center;
 }
 
+/* display/centering comes from .Secondary_Light_Btn (Button.css) */
 .Confirmation_Actions .Continue_Shopping_Btn {
-  display: block;
-  width: 100%;
-  text-align: center;
   text-decoration: none;
   box-sizing: border-box;
+}
+
+/* SKELETON (shown while the order lookup AJAX call is in flight) */
+.Skeleton_Confirmation_Icon {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  margin: 0 auto 20px;
+}
+
+.Skeleton_Confirmation_Line {
+  height: 16px;
+  margin: 0 auto 12px;
+}
+
+.Skeleton_Confirmation_Summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.Skeleton_Confirmation_Summary .Skeleton_Block {
+  height: 14px;
+}
+
+.Skeleton_Confirmation_Btn {
+  height: 45px;
+  border-radius: 5px;
+  margin-top: 8px;
 }

@@ -47,6 +47,7 @@ $routes = [
     'checkout'          => 'Secure/Checkout/Checkout.php',
     'finalize_order'    => 'Secure/Checkout/FinalizeOrder.php',
     'order_history'     => 'Secure/Order/OrderHistory.php',
+    'order_details'     => 'Secure/Order/OrderDetails.php',
 
     // Reviews
     'reviews_get'       => 'Secure/Reviews/GetReviews.php',
@@ -57,6 +58,16 @@ $routes = [
     'login'             => 'Secure/User/Login.php',
     'google_login'      => 'Secure/User/GoogleLogin.php',
     'logout'            => 'Secure/User/Logout.php',
+    'update_profile'    => 'Secure/User/UpdateProfile.php',
+    'save_address'      => 'Secure/User/SaveAddress.php',
+    'delete_address'    => 'Secure/User/DeleteAddress.php',
+    'list_addresses'    => 'Secure/User/ListAddresses.php',
+    'payment_methods'   => 'Secure/User/PaymentMethods.php',
+    'change_account_password' => 'Secure/User/ChangeAccountPassword.php',
+    'notifications'     => 'Secure/User/Notifications.php',
+    'mark_notification_read' => 'Secure/User/MarkNotificationRead.php',
+    'subscribe_membership' => 'Secure/User/SubscribeMembership.php',
+    'cancel_membership' => 'Secure/User/CancelMembership.php',
 
     // Password Reset
     'collect_email'     => 'Secure/CollectEmail.php',

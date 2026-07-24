@@ -25,34 +25,7 @@
     margin: 0;
 }
 
-.footer-newsletter-form{
-    display: flex;
-    gap: 8px;
-}
-
-.footer-newsletter-form input[type="email"]{
-    width: 220px;
-    font-size: var(--regular-text);
-    padding: 10px 14px;
-    border-radius: 20px;
-    border: 1px solid var(--border-light, rgba(2, 22, 60, 0.5));
-}
-
-.footer-newsletter-form button{
-    background: var(--secondary, #02163C);
-    color: var(--text-light, #fff);
-    border: none;
-    font-size: var(--regular-text);
-    font-weight: var(--font-weight);
-    padding: 10px 20px;
-    border-radius: 20px;
-    cursor: pointer;
-    transition: background 0.2s ease-in-out;
-}
-
-.footer-newsletter-form button:hover{
-    background: var(--secondary-light, #0a2c5c);
-}
+/* .footer-newsletter-form (input + button) moved to Input.css */
 
 .footer-main{
     display: flex;
@@ -189,14 +162,7 @@
         align-items: flex-start;
     }
 
-    .footer-newsletter-form{
-        width: 100%;
-    }
-
-    .footer-newsletter-form input[type="email"]{
-        flex: 1;
-        width: auto;
-    }
+    /* .footer-newsletter-form responsive rules moved to Input.css */
 
     .footer-main{
         flex-wrap: wrap;

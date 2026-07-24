@@ -10,7 +10,7 @@ $response = [
 ];
 
 
-if (!isset($data['user_email']) || !isset($data['new_password']) || !isset($data['confirm_password'])) {
+if (!isset($data['user_email']) || !isset($data['unique_code']) || !isset($data['new_password']) || !isset($data['confirm_password'])) {
     http_response_code(400);
     $response['message'] = 'Invalid request';
     echo json_encode($response);
@@ -18,10 +18,11 @@ if (!isset($data['user_email']) || !isset($data['new_password']) || !isset($data
 }
 
 $userEmail = strtolower(trim($data['user_email']));
+$uniqueCode = trim($data['unique_code']);
 $password = trim($data['new_password']);
 $confirmPassword = trim($data['confirm_password']);
 
-$updatePassword = updatePassword($pdo, $userEmail, $password, $confirmPassword);
+$updatePassword = updatePassword($pdo, $userEmail, $uniqueCode, $password, $confirmPassword);
 
 if (!empty($updatePassword['error'])) {
     http_response_code(400);

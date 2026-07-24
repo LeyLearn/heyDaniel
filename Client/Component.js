@@ -1,4 +1,26 @@
 
+// Maps a Stripe PaymentMethod's card.brand (e.g. "visa", "mastercard") to a
+// realistic full-color logo shipped locally in Assets/Icons/CardBrands —
+// falls back to null (generic card icon) for brands we don't carry an asset
+// for, e.g. Stripe's own "unknown".
+const CARD_BRAND_LOGOS = ["visa", "mastercard", "amex", "discover", "diners", "jcb", "unionpay"];
+
+function cardBrandLogoUrl(brand) {
+    const normalized = (brand || "").toLowerCase();
+    if (CARD_BRAND_LOGOS.indexOf(normalized) === -1) {
+        return null;
+    }
+    return "/HeyDaniel/Assets/Icons/CardBrands/" + normalized + ".svg";
+}
+
+function cardBrandIconHTML(brand) {
+    const logoUrl = cardBrandLogoUrl(brand);
+    if (logoUrl) {
+        return '<img src="' + logoUrl + '" alt="' + brand + '" class="Card_Brand_Logo" />';
+    }
+    return '<i class="fas fa-credit-card" aria-hidden="true"></i>';
+}
+
 function setButtonLoading(callback, selector) {
     const $btn = $(selector);
     $btn.prop("disabled", true);
@@ -17,8 +39,54 @@ function stopButtonLoading(selector, text) {
 
 // Cart/wishlist actions require an account; guests are sent to sign in
 // instead of firing a request that the backend would just reject.
+function getIsLoggedIn() {
+    if (typeof isLoggedIn !== "undefined") {
+        return !!isLoggedIn;
+    }
+    if (typeof isloggedin !== "undefined") {
+        return !!isloggedin;
+    }
+    if (typeof window !== "undefined") {
+        return !!(window.isLoggedIn || window.isloggedin);
+    }
+    return false;
+}
+
+function getIsMember() {
+    if (typeof isMember !== "undefined") {
+        return !!isMember;
+    }
+    if (typeof window !== "undefined") {
+        return !!window.isMember;
+    }
+    return false;
+}
+
+// Same-day orders that are pending/processing take over the cart: further
+// "add" actions go into that live order instead of a fresh Cart, so the
+// button text and cart icon need to reflect that instead of the normal cart.
+function getHasActiveOrder() {
+    if (typeof window !== "undefined") {
+        return !!window.hasActiveOrder;
+    }
+    return false;
+}
+
+// Re-applies the active-order UI state (nav cart icons + any already-painted
+// "Add to cart" buttons) — called whenever a fresh has_active_order value
+// comes back from DeviceCheck()/cartIcon(), since those two AJAX calls race
+// against product-card rendering on page load.
+function applyActiveOrderUI() {
+    const hasActiveOrder = getHasActiveOrder();
+    const iconSrc = hasActiveOrder ? "/HeyDaniel/Assets/Icons/process.svg" : "/HeyDaniel/Assets/Icons/cart.svg";
+    const iconAlt = hasActiveOrder ? "Order in progress" : "Shopping cart";
+
+    $("#nav-cart-icon, #account-nav-cart-icon").attr("src", iconSrc).attr("alt", iconAlt);
+    $(".Add_To_Cart_Btn").text(hasActiveOrder ? "Add to order" : "Add to cart");
+}
+
 function requireLogin() {
-    if (typeof isLoggedIn !== "undefined" && !isLoggedIn) {
+    if (!getIsLoggedIn()) {
         window.location.href = "/HeyDaniel/Interface/Sheets/Credential.php";
         return false;
     }
@@ -41,6 +109,9 @@ function DeviceCheck() {
                 console.log(data.message)
             }
             else {
+                window.hasActiveOrder = !!data.has_active_order;
+                applyActiveOrderUI();
+
                 if (data.is_device_known === false) {
                     $("#app-skeleton").fadeOut(150, function () {
                         $(".header-summary").css("opacity", 1);
@@ -57,9 +128,15 @@ function DeviceCheck() {
                         const state = data.state + ", ";
                         const zip = data.zipcode;
 
+                        // Header_Join_Membership_Btn — pulled off the header, kept here for reuse elsewhere.
+                        // (getIsLoggedIn() && !getIsMember())
+                        //     ? `<button type="button" class="Header_Join_Membership_Btn" data-open-membership-modal><i class="fas fa-crown" aria-hidden="true"></i> Join HeyDaniel+ &mdash; $9.99/mo</button>`
+                        //     : ``;
+                        const joinBtnHTML = ``;
+
                         const bannerHTML = data.same_day_eligible
-                            ? `<h1>Premium same-day delivery on everything</h1><p>The best way to order. The fastest way to deliver.</p>`
-                            : `<h1>Everything you need, all in one place</h1><p>The simplest way to order. Built for speed.</p>`;
+                            ? `<h1>Premium same-day delivery on everything</h1><p>The best way to order. The fastest way to deliver.</p>${joinBtnHTML}`
+                            : `<h1>Everything you need, all in one place</h1><p>The simplest way to order. Built for speed.</p>${joinBtnHTML}`;
 
                         $(".location-city").text(city);
                         $(".location-state").text(state);
@@ -239,8 +316,11 @@ function cartIcon() {
                 console.log(data.message);
             } else {
                 const totalCount = data.total_count;
-                $(".nav-cart span").text(totalCount > 0 ? totalCount : "Cart");
-                $(".nav-cart").toggleClass("Has_Items", totalCount > 0);
+                $(".nav-cart .Nav_Icon_Badge").text(totalCount).toggle(totalCount > 0);
+                $("#account-nav-cart-badge").text(totalCount).toggle(totalCount > 0);
+
+                window.hasActiveOrder = !!data.has_active_order;
+                applyActiveOrderUI();
             }
         },
         error: function (xhr) {
@@ -250,7 +330,37 @@ function cartIcon() {
     });
 }
 
-function cartItem() {
+function notificationsBadge() {
+    $.ajax({
+        method: "POST",
+        url: "/HeyDaniel/Server/index.php",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify({
+            action: "notifications",
+            device_type: "Web"
+        }),
+        success: function (data) {
+            const notifications = data.notifications || [];
+            const unreadCount = notifications.filter(function (n) { return !n.is_read; }).length;
+            $("#account-nav-notifications-badge").text(unreadCount).toggle(unreadCount > 0);
+        },
+        error: function (xhr) {
+            const res = JSON.parse(xhr.responseText);
+            console.log("notificationsBadge failed:", res.error);
+        }
+    });
+}
+
+const CART_PAGE_SIZE = 5;
+let cartPageAllItems = [];
+let cartPageCurrentPage = 1;
+
+function cartItem(resetPage) {
+    if (resetPage === undefined) {
+        resetPage = true;
+    }
+
     $.ajax({
         method: "POST",
         url: "/HeyDaniel/Server/index.php",
@@ -261,62 +371,98 @@ function cartItem() {
             device_type: "Web"
         }),
         success: function (data) {
-            const $container = $("#cart-items-container");
-            $container.empty();
+            cartPageAllItems = data.cart_items || [];
+            if (resetPage) {
+                cartPageCurrentPage = 1;
+            }
 
-            if (data.message || !data.cart_items || !data.cart_items.length) {
+            if (data.message || !cartPageAllItems.length) {
+                $("#cart-items-container").empty();
                 $("#cart-empty-message").show();
                 $("#cart-summary").hide();
+                $("#cart-pagination").hide();
                 $("#cart-item-count").text("0 items");
                 return;
             }
 
             $("#cart-empty-message").hide();
             $("#cart-summary").show();
+            $("#cart-item-count").text(cartPageAllItems.length + (cartPageAllItems.length === 1 ? " item" : " items"));
 
-            data.cart_items.forEach(function (item) {
-                const product = {
-                    product_id: item.product_id,
-                    brand: item.brand,
-                    name: item.name,
-                    oz: item.oz,
-                    price: item.price,
-                    picture: item.picture,
-                    is_on_sale: item.is_on_sale,
-                    sale_price: item.sale_price,
-                    is_bogo: item.is_bogo,
-                    is_saved: item.is_saved,
-                    in_cart: true,
-                    quantity: item.quantity,
-                    rating: item.ratings,
-                    review_count: item.review_count,
-                    total_price: item.total_price
-                };
-
-                const $card = buildProductCard(product, false, {
-                    layout: "row",
-                    showLineTotal: true,
-                    onQuantityEmpty: function ($itemCard) {
-                        $itemCard.fadeOut(200, function () {
-                            $itemCard.remove();
-                            if (!$container.find(".Row_Card").length) {
-                                $("#cart-empty-message").show();
-                                $("#cart-summary").hide();
-                            }
-                        });
-                    }
-                });
-
-                $container.append($card);
-            });
-
-            $("#cart-item-count").text(data.cart_items.length + (data.cart_items.length === 1 ? " item" : " items"));
+            renderCartPage();
         },
         error: function (xhr) {
             const res = JSON.parse(xhr.responseText);
             console.log("cartItem failed:", res.error);
         }
     });
+}
+
+function setCartPage(page) {
+    cartPageCurrentPage = page;
+    renderCartPage();
+}
+
+function renderCartPage() {
+    const $container = $("#cart-items-container").empty();
+
+    const totalPages = Math.max(1, Math.ceil(cartPageAllItems.length / CART_PAGE_SIZE));
+    if (cartPageCurrentPage > totalPages) {
+        cartPageCurrentPage = totalPages;
+    }
+
+    const startIndex = (cartPageCurrentPage - 1) * CART_PAGE_SIZE;
+    const pageItems = cartPageAllItems.slice(startIndex, startIndex + CART_PAGE_SIZE);
+
+    pageItems.forEach(function (item) {
+        const product = {
+            product_id: item.product_id,
+            brand: item.brand,
+            name: item.name,
+            oz: item.oz,
+            price: item.price,
+            picture: item.picture,
+            is_on_sale: item.is_on_sale,
+            sale_price: item.sale_price,
+            is_bogo: item.is_bogo,
+            is_saved: item.is_saved,
+            in_cart: true,
+            quantity: item.quantity,
+            rating: item.ratings,
+            review_count: item.review_count,
+            total_price: item.total_price,
+            same_day_eligible: item.same_day_eligible
+        };
+
+        const $card = buildProductCard(product, false, {
+            layout: "row",
+            showLineTotal: true,
+            showWishlistBtn: true,
+            onQuantityEmpty: function () {
+                cartItem(false);
+            }
+        });
+
+        $container.append($card);
+    });
+
+    $("#cart-pagination-label").text(
+        "Showing " + (startIndex + 1) + " to " + Math.min(startIndex + CART_PAGE_SIZE, cartPageAllItems.length) + " of " + cartPageAllItems.length + " items"
+    );
+
+    const $pages = $("#cart-pagination-numbers").empty();
+    for (let i = 1; i <= totalPages; i++) {
+        $('<button type="button" class="List_Page_Btn"></button>')
+            .toggleClass("active", i === cartPageCurrentPage)
+            .attr("data-page", i)
+            .text(i)
+            .appendTo($pages);
+    }
+
+    $("#cart-page-prev").prop("disabled", cartPageCurrentPage <= 1);
+    $("#cart-page-next").prop("disabled", cartPageCurrentPage >= totalPages);
+
+    $("#cart-pagination").show();
 }
 
 // users
@@ -382,6 +528,95 @@ function login(userEmail, userPass, triggerSelector = ".login-bnt", triggerText 
             }
         });
     }, triggerSelector);
+}
+
+function sendResetCode(email) {
+    setButtonLoading(function () {
+        $.ajax({
+            method: "POST",
+            url: "/HeyDaniel/Server/index.php",
+            contentType: "application/json",
+            dataType: "json",
+            data: JSON.stringify({
+                action: "collect_email",
+                email: email,
+                is_updating_password: true
+            }),
+            success: function (data) {
+                stopButtonLoading(".forgot-send-code-bnt", "Send reset code");
+                if (data.error || !data.is_registered) {
+                    $(".credential-error").fadeIn(0, function () {
+                        $(this).html(`<img src="../../Assets/Icons/alert.svg" alt="heyDaniel error"><p>` + (data.error || data.message) + `</p>`)
+                    })
+                } else {
+                    $(".forgot-step-request").addClass("hidden").hide();
+                    $(".forgot-step-reset").removeClass("hidden").show();
+                }
+            },
+            error: function (xhr) {
+                stopButtonLoading(".forgot-send-code-bnt", "Send reset code");
+                let message = "Something went wrong. Please try again.";
+                try {
+                    const res = JSON.parse(xhr.responseText);
+                    message = res.error || res.message || message;
+                } catch (e) {
+                    // response wasn't JSON — fall back to the default message above
+                }
+                console.log("sendResetCode failed:", message);
+                $(".credential-error").fadeIn(0, function () {
+                    $(this).html(`<img src="../../Assets/Icons/alert.svg" alt="heyDaniel error"><p>` + message + `</p>`)
+                })
+            }
+        });
+    }, ".forgot-send-code-bnt");
+}
+
+function resetPassword(email, code, newPassword, confirmPassword) {
+    setButtonLoading(function () {
+        $.ajax({
+            method: "POST",
+            url: "/HeyDaniel/Server/index.php",
+            contentType: "application/json",
+            dataType: "json",
+            data: JSON.stringify({
+                action: "change_password",
+                user_email: email,
+                unique_code: code,
+                new_password: newPassword,
+                confirm_password: confirmPassword
+            }),
+            success: function (data) {
+                if (data.error || !data.success) {
+                    stopButtonLoading(".forgot-reset-password-bnt", "Reset password");
+                    $(".credential-error").fadeIn(0, function () {
+                        $(this).html(`<img src="../../Assets/Icons/alert.svg" alt="heyDaniel error"><p>` + (data.error || data.message) + `</p>`)
+                    })
+                } else {
+                    $(".credential-forgot").fadeOut(200, function () {
+                        $(".forgot-step-reset").addClass("hidden").hide();
+                        $(".forgot-step-request").removeClass("hidden").show();
+                        $(".forgot-email, .forgot-code, .forgot-new-password, .forgot-confirm-password").val("");
+                        stopButtonLoading(".forgot-reset-password-bnt", "Reset password");
+                        $(".credential-login").fadeIn(200);
+                    });
+                }
+            },
+            error: function (xhr) {
+                stopButtonLoading(".forgot-reset-password-bnt", "Reset password");
+                let message = "Something went wrong. Please try again.";
+                try {
+                    const res = JSON.parse(xhr.responseText);
+                    message = res.error || res.message || message;
+                } catch (e) {
+                    // response wasn't JSON — fall back to the default message above
+                }
+                console.log("resetPassword failed:", message);
+                $(".credential-error").fadeIn(0, function () {
+                    $(this).html(`<img src="../../Assets/Icons/alert.svg" alt="heyDaniel error"><p>` + message + `</p>`)
+                })
+            }
+        });
+    }, ".forgot-reset-password-bnt");
 }
 
 function googleLogin(idToken) {
@@ -512,7 +747,9 @@ function savedCount() {
             if (data.message) {
                 console.log(data.message);
             } else {
-                $(".nav-wishlist span").text(data.saved_count > 0 ? data.saved_count : "Favorites");
+                $(".nav-wishlist .Nav_Icon_Badge").text(data.saved_count).toggle(data.saved_count > 0);
+                $("#stat-wishlist-count").text(data.saved_count || 0);
+                $("#account-nav-wishlist-badge").text(data.saved_count).toggle(data.saved_count > 0);
             }
         },
         error: function (xhr) {
@@ -522,7 +759,15 @@ function savedCount() {
     });
 }
 
-function savedItems() {
+const SAVED_PAGE_SIZE = 6;
+let savedPageAllItems = [];
+let savedPageCurrentPage = 1;
+
+function savedItems(resetPage) {
+    if (resetPage === undefined) {
+        resetPage = true;
+    }
+
     $.ajax({
         method: "POST",
         url: "/HeyDaniel/Server/index.php",
@@ -533,56 +778,25 @@ function savedItems() {
             device_type: "Web"
         }),
         success: function (data) {
-            const $container = $('#saved-items-container');
-            $container.empty();
+            savedPageAllItems = data.saved_items || [];
+            if (resetPage) {
+                savedPageCurrentPage = 1;
+            }
 
-            if (data.message || !data.saved_items || !data.saved_items.length) {
+            if (data.message || !savedPageAllItems.length) {
+                $('#saved-items-container').empty();
                 $('#saved-message').text(data.message || "You haven't saved any items yet.").show();
+                $('#saved-move-all-btn').hide();
+                $('#saved-pagination').hide();
+                $('#saved-item-count').text('');
                 return;
             }
 
             $('#saved-message').hide();
-
-            data.saved_items.forEach(function (item) {
-                const product = {
-                    product_id: item.product_id,
-                    brand: item.brand,
-                    name: item.name,
-                    oz: item.oz,
-                    price: item.price,
-                    picture: item.picture,
-                    is_on_sale: item.is_on_sale,
-                    sale_price: item.sale_price,
-                    is_bogo: item.is_bogo,
-                    is_saved: true,
-                    in_cart: item.quantity > 0,
-                    quantity: item.quantity,
-                    rating: item.ratings,
-                    review_count: item.review_count
-                };
-
-                const $card = buildProductCard(product, false, {
-                    layout: "row",
-                    showWishlistBtn: true,
-                    onWishlistToggle: function (toggleData, $itemCard) {
-                        if (!toggleData.is_saved) {
-                            $itemCard.fadeOut(200, function () {
-                                $itemCard.remove();
-                                if (!$container.find(".Row_Card").length) {
-                                    $('#saved-message').text("You haven't saved any items yet.").show();
-                                    $('#saved-move-all-btn').hide();
-                                }
-                            });
-                        }
-                    }
-                });
-
-                $container.append($card);
-            });
-
-            $('#saved-item-count').text(data.saved_items.length + (data.saved_items.length === 1 ? " item" : " items"));
+            $('#saved-item-count').text(savedPageAllItems.length + (savedPageAllItems.length === 1 ? " item" : " items"));
             $('#saved-move-all-btn').show();
 
+            renderSavedPage();
             savedCount();
         },
         error: function (xhr) {
@@ -590,6 +804,71 @@ function savedItems() {
             console.log("savedItems failed:", res.error);
         }
     });
+}
+
+function setSavedPage(page) {
+    savedPageCurrentPage = page;
+    renderSavedPage();
+}
+
+function renderSavedPage() {
+    const $container = $('#saved-items-container').empty();
+
+    const totalPages = Math.max(1, Math.ceil(savedPageAllItems.length / SAVED_PAGE_SIZE));
+    if (savedPageCurrentPage > totalPages) {
+        savedPageCurrentPage = totalPages;
+    }
+
+    const startIndex = (savedPageCurrentPage - 1) * SAVED_PAGE_SIZE;
+    const pageItems = savedPageAllItems.slice(startIndex, startIndex + SAVED_PAGE_SIZE);
+
+    pageItems.forEach(function (item) {
+        const product = {
+            product_id: item.product_id,
+            brand: item.brand,
+            name: item.name,
+            oz: item.oz,
+            price: item.price,
+            picture: item.picture,
+            is_on_sale: item.is_on_sale,
+            sale_price: item.sale_price,
+            is_bogo: item.is_bogo,
+            is_saved: true,
+            in_cart: item.quantity > 0,
+            quantity: item.quantity,
+            rating: item.ratings,
+            review_count: item.review_count
+        };
+
+        const $card = buildProductCard(product, false, {
+            showWishlistBtn: true,
+            onWishlistToggle: function (toggleData) {
+                if (!toggleData.is_saved) {
+                    savedItems(false);
+                }
+            }
+        });
+
+        $container.append($card);
+    });
+
+    $('#saved-pagination-label').text(
+        "Showing " + (startIndex + 1) + " to " + Math.min(startIndex + SAVED_PAGE_SIZE, savedPageAllItems.length) + " of " + savedPageAllItems.length + " items"
+    );
+
+    const $pages = $('#saved-pagination-numbers').empty();
+    for (let i = 1; i <= totalPages; i++) {
+        $('<button type="button" class="List_Page_Btn"></button>')
+            .toggleClass("active", i === savedPageCurrentPage)
+            .attr("data-page", i)
+            .text(i)
+            .appendTo($pages);
+    }
+
+    $('#saved-page-prev').prop("disabled", savedPageCurrentPage <= 1);
+    $('#saved-page-next').prop("disabled", savedPageCurrentPage >= totalPages);
+
+    $('#saved-pagination').show();
 }
 
 // Loops the single-item add-to-cart endpoint since there is no bulk-add
@@ -600,21 +879,20 @@ function moveAllSavedToCart() {
     }
 
     const $btn = $('#saved-move-all-btn');
-    const $rows = $('#saved-items-container .Row_Card').filter(function () {
-        return $(this).find('.Add_To_Cart_Btn').length > 0;
+    const itemsToAdd = savedPageAllItems.filter(function (item) {
+        return !(item.quantity > 0);
     });
 
-    if (!$rows.length) {
+    if (!itemsToAdd.length) {
         return;
     }
 
     $btn.prop('disabled', true).text('Adding...');
 
-    let remaining = $rows.length;
+    let remaining = itemsToAdd.length;
 
-    $rows.each(function () {
-        const productId = $(this).data('productId');
-        addProduct(productId, function () {
+    itemsToAdd.forEach(function (item) {
+        addProduct(item.product_id, function () {
             remaining -= 1;
             if (remaining <= 0) {
                 $btn.prop('disabled', false).text('Move all to cart');
@@ -673,9 +951,14 @@ function summary() {
             if (data.message) {
                 console.log(data.message);
             } else {
-                const subtotal = data.subtotal;
-                $(".summary-order .order-info p").text('$' + Number(subtotal).toFixed(2));
-                $(".cart-summary-subtotal").text('$' + Number(subtotal).toFixed(2));
+                const subtotal = Number(data.subtotal);
+                const deliveryFee = 0;
+                const total = subtotal + deliveryFee;
+
+                $(".summary-order .order-info p").text('$' + subtotal.toFixed(2));
+                $(".cart-summary-subtotal").text('$' + subtotal.toFixed(2));
+                $(".cart-summary-delivery").text('$' + deliveryFee.toFixed(2));
+                $(".cart-summary-total").text('$' + total.toFixed(2));
             }
         },
         error: function (xhr) {
@@ -908,7 +1191,28 @@ function search(searchTerm) {
             $results.empty();
 
             if (data.message || !data.products || !data.products.length) {
-                $results.append('<p class="Search_Result_Empty">No products found.</p>');
+                const $empty = $('<div class="Search_Result_Empty"></div>').append(
+                    $('<h3 class="Search_Result_Empty_Title"></h3>').text('No results found'),
+                    $('<p class="Search_Result_Empty_Subtitle"></p>').text('We couldn\'t find any products matching "' + searchTerm + '". Try searching for something else.'),
+                    $('<div class="Search_Result_Empty_Divider"></div>').append($('<span></span>').text('Try these tips')),
+                    $('<div class="Search_Result_Empty_Tips"></div>').append(
+                        $('<div class="Search_Result_Empty_Tip"></div>').append(
+                            $('<span class="Search_Result_Empty_Tip_Icon Icon_Circle"></span>').append($('<img src="/HeyDaniel/Assets/Icons/search.svg" alt="">')),
+                            $('<p></p>').text('Check your spelling')
+                        ),
+                        $('<div class="Search_Result_Empty_Tip"></div>').append(
+                            $('<span class="Search_Result_Empty_Tip_Icon Icon_Circle"></span>').append($('<img src="/HeyDaniel/Assets/Icons/cart.svg" alt="">')),
+                            $('<p></p>').text('Try more general terms')
+                        ),
+                        $('<div class="Search_Result_Empty_Tip"></div>').append(
+                            $('<span class="Search_Result_Empty_Tip_Icon Icon_Circle"></span>').append($('<img src="/HeyDaniel/Assets/Icons/tag.svg" alt="">')),
+                            $('<p></p>').text('Browse our categories')
+                        )
+                    ),
+                    $('<a class="Primary_Btn Primary_Btn--auto Search_Result_Empty_Btn"></a>').attr('href', '/HeyDaniel/Interface/Sheets/Store.php').text('Browse All Categories')
+                );
+
+                $results.append($empty);
                 $results.addClass("active");
                 return;
             }
@@ -917,6 +1221,7 @@ function search(searchTerm) {
                 const productId = product.product_id;
                 const brand = product.brand;
                 const name = product.name;
+                const size = product.oz;
                 const price = product.price;
                 const picture = product.picture;
                 const isOnSale = product.is_on_sale;
@@ -930,6 +1235,22 @@ function search(searchTerm) {
                     ? '<span class="Product_Card_Badge Bogo">BOGO</span>'
                     : (isOnSale ? '<span class="Product_Card_Badge">Sale</span>' : '');
 
+                let $tag = null;
+                if (isOnSale && wasPrice) {
+                    const savings = wasPrice - nowPrice;
+                    const percent = Math.round((savings / wasPrice) * 100);
+                    $tag = $('<span class="Search_Result_Discount"></span>').append(
+                        $('<img src="/HeyDaniel/Assets/Icons/tag.svg" alt="">'),
+                        document.createTextNode('Save $' + savings.toFixed(2) + ' (' + percent + '%)')
+                    );
+                } else if (isBogo) {
+                    $tag = $('<span class="Search_Result_Bogo_Tag"></span>').text('Buy One, Get One 50% Off');
+                } else if (size) {
+                    $tag = $('<span class="Search_Result_Size"></span>').text(size);
+                }
+
+                const itemUrl = "/HeyDaniel/Interface/Sheets/Item.php?id=" + productId;
+
                 const $item = $('<div class="Search_Result_Item"></div>').append(
                     $('<div class="Search_Result_Image"></div>')
                         .css("background-image", "url(" + picture + ")")
@@ -938,16 +1259,15 @@ function search(searchTerm) {
                         $('<p class="Search_Result_Brand"></p>').text(brand),
                         $('<p class="Search_Result_Name"></p>').text(name),
                         $('<p class="Search_Result_Price"></p>').append(
-                            $('<span></span>').text('$' + nowPrice),
-                            wasPrice ? $('<span class="Search_Result_Price_Was"></span>').text('$' + wasPrice) : null
-                        )
+                            $('<span></span>').text('$' + nowPrice.toFixed(2)),
+                            wasPrice ? $('<span class="Search_Result_Price_Was"></span>').text('$' + wasPrice.toFixed(2)) : null
+                        ),
+                        $tag
                     ),
-                    $('<button class="Search_Result_Add_Btn" type="button" aria-label="Add to cart"></button>')
-                        .append($('<img src="/HeyDaniel/Assets/Icons/plus.svg" alt="">'))
-                        .on('click', function () {
-                            addProduct(productId);
-                        })
-                );
+                    buildSearchResultCartControl(productId, product.in_cart || product.in_process, product.quantity)
+                ).on('click', function () {
+                    window.location.href = itemUrl;
+                });
 
                 $results.append($item);
             });
@@ -962,7 +1282,7 @@ function search(searchTerm) {
 }
 
 // checkout
-function checkout(address, paymentMethodId, tipAmount, onSuccess, onError) {
+function checkout(address, paymentMethodId, tipAmount, deliveryMethod, onSuccess, onError) {
     $.ajax({
         method: "POST",
         url: "/HeyDaniel/Server/index.php",
@@ -973,7 +1293,8 @@ function checkout(address, paymentMethodId, tipAmount, onSuccess, onError) {
             device_type: "Web",
             address: address,
             payment_method_id: paymentMethodId,
-            tip_amount: tipAmount || 0
+            tip_amount: tipAmount || 0,
+            delivery_method: deliveryMethod
         }),
         success: function (data) {
             if (data.success) {
@@ -993,17 +1314,16 @@ function checkout(address, paymentMethodId, tipAmount, onSuccess, onError) {
     });
 }
 
-function finalizeOrder(orderId, tipAmount, onSuccess, onError) {
+function subscribeMembership(paymentMethodId, onSuccess, onError) {
     $.ajax({
         method: "POST",
         url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
-            action: "finalize_order",
+            action: "subscribe_membership",
             device_type: "Web",
-            order_id: orderId,
-            tip_amount: tipAmount || 0
+            payment_method_id: paymentMethodId
         }),
         success: function (data) {
             if (data.success) {
@@ -1011,89 +1331,42 @@ function finalizeOrder(orderId, tipAmount, onSuccess, onError) {
                     onSuccess();
                 }
             } else if (typeof onError === "function") {
-                onError(data.message || data.error || "Could not finalize the order.");
+                onError(data.message || data.error || "Subscription failed. Please try again.");
             }
         },
         error: function (xhr) {
             const res = JSON.parse(xhr.responseText);
             if (typeof onError === "function") {
-                onError(res.message || res.error || "Could not finalize the order.");
+                onError(res.message || res.error || "Subscription failed. Please try again.");
             }
         }
     });
 }
 
-// password reset
-function collectEmail(email) {
+function cancelMembership(onSuccess, onError) {
     $.ajax({
         method: "POST",
         url: "/HeyDaniel/Server/index.php",
         contentType: "application/json",
         dataType: "json",
         data: JSON.stringify({
-            action: "collect_email",
-            user_email: email
+            action: "cancel_membership",
+            device_type: "Web"
         }),
         success: function (data) {
-            if (data.message) {
-                $("p").text(data.message);
-            } else {
-                // show verify code screen
+            if (data.success) {
+                if (typeof onSuccess === "function") {
+                    onSuccess();
+                }
+            } else if (typeof onError === "function") {
+                onError(data.message || data.error || "Unable to cancel membership. Please try again.");
             }
         },
         error: function (xhr) {
             const res = JSON.parse(xhr.responseText);
-            console.log("collectEmail failed:", res.error);
-        }
-    });
-}
-
-function verifyCode(email, code) {
-    $.ajax({
-        method: "POST",
-        url: "/HeyDaniel/Server/index.php",
-        contentType: "application/json",
-        dataType: "json",
-        data: JSON.stringify({
-            action: "verify_code",
-            user_email: email,
-            code: code
-        }),
-        success: function (data) {
-            if (data.message) {
-                $("p").text(data.message);
-            } else {
-                // show change password screen
+            if (typeof onError === "function") {
+                onError(res.message || res.error || "Unable to cancel membership. Please try again.");
             }
-        },
-        error: function (xhr) {
-            const res = JSON.parse(xhr.responseText);
-            console.log("verifyCode failed:", res.error);
-        }
-    });
-}
-
-function changePassword(email, newPassword) {
-    $.ajax({
-        method: "POST",
-        url: "/HeyDaniel/Server/index.php",
-        contentType: "application/json",
-        dataType: "json",
-        data: JSON.stringify({
-            action: "change_password",
-            user_email: email,
-            new_password: newPassword
-        }),
-        success: function (data) {
-            if (data.message) {
-                $("p").text(data.message);
-            } else {
-                // redirect to login
-            }
-        },
-        error: function (xhr) {
-            const res = JSON.parse(xhr.responseText);
-            console.log("changePassword failed:", res.error);
         }
     });
 }
@@ -1169,7 +1442,7 @@ function productDetail(product_id) {
                 return isSaved ? "Remove from wishlist" : "Add to wishlist";
             }
 
-            const $wishlistBtn = $('<button class="Item_Wishlist_Btn" type="button"></button>')
+            const $wishlistBtn = $('<button class="Item_Wishlist_Btn Text_Btn" type="button"></button>')
                 .toggleClass('Active', !!product.is_saved)
                 .append(
                     $('<img src="/HeyDaniel/Assets/Icons/heart.svg" alt="">'),
@@ -1205,6 +1478,378 @@ function productDetail(product_id) {
 
 // order history
 
+function buildOrderThumbs(order) {
+    const pictures = order.pictures || [];
+
+    if (!pictures.length) {
+        return $('<div class="Order_Row_Icon Icon_Circle"></div>').append($('<img src="/HeyDaniel/Assets/Icons/shopping-cart.svg" alt="">'));
+    }
+
+    const $stack = $('<div class="Order_Row_Thumbs"></div>');
+    pictures.forEach(function (picture) {
+        $stack.append($('<div class="Order_Row_Thumb"></div>').css('background-image', 'url(' + picture + ')'));
+    });
+
+    if (order.more_count > 0) {
+        $stack.append($('<div class="Order_Row_Thumb Order_Row_Thumb_More"></div>').text('+' + order.more_count));
+    }
+
+    return $stack;
+}
+
+function getOrderCode(order) {
+    const orderDate = new Date(order.date_added);
+    const hasValidDate = !isNaN(orderDate);
+    return '#HD-' + (hasValidDate ? orderDate.toISOString().slice(0, 10).replace(/-/g, '') : '0') +
+        '-' + String(order.order_id).padStart(4, '0');
+}
+
+function orderStatusSuffix(status) {
+    const normalized = status.toLowerCase();
+    if (normalized === 'delivered') return 'Delivered';
+    if (normalized === 'pending') return 'Pending';
+    if (normalized === 'processing') return 'Processing';
+    if (normalized === 'shipped') return 'Shipped';
+    if (normalized === 'cancelled') return 'Cancelled';
+    return '';
+}
+
+const ORDER_STATUS_ICONS = {
+    Delivered: 'fa-check-circle',
+    Shipped: 'fa-truck',
+    Processing: 'fa-clock',
+    Pending: 'fa-clock',
+    Cancelled: 'fa-times-circle'
+};
+
+function orderStatusIcon(statusSuffix) {
+    return ORDER_STATUS_ICONS[statusSuffix] || 'fa-circle';
+}
+
+function orderSubstatusText(order, statusSuffix) {
+    if (statusSuffix === 'Delivered') {
+        const deliveredDate = new Date(order.time_delivered);
+        if (!isNaN(deliveredDate)) {
+            return 'Delivered on ' + deliveredDate.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+        return 'Delivered';
+    }
+    if (statusSuffix === 'Shipped') return 'On its way to you';
+    if (statusSuffix === 'Processing' || statusSuffix === 'Pending') return 'Preparing your order';
+    if (statusSuffix === 'Cancelled') return 'Order cancelled';
+    return '';
+}
+
+const ORDER_ITEM_CLAIM_LABELS = { 1: 'Missing', 2: 'Expired', 3: 'Bad Quality' };
+
+// Before delivery the badge just mirrors the order's own status. Once
+// delivered, Process/OrderTracking take over: isStocked (Process only)
+// flags an out-of-stock substitution, and isMissing becomes a claim code
+// (1 missing / 2 expired / 3 bad quality) if the customer reports an issue.
+function orderItemStatusBadge(order, item, statusSuffix) {
+    if (statusSuffix !== 'Delivered') {
+        return { text: order.status, className: statusSuffix ? 'Order_Row_Status_' + statusSuffix : '' };
+    }
+
+    if (!item.in_stock) {
+        return { text: 'Out of Stock', className: 'Order_Row_Status_Issue' };
+    }
+
+    const claimLabel = ORDER_ITEM_CLAIM_LABELS[item.is_missing];
+    if (claimLabel) {
+        return { text: claimLabel, className: 'Order_Row_Status_Issue' };
+    }
+
+    return { text: 'Delivered', className: 'Order_Row_Status_Delivered' };
+}
+
+function saveProfileEdit(name, phone) {
+    return $.ajax({
+        method: "POST",
+        url: "/HeyDaniel/Server/index.php",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify({
+            action: "update_profile",
+            device_type: "Web",
+            name: name,
+            phone: phone
+        })
+    });
+}
+
+function saveAddress(payload) {
+    return $.ajax({
+        method: "POST",
+        url: "/HeyDaniel/Server/index.php",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify(Object.assign({ action: "save_address", device_type: "Web" }, payload))
+    });
+}
+
+function deleteAddress(addressId) {
+    return $.ajax({
+        method: "POST",
+        url: "/HeyDaniel/Server/index.php",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify({
+            action: "delete_address",
+            device_type: "Web",
+            address_id: addressId
+        })
+    });
+}
+
+function listAddressesRequest() {
+    return $.ajax({
+        method: "POST",
+        url: "/HeyDaniel/Server/index.php",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify({
+            action: "list_addresses",
+            device_type: "Web"
+        })
+    });
+}
+
+function buildAddressCard(address) {
+    const $card = $('<div class="Address_Card"></div>')
+        .attr('data-address-id', address.address_id)
+        .attr('data-label', address.label)
+        .attr('data-address', address.address)
+        .attr('data-apt', address.apt)
+        .attr('data-city', address.city)
+        .attr('data-state', address.state)
+        .attr('data-zip', address.zip)
+        .attr('data-phone', address.phone)
+        .attr('data-gate-code', address.gate_code)
+        .attr('data-note', address.note);
+
+    const $label = $('<p class="Address_Card_Label"></p>').text(address.label + ' ');
+    if (address.is_default) {
+        $label.append($('<span class="Address_Default_Badge"></span>').text('Default'));
+    }
+
+    $card.append(
+        $('<div class="Address_Card_Icon Icon_Circle"></div>').append($('<img alt="">').attr('src', '/HeyDaniel/Assets/Icons/home.svg')),
+        $('<div class="Address_Card_Body"></div>').append(
+            $label,
+            $('<p class="Profile_Address"></p>').html(
+                $('<span></span>').text(address.address + (address.apt ? ', ' + address.apt : '')).prop('outerHTML') + '<br>' +
+                $('<span></span>').text(address.city + ', ' + address.state + ' ' + address.zip).prop('outerHTML')
+            )
+        ),
+        $('<div class="Address_Card_Menu_Wrap"></div>').append(
+            $('<button type="button" class="Address_Card_Menu Btn_Icon_Ghost Btn_Icon_Ghost--sm" aria-label="Address options"></button>')
+                .append('<i class="fas fa-ellipsis-v" aria-hidden="true"></i>'),
+            $('<div class="Address_Card_Menu_Dropdown"></div>').append(
+                $('<button type="button" class="Address_Card_Edit_Btn Btn_Nav_Row"></button>').text('Edit'),
+                $('<button type="button" class="Address_Card_Delete_Btn Btn_Nav_Row"></button>').text('Delete')
+            )
+        )
+    );
+
+    return $card;
+}
+
+// Shared by the Profile page's mini address book and the full Addresses
+// page — both render the same .Address_Card markup, just one server-side
+// (Profile, single card) and one via buildAddressCard() (Addresses, many).
+function initAddressBook(containerSelector, addBtnSelector) {
+    function openAddressModal() {
+        $("#address-modal-overlay").show();
+    }
+
+    function closeAddressModal() {
+        $("#address-modal-overlay").hide();
+    }
+
+    function resetAddressForm() {
+        $("#address-form-id").val("");
+        $("#address-form-label").val("");
+        $("#address-form-street").val("");
+        $("#address-form-apt").val("");
+        $("#address-form-city").val("");
+        $("#address-form-state").val("");
+        $("#address-form-zip").val("");
+        $("#address-form-phone").val("");
+        $("#address-form-gate").val("");
+        $("#address-form-note").val("");
+    }
+
+    $(addBtnSelector).on("click", function () {
+        resetAddressForm();
+        $("#address-modal-title").text("Add New Address");
+        openAddressModal();
+    });
+
+    $(containerSelector).on("click", ".Address_Card_Menu", function (e) {
+        e.stopPropagation();
+        const $dropdown = $(this).siblings(".Address_Card_Menu_Dropdown");
+        const wasOpen = $dropdown.hasClass("Open");
+        $(".Address_Card_Menu_Dropdown.Open").removeClass("Open");
+        if (!wasOpen) {
+            $dropdown.addClass("Open");
+        }
+    });
+
+    $(document).on("click", function () {
+        $(".Address_Card_Menu_Dropdown.Open").removeClass("Open");
+    });
+
+    $(containerSelector).on("click", ".Address_Card_Edit_Btn", function () {
+        const $card = $(this).closest(".Address_Card");
+        $("#address-form-id").val($card.data("address-id"));
+        $("#address-form-label").val($card.data("label"));
+        $("#address-form-street").val($card.data("address"));
+        $("#address-form-apt").val($card.data("apt"));
+        $("#address-form-city").val($card.data("city"));
+        $("#address-form-state").val($card.data("state"));
+        $("#address-form-zip").val($card.data("zip"));
+        $("#address-form-phone").val($card.data("phone"));
+        $("#address-form-gate").val($card.data("gate-code"));
+        $("#address-form-note").val($card.data("note"));
+        $("#address-modal-title").text("Edit Address");
+        openAddressModal();
+    });
+
+    $(containerSelector).on("click", ".Address_Card_Delete_Btn", function () {
+        const addressId = $(this).closest(".Address_Card").data("address-id");
+        if (!confirm("Delete this address?")) {
+            return;
+        }
+        deleteAddress(addressId)
+            .done(function () {
+                location.reload();
+            })
+            .fail(function (xhr) {
+                const res = JSON.parse(xhr.responseText);
+                alert(res.error || "Failed to delete address.");
+            });
+    });
+
+    $("#address-modal-close, #address-modal-cancel").on("click", function () {
+        closeAddressModal();
+    });
+
+    $("#address-modal-overlay").on("click", function (e) {
+        if (e.target === this) {
+            closeAddressModal();
+        }
+    });
+
+    $("#address-modal-save").on("click", function () {
+        const street = $("#address-form-street").val().trim();
+        const city = $("#address-form-city").val().trim();
+        const state = $("#address-form-state").val().trim();
+        const zip = $("#address-form-zip").val().trim();
+
+        if (!street || !city || !state || !zip) {
+            alert("Please fill in address, city, state, and zip code.");
+            return;
+        }
+
+        saveAddress({
+            address_id: $("#address-form-id").val(),
+            label: $("#address-form-label").val().trim(),
+            address: street,
+            apt: $("#address-form-apt").val().trim(),
+            city: city,
+            state: state,
+            zip: zip,
+            phone: $("#address-form-phone").val().trim(),
+            gate_code: $("#address-form-gate").val().trim(),
+            note: $("#address-form-note").val().trim()
+        })
+            .done(function () {
+                location.reload();
+            })
+            .fail(function (xhr) {
+                const res = JSON.parse(xhr.responseText);
+                alert(res.error || "Failed to save address.");
+            });
+    });
+}
+
+function buildOrderRow(order, options) {
+    options = options || {};
+
+    const orderDate = new Date(order.date_added);
+    const hasValidDate = !isNaN(orderDate);
+    const formattedDate = hasValidDate
+        ? orderDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+        : order.date_added;
+    const orderCode = getOrderCode(order);
+    const statusSuffix = orderStatusSuffix(order.status);
+
+    const $row = $('<div class="Order_Row"></div>')
+        .addClass(statusSuffix ? 'Order_Row_' + statusSuffix : '')
+        .attr('data-order-id', order.order_id)
+        .attr('data-order-code', orderCode)
+        .append(
+            buildOrderThumbs(order),
+            $('<div class="Order_Row_Info"></div>').append(
+                $('<p class="Order_Row_Number"></p>').text(orderCode),
+                $('<p class="Order_Row_Meta"></p>').text(formattedDate + ' · ' + order.item_count + ' item(s)')
+            ),
+            $('<span class="Order_Row_Status"></span>').addClass(statusSuffix ? 'Order_Row_Status_' + statusSuffix : '').text(order.status),
+            $('<p class="Order_Row_Total"></p>').text('$' + order.total.toFixed(2)),
+            options.showViewDetailsBtn
+                ? $('<button type="button" class="Secondary_Light_Btn Order_Row_View_Details"></button>').text('View Details')
+                : $('<i class="fas fa-chevron-down Order_Row_Chevron" aria-hidden="true"></i>')
+        );
+
+    return $('<div class="Order_Row_Wrap"></div>').append(
+        $row,
+        $('<div class="Order_Row_Detail"></div>').hide()
+    );
+}
+
+function buildOrdersPageRow(order) {
+    const orderDate = new Date(order.date_added);
+    const hasValidDate = !isNaN(orderDate);
+    const formattedDate = hasValidDate
+        ? orderDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+        : order.date_added;
+    const orderCode = getOrderCode(order);
+    const statusSuffix = orderStatusSuffix(order.status);
+    const pictures = order.pictures || [];
+
+    const $thumb = pictures.length
+        ? $('<div class="Orders_Row_Thumb"></div>').css('background-image', 'url(' + pictures[0] + ')')
+        : $('<div class="Orders_Row_Thumb Orders_Row_Thumb_Empty"></div>').append('<img src="/HeyDaniel/Assets/Icons/shopping-cart.svg" alt="">');
+
+    const $row = $('<div class="Order_Row"></div>')
+        .attr('data-order-id', order.order_id)
+        .attr('data-order-code', orderCode)
+        .append(
+            $thumb,
+            $('<div class="Order_Row_Info"></div>').append(
+                $('<p class="Order_Row_Number"></p>').text(orderCode),
+                $('<p class="Order_Row_Meta"></p>').text(formattedDate + ' · ' + order.item_count + ' item(s)'),
+                $('<span class="Order_Row_Status"></span>')
+                    .addClass(statusSuffix ? 'Order_Row_Status_' + statusSuffix : '')
+                    .append($('<i aria-hidden="true"></i>').addClass('fas ' + orderStatusIcon(statusSuffix)))
+                    .append(' ' + order.status),
+                $('<p class="Order_Row_Substatus"></p>').text(orderSubstatusText(order, statusSuffix))
+            ),
+            $('<div class="Order_Row_Right"></div>').append(
+                $('<p class="Order_Row_Total"></p>').text('$' + order.total.toFixed(2)),
+                $('<button type="button" class="Order_Row_View_Details"></button>')
+                    .append('View Details ')
+                    .append('<i class="fas fa-chevron-right" aria-hidden="true"></i>')
+            )
+        );
+
+    return $('<div class="Order_Row_Wrap"></div>').append(
+        $row,
+        $('<div class="Order_Row_Detail"></div>').hide()
+    );
+}
+
 function orderHistory() {
     $.ajax({
         method: "POST",
@@ -1219,30 +1864,23 @@ function orderHistory() {
             const $container = $("#order-history-container");
             $container.empty();
 
-            if (!data.orders || !data.orders.length) {
+            const orders = data.orders || [];
+            const totalSpent = orders.reduce(function (sum, order) { return sum + order.total; }, 0);
+
+            $("#stat-orders-count").text(orders.length);
+            $("#stat-total-spent").text('$' + totalSpent.toFixed(2));
+
+            if (!orders.length) {
                 $("#order-history-empty").show();
+                $("#order-history-view-all-btn").hide();
                 return;
             }
 
             $("#order-history-empty").hide();
+            $("#order-history-view-all-btn").show();
 
-            data.orders.forEach(function (order) {
-                const orderDate = new Date(order.date_added);
-                const formattedDate = isNaN(orderDate)
-                    ? order.date_added
-                    : orderDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-
-                const $row = $('<div class="Order_Row"></div>').append(
-                    $('<div class="Order_Row_Icon"></div>').append($('<img src="/HeyDaniel/Assets/Icons/shopping-cart.svg" alt="">')),
-                    $('<div class="Order_Row_Info"></div>').append(
-                        $('<p class="Order_Row_Number"></p>').text('Order #' + order.order_id),
-                        $('<p class="Order_Row_Meta"></p>').text(formattedDate + ' · ' + order.item_count + ' item(s)')
-                    ),
-                    $('<span class="Order_Row_Status"></span>').text(order.status),
-                    $('<p class="Order_Row_Total"></p>').text('$' + order.total.toFixed(2))
-                );
-
-                $container.append($row);
+            orders.forEach(function (order) {
+                $container.append(buildOrderRow(order));
             });
         },
         error: function (xhr) {
@@ -1250,6 +1888,280 @@ function orderHistory() {
             console.log("orderHistory failed:", res.error);
         }
     });
+}
+
+const ORDERS_PAGE_SIZE = 5;
+let ordersPageAllOrders = [];
+let ordersPageStatusFilter = 'all';
+let ordersPageCurrentPage = 1;
+let ordersPageSearchQuery = '';
+let ordersPageSortBy = 'newest';
+
+function initOrdersPage() {
+    $.ajax({
+        method: "POST",
+        url: "/HeyDaniel/Server/index.php",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify({
+            action: "order_history",
+            device_type: "Web"
+        }),
+        success: function (data) {
+            ordersPageAllOrders = data.orders || [];
+            renderOrdersPage();
+        },
+        error: function (xhr) {
+            const res = JSON.parse(xhr.responseText);
+            console.log("initOrdersPage failed:", res.error);
+        }
+    });
+}
+
+function setOrdersStatusFilter(status) {
+    ordersPageStatusFilter = status;
+    ordersPageCurrentPage = 1;
+    renderOrdersPage();
+}
+
+function setOrdersPage(page) {
+    ordersPageCurrentPage = page;
+    renderOrdersPage();
+}
+
+function setOrdersSearchQuery(query) {
+    ordersPageSearchQuery = query.trim().toLowerCase();
+    ordersPageCurrentPage = 1;
+    renderOrdersPage();
+}
+
+function setOrdersSort(sortBy) {
+    ordersPageSortBy = sortBy;
+    ordersPageCurrentPage = 1;
+    renderOrdersPage();
+}
+
+function orderMatchesSearch(order, query) {
+    if (!query) return true;
+    return getOrderCode(order).toLowerCase().includes(query);
+}
+
+function sortOrders(orders, sortBy) {
+    const sorted = orders.slice();
+    if (sortBy === 'oldest') {
+        sorted.sort(function (a, b) { return new Date(a.date_added) - new Date(b.date_added); });
+    } else if (sortBy === 'highest') {
+        sorted.sort(function (a, b) { return b.total - a.total; });
+    } else if (sortBy === 'lowest') {
+        sorted.sort(function (a, b) { return a.total - b.total; });
+    } else {
+        sorted.sort(function (a, b) { return new Date(b.date_added) - new Date(a.date_added); });
+    }
+    return sorted;
+}
+
+function renderOrdersTabCounts() {
+    const searchScoped = ordersPageAllOrders.filter(function (order) {
+        return orderMatchesSearch(order, ordersPageSearchQuery);
+    });
+
+    $("#tab-count-all").text(searchScoped.length).toggle(searchScoped.length > 0);
+    ['pending', 'processing', 'shipped', 'delivered', 'cancelled'].forEach(function (status) {
+        const count = searchScoped.filter(function (order) {
+            return order.status.toLowerCase() === status;
+        }).length;
+        $("#tab-count-" + status).text(count).toggle(count > 0);
+    });
+}
+
+function renderOrdersPage() {
+    const $container = $("#orders-list-container");
+    $container.empty();
+
+    renderOrdersTabCounts();
+
+    const searchScoped = ordersPageAllOrders.filter(function (order) {
+        return orderMatchesSearch(order, ordersPageSearchQuery);
+    });
+
+    const statusScoped = ordersPageStatusFilter === 'all'
+        ? searchScoped
+        : searchScoped.filter(function (order) {
+            return order.status.toLowerCase() === ordersPageStatusFilter;
+        });
+
+    const filtered = sortOrders(statusScoped, ordersPageSortBy);
+
+    if (!filtered.length) {
+        $("#orders-empty").show();
+        $("#orders-pagination").hide();
+        return;
+    }
+    $("#orders-empty").hide();
+
+    const totalPages = Math.ceil(filtered.length / ORDERS_PAGE_SIZE);
+    if (ordersPageCurrentPage > totalPages) {
+        ordersPageCurrentPage = totalPages;
+    }
+
+    const startIndex = (ordersPageCurrentPage - 1) * ORDERS_PAGE_SIZE;
+    const pageItems = filtered.slice(startIndex, startIndex + ORDERS_PAGE_SIZE);
+
+    pageItems.forEach(function (order) {
+        $container.append(buildOrdersPageRow(order));
+    });
+
+    $("#orders-pagination-label").text(
+        "Showing " + (startIndex + 1) + " to " + Math.min(startIndex + ORDERS_PAGE_SIZE, filtered.length) + " of " + filtered.length + " orders"
+    );
+
+    const $pages = $("#orders-pagination-numbers").empty();
+    if (totalPages > 1) {
+        for (let i = 1; i <= totalPages; i++) {
+            $('<button type="button" class="Orders_Page_Btn"></button>')
+                .toggleClass("active", i === ordersPageCurrentPage)
+                .attr("data-page", i)
+                .text(i)
+                .appendTo($pages);
+        }
+    }
+
+    $("#orders-page-prev").prop("disabled", ordersPageCurrentPage <= 1);
+    $("#orders-page-next").prop("disabled", ordersPageCurrentPage >= totalPages);
+
+    $("#orders-pagination").show();
+}
+
+function initOrderRowInteractions(containerSelector) {
+    $(containerSelector).on("click", ".Order_Row", function () {
+        toggleOrderRow($(this));
+    });
+
+    $(containerSelector).on("click", ".Order_Detail_Item_Menu_Btn", function (e) {
+        e.stopPropagation();
+        const $menu = $(this).closest(".Order_Detail_Item_Menu");
+        const wasOpen = $menu.hasClass("Open");
+        $(".Order_Detail_Item_Menu.Open").removeClass("Open");
+        if (!wasOpen) {
+            $menu.addClass("Open");
+        }
+    });
+
+    $(document).on("click", function () {
+        $(".Order_Detail_Item_Menu.Open").removeClass("Open");
+    });
+}
+
+function toggleOrderRow($row) {
+    const $wrap = $row.closest(".Order_Row_Wrap");
+    const $detail = $wrap.find(".Order_Row_Detail");
+
+    if ($wrap.hasClass("expanded")) {
+        $wrap.removeClass("expanded");
+        $detail.slideUp(200);
+        return;
+    }
+
+    $wrap.siblings(".Order_Row_Wrap.expanded").removeClass("expanded")
+        .find(".Order_Row_Detail").slideUp(200);
+
+    $wrap.addClass("expanded");
+
+    if ($detail.data("loaded")) {
+        $detail.slideDown(200);
+        return;
+    }
+
+    $detail.html('<p class="Order_Row_Detail_Loading">Loading order details…</p>').slideDown(200);
+    fetchOrderDetail($row.data("order-id"), $detail);
+}
+
+function fetchOrderDetail(orderId, $detail) {
+    $.ajax({
+        method: "POST",
+        url: "/HeyDaniel/Server/index.php",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify({
+            action: "order_details",
+            order_id: orderId,
+            device_type: "Web"
+        }),
+        success: function (data) {
+            if (!data.order) {
+                $detail.html('<p class="Order_Row_Detail_Loading">Couldn\'t load order details.</p>');
+                console.log("orderDetails failed:", data.error);
+                return;
+            }
+
+            renderOrderDetail($detail, data.order);
+            $detail.data("loaded", true);
+        },
+        error: function (xhr) {
+            const res = JSON.parse(xhr.responseText);
+            $detail.html('<p class="Order_Row_Detail_Loading">Couldn\'t load order details.</p>');
+            console.log("orderDetails failed:", res.error);
+        }
+    });
+}
+
+function renderOrderDetail($detail, order) {
+    $detail.empty();
+
+    const statusSuffix = orderStatusSuffix(order.status);
+    const $items = $('<div class="Order_Detail_Item_List"></div>');
+    order.items.forEach(function (item) {
+        const $item = $('<div class="Order_Detail_Item"></div>').append(
+            $('<div class="Order_Detail_Item_Image"></div>').css('background-image', 'url(' + item.picture + ')'),
+            $('<div class="Order_Detail_Item_Info"></div>').append(
+                $('<p class="Order_Detail_Item_Name"></p>').text(item.brand + ' ' + item.name),
+                $('<p class="Order_Detail_Item_Qty"></p>').text('Qty: ' + item.quantity)
+            )
+        );
+
+        if (statusSuffix === 'Delivered') {
+            $item.append(
+                $('<div class="Order_Detail_Item_Menu"></div>').append(
+                    $('<button type="button" class="Order_Detail_Item_Menu_Btn Btn_Icon_Ghost Btn_Icon_Ghost--sm" aria-label="Report an issue with this item"></button>')
+                        .append('<i class="fas fa-ellipsis-v" aria-hidden="true"></i>'),
+                    $('<div class="Order_Detail_Item_Menu_Dropdown"></div>').append(
+                        $('<button type="button" class="Btn_Nav_Row" data-coming-soon="Reporting a missing item"></button>').text('Missing'),
+                        $('<button type="button" class="Btn_Nav_Row" data-coming-soon="Reporting an expired item"></button>').text('Expired'),
+                        $('<button type="button" class="Btn_Nav_Row" data-coming-soon="Reporting a bad/damaged item"></button>').text('Bad Quality')
+                    )
+                )
+            );
+        }
+
+        const badge = orderItemStatusBadge(order, item, statusSuffix);
+        $item.append(
+            $('<div class="Order_Detail_Item_Price_Wrap"></div>').append(
+                $('<p class="Order_Detail_Item_Price"></p>').text('$' + (item.price * item.quantity).toFixed(2)),
+                $('<span class="Order_Row_Status"></span>').addClass(badge.className).text(badge.text)
+            )
+        );
+
+        $items.append($item);
+    });
+    $detail.append($items);
+
+    const $totals = $('<div class="Order_Detail_Totals"></div>');
+    $totals.append(
+        $('<div class="Order_Detail_Total_Row"></div>').append($('<span></span>').text('Subtotal'), $('<span></span>').text('$' + order.subtotal.toFixed(2))),
+        $('<div class="Order_Detail_Total_Row"></div>').append($('<span></span>').text('Tax'), $('<span></span>').text('$' + order.tax.toFixed(2)))
+    );
+
+    if (order.tip > 0) {
+        $totals.append(
+            $('<div class="Order_Detail_Total_Row"></div>').append($('<span></span>').text('Tip'), $('<span></span>').text('$' + order.tip.toFixed(2)))
+        );
+    }
+
+    $totals.append(
+        $('<div class="Order_Detail_Total_Row Order_Detail_Total_Row_Grand"></div>').append($('<span></span>').text('Total'), $('<span></span>').text('$' + order.total.toFixed(2)))
+    );
+
+    $detail.append($totals);
 }
 
 // reviews
@@ -1413,7 +2325,8 @@ function buildCartControl(productId, inCart, quantity, onEmpty) {
 
     function renderAddButton() {
         $control.empty().append(
-            $('<button class="Add_To_Cart_Btn" type="button">Add to cart</button>')
+            $('<button class="Add_To_Cart_Btn" type="button"></button>')
+                .text(getHasActiveOrder() ? 'Add to order' : 'Add to cart')
                 .on('click', function () {
                     addProduct(productId, function (data) {
                         renderQty(data.quantity);
@@ -1466,6 +2379,65 @@ function buildCartControl(productId, inCart, quantity, onEmpty) {
     return $control;
 }
 
+// Same add/decrement behavior as buildCartControl(), but sized to match the
+// compact circular "+" button used in the search results dropdown.
+function buildSearchResultCartControl(productId, inCart, quantity) {
+    const $control = $('<div class="Search_Result_Cart_Control"></div>');
+
+    function renderAddButton() {
+        $control.empty().append(
+            $('<button class="Search_Result_Add_Btn Qty_Btn Qty_Btn--sm" type="button"></button>')
+                .attr('aria-label', getHasActiveOrder() ? 'Add to order' : 'Add to cart')
+                .append($('<img src="/HeyDaniel/Assets/Icons/plus.svg" alt="">'))
+                .on('click', function (e) {
+                    e.stopPropagation();
+                    addProduct(productId, function (data) {
+                        renderQty(data.quantity);
+                    });
+                })
+        );
+    }
+
+    function renderQty(qty) {
+        if (!qty) {
+            renderAddButton();
+            return;
+        }
+
+        const decrementIcon = qty === 1 ? 'trash.svg' : 'minus.svg';
+        const decrementLabel = qty === 1 ? 'Remove item' : 'Decrease quantity';
+
+        $control.empty().append(
+            $('<button class="Search_Result_Qty_Btn Qty_Btn Qty_Btn--sm" type="button"></button>')
+                .attr('aria-label', decrementLabel)
+                .append($('<img alt="">').attr('src', '/HeyDaniel/Assets/Icons/' + decrementIcon))
+                .on('click', function (e) {
+                    e.stopPropagation();
+                    decrementProduct(productId, function (data) {
+                        renderQty(data.quantity);
+                    });
+                }),
+            $('<span class="Search_Result_Qty_Value"></span>').text(qty),
+            $('<button class="Search_Result_Qty_Btn Qty_Btn Qty_Btn--sm" type="button" aria-label="Increase quantity"></button>')
+                .append($('<img src="/HeyDaniel/Assets/Icons/plus.svg" alt="">'))
+                .on('click', function (e) {
+                    e.stopPropagation();
+                    addProduct(productId, function (data) {
+                        renderQty(data.quantity);
+                    });
+                })
+        );
+    }
+
+    if (inCart && quantity > 0) {
+        renderQty(quantity);
+    } else {
+        renderAddButton();
+    }
+
+    return $control;
+}
+
 function buildProductCard(product, sameDayEligible, options) {
     options = options || {};
 
@@ -1481,7 +2453,10 @@ function buildProductCard(product, sameDayEligible, options) {
     const rating = product.rating;
     const reviewCount = product.review_count;
     const isSaved = product.is_saved;
-    const inCart = product.in_cart;
+    // A product in an active order lives in Process, not Cart, so in_cart
+    // alone is always false for it — in_process has to count too, or the
+    // card falls back to the Add button instead of the +/- stepper.
+    const inCart = product.in_cart || product.in_process;
     const quantity = product.quantity;
 
     const nowPrice = isOnSale ? salePrice : price;
@@ -1529,13 +2504,19 @@ function buildProductCard(product, sameDayEligible, options) {
             $('<a class="Row_Card_Image_Wrap"></a>')
                 .attr("href", itemUrl)
                 .css("background-image", "url(" + picture + ")")
-                .append(badgeHTML),
+                .append(
+                    badgeHTML,
+                    options.showWishlistBtn ? $wishlistBtn : null
+                ),
             $('<div class="Row_Card_Info"></div>').append(
                 $('<p class="Product_Card_Brand"></p>').text(brand),
                 $('<h3 class="Row_Card_Title"></h3>').append($('<a></a>').attr("href", itemUrl).text(name)),
+                $('<p class="Product_Card_Rating"></p>').html(ratingHTML),
                 $('<div class="Row_Card_Meta"></div>').append(
                     oz ? $('<span class="Product_Card_Size"></span>').text(oz) : null,
-                    sameDayEligible ? $('<span class="Product_Card_Delivery"></span>').text('Same-day eligible') : null
+                    product.same_day_eligible
+                        ? $('<span class="Product_Card_Delivery"></span>').text('Same-day eligible')
+                        : $('<span class="Product_Card_Delivery Standard"></span>').text('Fast delivery')
                 )
             ),
             $('<div class="Row_Card_Price"></div>').append(
@@ -1546,15 +2527,14 @@ function buildProductCard(product, sameDayEligible, options) {
             $('<div class="Row_Card_Actions"></div>').append(
                 buildCartControl(productId, inCart, quantity, options.onQuantityEmpty ? function () {
                     options.onQuantityEmpty($card);
-                } : null),
-                options.showWishlistBtn ? $wishlistBtn : null
+                } : null)
             )
         );
 
         return $card;
     }
 
-    $card = $('<div class="Col Col_3"></div>').append(
+    $card = $('<div class="Col Col_3"></div>').attr('data-product-id', productId).append(
         $('<div class="Product_Card"></div>').append(
             $('<a class="Product_Card_Image_Wrap"></a>')
                 .attr("href", itemUrl)
@@ -1681,8 +2661,6 @@ function itemPush(product_id, table) {
         success: function (data) {
             if (data.message) {
                 $("p").text(data.message);
-            } else {
-                console.log("Item logged successfully");
             }
         },
         error: function (xhr) {

@@ -1,0 +1,42 @@
+/* PAYMENT METHODS PAGE */
+.Payment_Method_Row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(2, 22, 60, 0.08);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+/* flex-center/circle shape comes from .Icon_Circle (Card.css) — was a
+   square (8px radius) before, now a circle like every sibling icon badge */
+.Payment_Method_Icon {
+  width: 44px;
+  height: 44px;
+  background: var(--bg-light);
+  color: var(--secondary);
+  font-size: 1.2rem;
+}
+
+.Payment_Method_Info {
+  flex: 1;
+  min-width: 0;
+}
+
+.Payment_Method_Brand {
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  text-transform: capitalize;
+}
+
+.Payment_Method_Expiry {
+  font-size: var(--information);
+  color: var(--text-muted);
+}
+
+.Payment_Method_Add_Btn {
+  width: 100%;
+  margin-top: 4px;
+}

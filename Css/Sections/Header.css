@@ -1,6 +1,6 @@
  :root {
   /* Brand colors. Only two brand hues in the system — every component
-     (Button.css, Card.css, Icon.css) resolves to these. */
+     (Button.css, Card.css) resolves to these. */
   --primary: #8d1111;
   --primary-light: #a31c1c;
   --primary-accent: #D4A5A5;
@@ -15,9 +15,23 @@
   --border-light: rgba(2, 22, 60, 0.5);
   --overlay-dark: rgba(0, 0, 0, 0.2);
 
+  /* Status/semantic colors — order status badges, filter tabs, delivery
+     tags, toggles. One source of truth instead of repeating each hex
+     across Profile.css/Orders.css/Card.css. */
+  --status-success: #1d7a3c;
+  --status-success-bg: #e3f4e9;
+  --status-info: #1a56db;
+  --status-info-bg: #dbe7fb;
+  --status-warning: #CA8A04;
+  --status-warning-bg: #fbe9c6;
+  --status-purple: #6b3fd4;
+  --status-purple-bg: #ece3fb;
+
   --font-stack: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-weight: 600;
 
+  --hero-title: 2rem;
+  --page-title: 1.6rem;
   --title: 1.3rem;
   --subtitle: 0.95rem;
   --regular-text: 0.85rem;
@@ -66,35 +80,6 @@ span {
   color: var(--secondary);
 }
 
-/* For Chrome, Safari, and newer Edge */
-input::-webkit-search-decoration,
-input::-webkit-search-cancel-button,
-input::-webkit-search-results-button,
-input::-webkit-search-results-decoration {
-  -webkit-appearance: none;
-}
-
-/* For Internet Explorer and older Edge */
-input::-ms-clear,
-input::-ms-reveal {
-  display: none;
-  width: 0;
-  height: 0;
-}
-
-input:focus {
-  outline: none;
-}
-
-input::placeholder {
-  color: var(--text-muted);
-  font-size: var(--regular-text);
-}
-
-input{
-  text-indent: 10px;
-}
-
 .header-main {
   width: 85%;
   display: flex;
@@ -106,7 +91,7 @@ input{
 
 /* Logo */
 .logo {
-  width: 200px;
+  width: 160px;
 }
 
 .logo img {
@@ -116,20 +101,9 @@ input{
 
 /* =========================
    SEARCH BAR
+   (.search-wrap / .search-bar geometry moved to Input.css — this section
+   only keeps the results-dropdown panel, which is not an input itself)
 ========================= */
-.search-wrap {
-  position: relative;
-  width: calc(100% - 800px);
-  flex: 0 1 auto;
-}
-
-.search-bar {
-  width: 100%;
-  display: flex;
-  border-radius: 50px;
-  overflow: hidden;
-  background: var(--bg-light);
-}
 
 .Search_Results {
   display: none;
@@ -137,7 +111,7 @@ input{
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  max-height: 420px;
+  max-height: 480px;
   overflow-y: auto;
   z-index: 500;
 }
@@ -146,17 +120,11 @@ input{
   display: block;
 }
 
-.Search_Result_Empty {
-  padding: 16px;
-  text-align: center;
-  color: var(--text-muted);
-}
-
 .Search_Result_Item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 20px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--bg-light);
   cursor: pointer;
 }
@@ -171,8 +139,8 @@ input{
 
 .Search_Result_Image {
   position: relative;
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   flex-shrink: 0;
   border-radius: 8px;
   background-size: contain;
@@ -184,8 +152,9 @@ input{
 .Search_Result_Image .Product_Card_Badge {
   font-size: 8px;
   padding: 2px 5px;
-  top: 2px;
-  left: 2px;
+  border-radius: 6px;
+  top: 3px;
+  left: 3px;
 }
 
 .Search_Result_Info {
@@ -196,14 +165,16 @@ input{
 .Search_Result_Brand {
   font-size: var(--fine-print);
   font-weight: var(--font-weight);
-  color: var(--text-muted);
+  color: var(--secondary-light);
   text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .Search_Result_Name {
   font-size: var(--regular-text);
   color: var(--text-dark);
   font-weight: var(--font-weight);
+  margin: 1px 0 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -211,84 +182,170 @@ input{
 
 .Search_Result_Price {
   font-size: var(--regular-text);
-  color: var(--primary);
+  color: var(--secondary);
   font-weight: var(--font-weight);
+  margin-bottom: 4px;
 }
 
 .Search_Result_Price_Was {
+  font-size: var(--fine-print);
   color: var(--text-muted);
   font-weight: 400;
   text-decoration: line-through;
   margin-left: 6px;
 }
 
-.Search_Result_Add_Btn {
+.Search_Result_Discount,
+.Search_Result_Bogo_Tag,
+.Search_Result_Size {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  line-height: 1.4;
+  font-weight: var(--font-weight);
+  padding: 2px 7px;
+  border-radius: 8px;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.Search_Result_Discount {
+  background: var(--status-success-bg);
+  color: var(--status-success);
+}
+
+.Search_Result_Discount img {
+  width: 7px;
+  height: 7px;
+}
+
+.Search_Result_Bogo_Tag {
+  background: var(--secondary-accent);
+  color: var(--secondary);
+}
+
+.Search_Result_Size {
+  background: var(--bg-light);
+  color: var(--text-muted);
+}
+
+/* sizing/color/hover come from .Qty_Btn.Qty_Btn--sm (Button.css) */
+
+.Search_Result_Cart_Control {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--secondary);
-  border: none;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
 }
 
-.Search_Result_Add_Btn:hover {
-  background: var(--secondary-light);
+.Search_Result_Qty_Value {
+  min-width: 16px;
+  text-align: center;
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
 }
 
-.Search_Result_Add_Btn img {
-  width: 14px;
-  height: 14px;
-  filter: brightness(0) invert(1);
+/* =========================
+   SEARCH — NO RESULTS
+========================= */
+
+.Search_Result_Empty {
+  padding: 48px 32px;
+  text-align: center;
 }
 
-.search-bar .search {
-  flex: 1;
-  height: 45px;
-  border: none;
-  font-size: inherit;
-  font-weight: 400;
-  background: rgba(2, 22, 60, 0.05);
-  outline: none;
-  padding: 4px 0;
-  padding-left: 10px;
-
+.Search_Result_Empty_Title {
+  font-size: var(--title);
+  font-weight: var(--font-weight);
+  color: var(--secondary);
+  margin-bottom: 8px;
 }
 
-.search-bar .submit {
-  width: 50px;
-  height: 45px;
-  border: none;
-  background: var(--secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+.Search_Result_Empty_Subtitle {
+  font-size: var(--regular-text);
+  color: var(--text-muted);
+  line-height: 1.5;
+  max-width: 420px;
+  margin: 0 auto 24px;
+}
+
+.Search_Result_Empty_Divider {
   position: relative;
-  border-radius: 0px;
+  text-align: center;
+  margin-bottom: 20px;
 }
 
-.search-bar .submit:hover {
-  background-color: rgb(2, 22, 60, .9);
-}
-
-.search-bar .submit img {
+.Search_Result_Empty_Divider::before {
+  content: "";
   position: absolute;
-  width: 20px;
-  height: 20px;
-  transition: opacity 0.3s ease-in-out;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--bg-light);
 }
 
-.search-icon {
-  opacity: 1;
+.Search_Result_Empty_Divider span {
+  position: relative;
+  background: #fff;
+  padding: 0 14px;
+  font-size: var(--information);
+  font-weight: var(--font-weight);
+  color: var(--secondary);
 }
 
-.close-icon {
-  opacity: 0;
-  pointer-events: none;
+.Search_Result_Empty_Tips {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 28px;
 }
+
+.Search_Result_Empty_Tip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 110px;
+  padding-left: 20px;
+}
+
+.Search_Result_Empty_Tip:first-child {
+  border-left: none;
+  padding-left: 0;
+}
+
+.Search_Result_Empty_Tip:not(:first-child) {
+  border-left: 1px solid var(--bg-light);
+}
+
+/* flex-center/circle shape comes from .Icon_Circle (Card.css) */
+.Search_Result_Empty_Tip_Icon {
+  width: 40px;
+  height: 40px;
+  background: var(--bg-light);
+}
+
+.Search_Result_Empty_Tip_Icon img {
+  width: 16px;
+  height: 16px;
+}
+
+/* search.svg is white by default (meant for the navy search button), so it
+   needs to be darkened to be visible on this tip's light background. */
+.Search_Result_Empty_Tip_Icon img[src*="search.svg"] {
+  filter: brightness(0);
+}
+
+.Search_Result_Empty_Tip p {
+  font-size: var(--information);
+  color: var(--text-dark);
+  line-height: 1.3;
+}
+
+/* display/fill/color/shape comes from .Primary_Btn.Primary_Btn--auto (Button.css) */
 
 /* =========================
    USER ACTIONS
@@ -303,6 +360,10 @@ input{
   align-items: center;
 }
 
+/* Close cousin of .Btn_Icon_Ghost (Button.css) — same transparent/hover-tint
+   language, but this one is icon + label + badge in a pill, not a bare
+   icon circle, so it's kept as its own small pattern rather than forced
+   into Btn_Icon_Ghost's shape. */
 .user-actions button {
   background: transparent;
   align-items: center;
@@ -315,23 +376,29 @@ input{
 }
 
 .user-actions button:hover {
-  background: rgba(2, 22, 60, 0.05);
+  background: var(--bg-light);
 }
 
-.nav-cart.Has_Items {
-  background: var(--secondary);
+.Nav_Icon_Wrap {
+  position: relative;
+  display: inline-flex;
 }
 
-.nav-cart.Has_Items:hover {
-  background: var(--secondary-light);
-}
-
-.nav-cart.Has_Items span {
+.Nav_Icon_Badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 10px;
+  background: var(--primary);
   color: var(--text-light);
-}
-
-.nav-cart.Has_Items img {
-  filter: brightness(0) invert(1);
+  font-size: 10px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* =========================
@@ -380,9 +447,22 @@ input{
 .location-info p,
 .order-info p {
   font-size: var(--information);
-  font-weight: 600;
+  font-weight: var(--font-weight);
   color: #fff;
   padding: 7px 0;
+}
+
+.location-info h3,
+.location-info p,
+.location-city,
+.location-state,
+.location-zip {
+  color: #fff;
+}
+
+.location-city,
+.location-state {
+  text-transform: capitalize;
 }
 
 /* Center banner */
@@ -400,6 +480,26 @@ input{
   font-size: var(--subtitle);
   color: rgba(255, 255, 255, 0.9);
   padding: 7px 0;
+}
+
+.Header_Join_Membership_Btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 20px;
+  background: #fff;
+  color: var(--primary);
+  font-family: inherit;
+  font-size: var(--information);
+  font-weight: var(--font-weight);
+  cursor: pointer;
+}
+
+.Header_Join_Membership_Btn:hover {
+  background: rgba(255, 255, 255, 0.9);
 }
 
 
@@ -447,18 +547,16 @@ input{
   line-height: 1.7;
 }
 
-.box-title img {
+/* sizing/hover come from .Btn_Icon_Ghost.Btn_Icon_Ghost--inverse (Button.css) */
+.close-icon-location {
   position: absolute;
   left: 15px;
   top: 15px;
-  padding: 5px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.3);
-  cursor: pointer;
 }
 
-.box-title img:hover {
-  background: rgba(0, 0, 0, 0.5);
+.close-icon-location img {
+  width: 16px;
+  height: 16px;
 }
 
 
@@ -469,45 +567,7 @@ input{
   font-size: var(--regular-text);
 }
 
-.zip-code-search {
-  display: flex;
-  width: calc(100% - 30px);
-  margin: 0 auto;
-  border-radius: 50px;
-  overflow: hidden;
-  border: 1px solid var(--border-light);
-}
-
-.zip-code-search input {
-  flex: 1;
-  height: 40px;
-  border: none;
-  padding-left: 10px;
-  background: rgba(2, 22, 60, 0.05);
-}
-
-.zip-code-search button {
-  height: 40px;
-  width: 50px;
-  border: none;
-  background-color: rgb(2, 22, 60);
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border-radius: 0;
-}
-
-.zip-code-search button:hover {
-  background-color: rgb(2, 22, 60, .9);
-}
-
-.zip-code-search button img {
-  width: 20px;
-  height: 20px;
-  filter: brightness(0) invert(1);
-}
+/* .zip-code-search geometry moved to Input.css */
 
 /* History */
 .history {
@@ -516,12 +576,12 @@ input{
   gap: 10px;
   margin: 20px 0;
   padding: 8px 15px;
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(2, 22, 60, 0.08);
   cursor: pointer;
 }
 
 .history:hover {
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(2, 22, 60, 0.15);
 }
 
 .history img {
@@ -548,24 +608,9 @@ input{
   align-content: center;
 }
 
+/* display/fill/color/shape comes from .Primary_Btn.Primary_Btn--auto (Button.css) */
 .box-footer button {
-  background: var(--secondary);
-  color: #fff;
-  border: none;
-  padding: 10px 15px;
-  border-radius: 50px;
-  font-size: var(--regular-text);
-  font-weight: var(--font-weight);
-  cursor: pointer;
-  margin: auto;
-
-  flex: 0 1 auto;  /* Don't let it stretch */
-  margin: 0 auto;  /* Absorb extra space */
-  display: block;
-}
-
-.box-footer button:hover {
-  background-color: rgb(2, 22, 60, .9);
+  margin: 0 auto;  /* center horizontally */
 }
 
  .box-footer p {
@@ -585,6 +630,9 @@ input{
   inset: 0;
   background: var(--bg-light);
   z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 @keyframes shimmer {
@@ -610,16 +658,45 @@ input{
   border-radius: 8px;
 }
 
+/* Mirror header/header-summary's real proportions so nothing jumps when
+   the skeleton fades out into the actual content underneath. */
+.sk-header-main {
+  width: 85%;
+  max-width: 1400px;
+  height: 60px;
+  margin: 20px 0;
+  flex-shrink: 0;
+}
+
+.sk-header-summary {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 15px 7.5%;
+}
+
+.sk-location,
+.sk-order {
+  width: 220px;
+  height: 50px;
+  flex-shrink: 0;
+}
+
+.sk-banner {
+  flex: 1;
+  height: 50px;
+}
+
 /* =========================
    TABLET (≤ 1024px)
 ========================= */
 
 @media (max-width: 1024px) {
 
-  .search-bar {
-    width: 100%;
-    margin: 0 20px;
-  }
+  /* .search-bar responsive rule moved to Input.css */
 
   .header-main {
     width: 95%;
@@ -661,11 +738,7 @@ input{
     margin: 10px 0;
   }
 
-  .search-bar {
-    order: 3;
-    width: 100%;
-    margin: 10px 0;
-  }
+  /* .search-bar responsive rule moved to Input.css */
 
   .user-actions {
     order: 2;
@@ -714,9 +787,7 @@ input{
     width: 120px;
   }
 
-  .search-bar .search {
-    font-size: 0.9rem;
-  }
+  /* .search-bar .search responsive rule moved to Input.css */
 
   .user-actions button span {
     display: none;

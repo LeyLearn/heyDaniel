@@ -43,7 +43,7 @@ if (!in_array($userDeviceType, $validDeviceTypes, true)) {
 }
 
 if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
-    $userId              = (int)($data['user_id'] ?? 0);
+    $userId              = resolveMobileUserId($data);
     $userDeviceSignature = (string)($data['device_signature'] ?? '');
 } else {
     session_start();

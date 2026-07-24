@@ -38,28 +38,14 @@
 }
 
 .main-container .main-container-ad h1{
-    font-size: 2rem;
+    font-size: var(--hero-title);
     font-weight: var(--font-weight);
     line-height: 1.25;
     max-width: 480px;
     margin: 0 0 20px;
 }
 
-.main-container .main-container-ad .Main_Cta_Btn{
-    background: var(--secondary, #02163C);
-    color: var(--text-light, #fff);
-    border: none;
-    font-size: var(--regular-text);
-    font-weight: var(--font-weight);
-    padding: 12px 28px;
-    border-radius: 24px;
-    cursor: pointer;
-    transition: background 0.2s ease-in-out;
-}
-
-.main-container .main-container-ad .Main_Cta_Btn:hover{
-    background: var(--secondary-light, #0a2c5c);
-}
+/* display/fill/color/shape comes from .Primary_Btn.Primary_Btn--auto (Button.css) */
 
 .hero-slider{
     position: relative;

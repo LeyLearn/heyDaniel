@@ -45,7 +45,7 @@ if (!in_array($tables, $validTables, true)) {
 }
 
 if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
-    $userId              = (int)($data['user_id'] ?? 0);
+    $userId              = resolveMobileUserId($data);
     $isSameDayEligible = (bool)($data['same_day_eligible'] ?? false);
     $taxRate = (float)($data['tax_rate'] ?? 0.00);
 } else {

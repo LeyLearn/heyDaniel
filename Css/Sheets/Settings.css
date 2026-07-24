@@ -1,0 +1,43 @@
+/* SETTINGS PAGE */
+.Settings_List {
+  display: flex;
+  flex-direction: column;
+}
+
+/* base flex row / hover / border-radius come from .Btn_Nav_Row (Button.css) */
+.Settings_Row {
+  justify-content: space-between;
+  padding: 18px 4px;
+  border-bottom: 1px solid var(--bg-light);
+  text-decoration: none;
+}
+
+.Settings_Row:last-child {
+  border-bottom: none;
+}
+
+.Settings_Row_Title {
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  color: var(--text-dark);
+  margin-bottom: 2px;
+}
+
+.Settings_Row_Desc {
+  font-size: var(--information);
+  color: var(--text-muted);
+}
+
+.Settings_Row_Chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: var(--information);
+}
+
+.Settings_Security_Panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 4px 24px;
+  border-bottom: 1px solid var(--bg-light);
+}

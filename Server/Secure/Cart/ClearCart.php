@@ -28,7 +28,7 @@ if (!in_array($userDeviceType, $validDeviceTypes, true)) {
 }
 
 if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
-    $userId              = (int)($data['user_id'] ?? 0);
+    $userId              = resolveMobileUserId($data);
 } else {
     session_start();
     $userId              = (int)($_SESSION['user_id'] ?? 0);

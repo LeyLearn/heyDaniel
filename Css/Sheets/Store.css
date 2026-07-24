@@ -47,7 +47,7 @@
 }
 
 .Store_Filters h2 {
-  font-size: var(--subtitle);
+  font-size: var(--title);
   font-weight: var(--font-weight);
   color: var(--text-dark);
   margin: 0 0 20px;
@@ -62,15 +62,11 @@
   margin-bottom: 20px;
 }
 
+/* base flex row / hover come from .Btn_Nav_Row (Button.css) */
 .Store_Category_Item {
-  text-align: left;
-  background: none;
-  border: none;
   padding: 10px 6px;
-  font-size: var(--regular-text);
   color: var(--text-dark);
   border-radius: 5px;
-  cursor: pointer;
 }
 
 .Store_Category_Item:hover {
@@ -97,22 +93,7 @@
   letter-spacing: 0.04em;
 }
 
-.Store_Filter_Group select {
-  width: 100%;
-  height: 40px;
-  border-radius: 5px;
-  border: 1px solid var(--border-light);
-  padding: 0 10px;
-  background: #fff;
-  color: var(--text-dark);
-  font-size: var(--regular-text);
-}
-
-.Store_Filter_Group select:disabled {
-  background: var(--bg-light);
-  color: var(--text-muted);
-  cursor: not-allowed;
-}
+/* .Store_Filter_Group select rules moved to Input.css */
 
 .Store_Filter_Checkboxes label {
   display: flex;

@@ -1,5 +1,5 @@
 /* Color tokens (--primary, --secondary, --text-light, etc.) are defined
-   once in Header.css :root and shared across Button/Card/Icon.css. */
+   once in Header.css :root and shared across Button/Card.css. */
 
 /* BASE BUTTON STYLES */
 button {
@@ -9,90 +9,183 @@ button {
   border-radius: 5px;
 }
 
-/* SOLID NAVY, FULL WIDTH, 45px
-   (primary CTAs / form submits across cart, review, auth) */
+/* ==========================================================================
+   TYPE 4 — PRIMARY: solid navy, full width, 45px.
+   Product card "Add to cart", review submit, confirmation "Track order",
+   checkout "Join membership", credential sign-in/register/forgot, hero and
+   promo CTAs, zip-sidebar continue, membership subscribe (see markup for
+   where each page adds this class alongside its own).
+   ========================================================================== */
 .Primary_Btn,
 .Add_To_Cart_Btn,
-.Review_Btn,
-.Submit_Review_Btn,
-.Login_Btn,
-.Register_Btn {
+.Submit_Review_Btn {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   width: 100%;
   height: 45px;
+  border-radius: 8px;
   color: var(--text-light);
   background: var(--secondary);
   border: none;
+  text-decoration: none;
   font-weight: var(--font-weight);
 }
 
 .Primary_Btn:hover,
 .Add_To_Cart_Btn:hover,
-.Review_Btn:hover,
-.Submit_Review_Btn:hover,
-.Login_Btn:hover,
-.Register_Btn:hover {
+.Submit_Review_Btn:hover {
   background: var(--secondary-light);
 }
 
-/* SOLID NAVY, FULL WIDTH, 50px
-   (final checkout-flow actions, slightly taller for emphasis) */
-.Checkout_Btn,
-.Place_Order_Btn,
-.Finalize_Order_Btn {
+/* auto-width variant — for CTAs that sit inline instead of full-bleed
+   (hero "Shop now", auth promo, zip-conflict continue, sidebar continue).
+   Still a rectangle with rounded corners, just not full width. */
+.Primary_Btn--auto {
+  width: auto;
+  padding: 0 28px;
+}
+
+/* ==========================================================================
+   TYPE 3 — CHECKOUT: solid red, full width, 50px.
+   Cart "Proceed to checkout", Checkout "Place order" submit.
+   ========================================================================== */
+.Btn_Checkout {
   position: relative;
   width: 100%;
   height: 50px;
+  border-radius: 8px;
   color: var(--text-light);
-  background: var(--secondary);
+  background: var(--primary);
   border: none;
   font-weight: var(--font-weight);
 }
 
-.Checkout_Btn:hover,
-.Place_Order_Btn:hover,
-.Finalize_Order_Btn:hover {
-  background: var(--secondary-light);
+.Btn_Checkout:hover {
+  background: var(--primary-light);
 }
 
-.Primary_Light_Btn {
+/* ==========================================================================
+   TYPE 9 — OUTLINE NAVY: navy border + navy text.
+   Cancel/clear/secondary actions site-wide (Save/Cancel review, continue
+   shopping, membership cancel, filter tabs, add-address/payment-method
+   placeholders, and the profile edit/view-details buttons that previously
+   had a broken Btn_Outline_Red + solid-navy class combo).
+   ========================================================================== */
+.Secondary_Light_Btn,
+.Cancel_Review_Btn,
+.Continue_Shopping_Btn {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--secondary);
+  background: none;
+  border: 1.5px solid var(--secondary);
+  border-radius: 8px;
+  font-weight: var(--font-weight);
+  padding: 8px 15px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.Secondary_Light_Btn:hover,
+.Cancel_Review_Btn:hover,
+.Continue_Shopping_Btn:hover {
+  background: var(--bg-light);
+}
+
+/* full-width variant, for buttons that need to span their container */
+.Cancel_Review_Btn,
+.Continue_Shopping_Btn,
+.Secondary_Light_Btn--full {
   width: 100%;
   height: 45px;
-  color: var(--secondary);
-  background: none;
-  border: 2px solid var(--secondary);
 }
 
-.Primary_Light_Btn:hover {
-  background: var(--secondary-accent);
+.Secondary_Light_Btn--dashed {
+  border-style: dashed;
 }
 
-/* SECONDARY BUTTONS */
-.Secondary_Btn {
-  position: relative;
+/* ==========================================================================
+   TYPE 2 — ICON GHOST: circular, transparent, hover tint.
+   Header nav icons (cart/account), product-card wishlist heart, address/
+   order card "..." menu triggers, modal close buttons.
+   ========================================================================== */
+.Btn_Icon_Ghost {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
   border: none;
-  background: var(--secondary);
-  color: var(--text-light);
-  margin: 10px 0;
-  font-weight: var(--font-weight);
-  padding: 8px 15px;
-}
-
-.Secondary_Btn:hover {
-  background: var(--secondary-light);
-}
-
-.Secondary_Light_Btn {
-  position: relative;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--secondary);
-  background: none;
-  border: 2px solid var(--secondary);
-  padding: 8px 15px;
 }
 
-.Secondary_Light_Btn:hover {
-  background: var(--secondary-accent);
+.Btn_Icon_Ghost:hover {
+  background: var(--bg-light);
+}
+
+/* smaller variant — inline "..." menu triggers inside cards/rows */
+.Btn_Icon_Ghost--sm {
+  width: 24px;
+  height: 24px;
+  color: var(--text-muted);
+}
+
+.Btn_Icon_Ghost--sm:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* inverse variant — for close buttons sitting on a dark (navy/red) header */
+.Btn_Icon_Ghost--inverse {
+  color: var(--text-light);
+}
+
+.Btn_Icon_Ghost--inverse:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ==========================================================================
+   TYPE 8 — NAV ROW: full-width transparent row, hover highlight.
+   Settings menu rows, profile sidebar nav, store category filter list,
+   sort-dropdown options, address/order card dropdown menu rows.
+   NOT applied to Help_Topic_Card (HelpSupport.php) — that's a 2-column grid
+   card with stacked block content, not a single-line flex row, so forcing
+   this class's flex layout onto it would break its markup. It already
+   shares the same hover/radius visual language on its own.
+   ========================================================================== */
+.Btn_Nav_Row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  text-align: left;
+  font-size: var(--regular-text);
+  color: var(--text-dark);
+}
+
+.Btn_Nav_Row:hover {
+  background: var(--bg-light);
+}
+
+.Btn_Nav_Row.Active {
+  background: var(--bg-light);
+  font-weight: var(--font-weight);
+}
+
+.Btn_Nav_Row--danger:hover {
+  background: rgba(141, 17, 17, 0.08);
+  color: var(--primary);
 }
 
 /* TEXT BUTTON */
@@ -129,13 +222,7 @@ button {
   background: var(--bg-light);
 }
 
-.Search .Delete_Btn {
-  background: none;
-  right: 10px;
-  top: 10px;
-  box-shadow: none;
-  display: none;
-}
+/* .Search .Delete_Btn moved to Input.css */
 
 /* QUANTITY BUTTONS
    (40x40 solid navy, used for cart qty increment/decrement) */
@@ -166,35 +253,17 @@ button {
   filter: brightness(0) invert(1);
 }
 
-/* SAVE & WISHLIST BUTTONS
-   (full-width outline, filled bg-light, used wherever a "light" action
-   needs a save/cancel/continue treatment) */
-.Save_Btn,
-.Cancel_Review_Btn,
-.Continue_Shopping_Btn {
-  position: relative;
-  width: 100%;
-  height: 45px;
-  color: var(--secondary);
-  background: var(--bg-light);
-  border: 2px solid var(--secondary);
-  font-weight: var(--font-weight);
+/* smaller variant — search-results dropdown qty/add controls */
+.Qty_Btn--sm,
+.Qty_Decrement_Btn--sm {
+  width: 32px;
+  height: 32px;
 }
 
-.Save_Btn:hover,
-.Cancel_Review_Btn:hover,
-.Continue_Shopping_Btn:hover {
-  background: var(--secondary-accent);
-}
-
-.Save_Btn.saved {
-  color: var(--text-light);
-  background: var(--secondary);
-  border-color: var(--secondary);
-}
-
-.Save_Btn.saved:hover {
-  background: var(--secondary-light);
+.Qty_Btn--sm img,
+.Qty_Decrement_Btn--sm img {
+  width: 14px;
+  height: 14px;
 }
 
 /* REVIEW BUTTONS */
@@ -264,26 +333,33 @@ button {
 }
 
 /* FILTER & OUTLINE-40 BUTTONS
-   (outline, bg-light fill, 40px — differ only in horizontal padding) */
+   (outline, bg-light fill, 40px — differ only in horizontal padding)
+   .Filter_Btn's own outline/color come from .Secondary_Light_Btn now; this
+   block just keeps its fixed 40px height and bg-light fill (data-status
+   attribute rules in Orders.css override color/border per status). */
 .Filter_Btn,
 .Download_Invoice_Btn {
   position: relative;
   height: 40px;
-  color: var(--secondary);
   background: var(--bg-light);
-  border: 1px solid var(--secondary);
   font-weight: var(--font-weight);
 }
 
 .Filter_Btn {
   padding: 0 15px;
+  gap: 6px;
+}
+
+.Filter_Btn:hover {
+  background: var(--secondary-accent);
 }
 
 .Download_Invoice_Btn {
   padding: 0 20px;
+  color: var(--secondary);
+  border: 1px solid var(--secondary);
 }
 
-.Filter_Btn:hover,
 .Download_Invoice_Btn:hover {
   background: var(--secondary-accent);
 }
@@ -349,25 +425,15 @@ button:disabled {
   }
 
   .Primary_Btn,
-  .Primary_Light_Btn,
   .Add_To_Cart_Btn,
-  .Review_Btn,
-  .Save_Btn,
   .Submit_Review_Btn,
   .Cancel_Review_Btn,
-  .Checkout_Btn,
-  .Continue_Shopping_Btn,
-  .Place_Order_Btn,
-  .Finalize_Order_Btn,
-  .Login_Btn,
-  .Register_Btn {
+  .Continue_Shopping_Btn {
     height: 40px;
     font-size: var(--information);
   }
 
-  .Checkout_Btn,
-  .Place_Order_Btn,
-  .Finalize_Order_Btn {
+  .Btn_Checkout {
     height: 45px;
   }
 
@@ -420,20 +486,16 @@ button:disabled {
   }
 
   .Primary_Btn,
-  .Primary_Light_Btn,
   .Add_To_Cart_Btn,
-  .Review_Btn,
-  .Save_Btn,
   .Submit_Review_Btn,
   .Cancel_Review_Btn,
-  .Checkout_Btn,
-  .Continue_Shopping_Btn,
-  .Place_Order_Btn,
-  .Finalize_Order_Btn,
-  .Login_Btn,
-  .Register_Btn {
+  .Continue_Shopping_Btn {
     height: 42px;
     font-size: var(--regular-text);
+  }
+
+  .Btn_Checkout {
+    height: 46px;
   }
 
   .Qty_Btn,
@@ -472,20 +534,16 @@ button:disabled {
   }
 
   .Primary_Btn,
-  .Primary_Light_Btn,
   .Add_To_Cart_Btn,
-  .Review_Btn,
-  .Save_Btn,
   .Submit_Review_Btn,
   .Cancel_Review_Btn,
-  .Checkout_Btn,
-  .Continue_Shopping_Btn,
-  .Place_Order_Btn,
-  .Finalize_Order_Btn,
-  .Login_Btn,
-  .Register_Btn {
+  .Continue_Shopping_Btn {
     height: 45px;
     font-size: var(--regular-text);
+  }
+
+  .Btn_Checkout {
+    height: 48px;
   }
 
   .Qty_Btn,
@@ -524,20 +582,16 @@ button:disabled {
   }
 
   .Primary_Btn,
-  .Primary_Light_Btn,
   .Add_To_Cart_Btn,
-  .Review_Btn,
-  .Save_Btn,
   .Submit_Review_Btn,
   .Cancel_Review_Btn,
-  .Checkout_Btn,
-  .Continue_Shopping_Btn,
-  .Place_Order_Btn,
-  .Finalize_Order_Btn,
-  .Login_Btn,
-  .Register_Btn {
+  .Continue_Shopping_Btn {
     height: 48px;
     font-size: var(--subtitle);
+  }
+
+  .Btn_Checkout {
+    height: 52px;
   }
 
   .Qty_Btn,

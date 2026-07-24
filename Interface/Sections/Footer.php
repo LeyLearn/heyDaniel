@@ -6,7 +6,7 @@
         </div>
         <div class="footer-newsletter-form">
             <input type="email" placeholder="name@email.com" />
-            <button type="button">Subscribe</button>
+            <button type="button" aria-label="Subscribe to newsletter"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
         </div>
     </div>
 

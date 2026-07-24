@@ -11,3 +11,28 @@
   height: 40px;
   padding: 0 20px;
 }
+
+.Wishlist_Section_Header {
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(2, 22, 60, 0.08);
+}
+
+/* Fixed 3-column grid so cards keep their regular size no matter how
+   many items are saved, instead of the shared .Row flexbox shrinking
+   each card to squeeze more into a line. */
+#saved-items-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+#saved-items-container .Col {
+  width: auto;
+  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  #saved-items-container {
+    grid-template-columns: 1fr;
+  }
+}
