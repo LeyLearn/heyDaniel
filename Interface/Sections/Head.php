@@ -28,6 +28,10 @@ function asset_v($relativePath, $path)
   <script src="https://accounts.google.com/gsi/client" defer></script>
   <script type="text/javascript" src="<?= asset_v('Client/Component.js', $path) ?>"></script>
   <script type="text/javascript" src="<?= asset_v('Client/Interaction.js', $path) ?>"></script>
+  <!-- fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- css files -->
   <link rel="stylesheet" type="text/css" href="<?= asset_v('Css/Sections/Header.css', $path) ?>">
   <link rel="stylesheet" type="text/css" href="<?= asset_v('Css/Sections/Button.css', $path) ?>">
@@ -50,6 +54,9 @@ function asset_v($relativePath, $path)
   <link rel="stylesheet" type="text/css" href="<?= asset_v('Css/Sheets/Notifications.css', $path) ?>">
   <link rel="stylesheet" type="text/css" href="<?= asset_v('Css/Sheets/HelpSupport.css', $path) ?>">
   <link rel="stylesheet" type="text/css" href="<?= asset_v('Css/Sheets/Item.css', $path) ?>">
+
+  <!-- design system preview: remove this line to revert -->
+  <link rel="stylesheet" type="text/css" href="<?= asset_v('Css/Sections/DesignSystem.css', $path) ?>">
   <!-- for icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />

@@ -708,27 +708,6 @@ input{
 }
 
 /* --------------------------------------------------------------------------
-   Store filter sidebar — category select dropdowns (Interface/Sheets/Store.php)
-   -------------------------------------------------------------------------- */
-
-.Store_Filter_Group select {
-  width: 100%;
-  height: 40px;
-  border-radius: 5px;
-  border: 1px solid var(--border-light);
-  padding: 0 10px;
-  background: #fff;
-  color: var(--text-dark);
-  font-size: var(--regular-text);
-}
-
-.Store_Filter_Group select:disabled {
-  background: var(--bg-light);
-  color: var(--text-muted);
-  cursor: not-allowed;
-}
-
-/* --------------------------------------------------------------------------
    Header search "clear" button — scoped override, no matching markup found
    at time of writing (search field uses .search-bar, not .Search); kept in
    case it's wired up later.

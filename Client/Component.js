@@ -974,14 +974,34 @@ function renderStoreResults(data) {
     const $similarSection = $("#store-similar-section");
     const $similar = $("#store-similar-products");
 
+    // Client-side sort only — the backend has no sort param, so this just
+    // reorders whatever page of results already came back.
+    let products = (data.products || []).slice();
+    const sortValue = $("#store-sort").val();
+    if (sortValue === "price_asc") {
+        products.sort(function (a, b) { return a.price - b.price; });
+    } else if (sortValue === "price_desc") {
+        products.sort(function (a, b) { return b.price - a.price; });
+    } else if (sortValue === "name_asc") {
+        products.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    }
+
     $grid.empty();
 
-    if (!data.products || !data.products.length) {
-        $grid.append('<p class="Store_Empty">No products found.</p>');
+    if (!products.length) {
+        // Dedicated empty state (Store.php) handles messaging when present;
+        // otherwise fall back to an inline message for other consumers.
+        if (!$("#store-empty").length) {
+            $grid.append('<p class="Store_Empty">No products found.</p>');
+        }
     } else {
-        data.products.forEach(function (product) {
+        products.forEach(function (product) {
             $grid.append(buildProductCard(product, false));
         });
+    }
+
+    if (typeof window.updateStoreResultsCount === "function") {
+        window.updateStoreResultsCount(products.length);
     }
 
     // Brand options are seeded once from the first (unfiltered) load and
@@ -1035,6 +1055,9 @@ function store(filter, limit) {
     });
 }
 
+// Note: the backend "filter" action has no pagination support (filterStore()
+// is a straight alias of store()), so `page` is accepted for call-signature
+// compatibility but isn't sent.
 function filter(mainCategory, subCategory, thirdCategory, page, limit) {
     $.ajax({
         method: "POST",
@@ -1044,34 +1067,28 @@ function filter(mainCategory, subCategory, thirdCategory, page, limit) {
         data: JSON.stringify({
             action: "filter",
             device_type: "Web",
-            main_category: mainCategory,
-            sub_category: subCategory,
-            third_category: thirdCategory,
-            page: page,
-            limit: limit
+            filter: {
+                MainCategory: mainCategory || "",
+                SubCategory: subCategory || "",
+                ThirdCategory: thirdCategory || ""
+            },
+            limit: limit || 16
         }),
         success: function (data) {
-            if (data.message) {
-                $("p").text(data.message);
-            } else {
-                data.products.forEach(function (item) {
-                    const productId = item.product_id;
-                    const brand = item.brand;
-                    const name = item.name;
-                    const oz = item.oz;
-                    const price = item.price;
-                    const picture = item.picture;
-                    const isOnSale = item.is_on_sale;
-                    const isBogo = item.is_bogo;
-                    const ratings = item.ratings;
-                    const reviewCount = item.review_count;
-                    // mount html here
-                });
-            }
+            renderStoreResults({
+                products: data.products || [],
+                similar_products: data.similar_products || [],
+                available_filters: data.available_filters || {}
+            });
         },
         error: function (xhr) {
             const res = JSON.parse(xhr.responseText);
-            console.log("filter failed:", res.error);
+
+            if (res.error === "No products found.") {
+                renderStoreResults({ products: [], similar_products: [], available_filters: {} });
+            } else {
+                console.log("filter failed:", res.error);
+            }
         }
     });
 }
