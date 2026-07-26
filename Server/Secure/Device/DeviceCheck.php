@@ -12,6 +12,7 @@ $response = [
     'same_day_eligible' => false,
     'tax_rate'          => 0.00,
     'has_active_order'  => false,
+    'order_status'      => null,
     'message'           => null,
     'error'             => null
 ];
@@ -65,6 +66,7 @@ $response['same_day_eligible'] = $isSameDayEligible['same_day_eligible'];
 $response['is_device_known'] = $isSameDayEligible['is_device_known'];
 $response['tax_rate'] = $isSameDayEligible['tax_rate'];
 $response['has_active_order'] = $isSameDayEligible['has_active_order'];
+$response['order_status'] = $isSameDayEligible['order_status'];
 
 if ($response['tax_rate'] !== 0.00) {
     $_SESSION['tax_rate'] = $response['tax_rate'];
@@ -75,6 +77,7 @@ $_SESSION['city'] = $response['city'];
 $_SESSION['state'] = $response['state'];
 $_SESSION['same_day_eligible'] = $response['same_day_eligible'];
 $_SESSION['has_active_order'] = $response['has_active_order'];
+$_SESSION['order_status'] = $response['order_status'];
 
 echo json_encode($response);
 exit;

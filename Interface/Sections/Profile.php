@@ -235,12 +235,12 @@
             const phone = $("#profile-field-phone-input").val().trim();
 
             if (!name) {
-                alert("Please enter your name.");
+                showAppAlert("Please enter your name.");
                 return;
             }
 
             if (phone.replace(/\D/g, "").length < 10) {
-                alert("Please enter a valid phone number.");
+                showAppAlert("Please enter a valid phone number.");
                 return;
             }
 
@@ -253,7 +253,7 @@
                 })
                 .fail(function (xhr) {
                     const res = JSON.parse(xhr.responseText);
-                    alert(res.error || "Failed to update profile.");
+                    showAppAlert(res.error || "Failed to update profile.");
                 });
         });
 
@@ -261,15 +261,13 @@
 
         $("#profile-premium-toggle").on("click", function () {
             if ($(this).hasClass("Toggle_On")) {
-                if (!confirm("Cancel your HeyDaniel+ membership? You'll lose access to same-day delivery.")) {
-                    return;
-                }
-
-                cancelMembership(function () {
-                    window.location.reload();
-                }, function (message) {
-                    alert(message);
-                });
+                showAppConfirm("Cancel your HeyDaniel+ membership? You'll lose access to same-day delivery.", function () {
+                    cancelMembership(function () {
+                        window.location.reload();
+                    }, function (message) {
+                        showAppAlert(message);
+                    });
+                }, { title: "Cancel membership", confirmLabel: "Cancel membership" });
             } else {
                 openMembershipModal();
             }

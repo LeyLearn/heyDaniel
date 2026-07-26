@@ -428,7 +428,8 @@
   border-radius: 6px;
   background: #fff;
   color: var(--text-dark);
-  font-size: var(--regular-text);
+  font-size: var(--text-sm);
+  font-weight: 550;
   cursor: pointer;
 }
 

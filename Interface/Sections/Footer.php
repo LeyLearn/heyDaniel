@@ -67,3 +67,56 @@
         </div>
     </div>
 </footer>
+
+<!-- App-wide confirm/alert modals — replace native confirm()/alert() everywhere
+     (see App_Confirm/App_Alert helpers in Component.js). Loaded once here in
+     Footer.php since it's included on every page. Matches the user's own
+     mockup: centered glowing icon, bold centered title/description, an
+     optional context badge, pill-shaped dual buttons with icons, and an
+     optional "can't be undone" footnote. -->
+<div class="Address_Modal_Overlay" id="app-confirm-modal" style="display:none;">
+    <div class="Address_Modal_Box App_Confirm_Box">
+        <button type="button" class="App_Confirm_Close_Btn" id="app-confirm-close-x" aria-label="Close">
+            <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+        <div class="App_Confirm_Icon_Wrap App_Confirm_Icon_Danger" id="app-confirm-icon-wrap">
+            <i class="fas fa-question" id="app-confirm-icon" aria-hidden="true"></i>
+        </div>
+        <h3 class="App_Confirm_Title" id="app-confirm-title">Please confirm</h3>
+        <p class="App_Confirm_Message" id="app-confirm-message"></p>
+        <span class="App_Confirm_Badge" id="app-confirm-badge" style="display:none;"></span>
+        <div class="App_Confirm_Footer">
+            <button type="button" class="App_Confirm_Pill_Btn App_Confirm_Pill_Danger" id="app-confirm-ok">
+                <i class="fas fa-check-circle" aria-hidden="true"></i>
+                <span id="app-confirm-ok-label">Yes, continue</span>
+            </button>
+            <button type="button" class="App_Confirm_Pill_Btn App_Confirm_Pill_Neutral" id="app-confirm-cancel">
+                <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                <span id="app-confirm-cancel-label">No, go back</span>
+            </button>
+        </div>
+        <p class="App_Confirm_Note" id="app-confirm-note">
+            <i class="fas fa-question-circle" aria-hidden="true"></i>
+            <span id="app-confirm-note-text">This action cannot be undone</span>
+        </p>
+    </div>
+</div>
+
+<div class="Address_Modal_Overlay" id="app-alert-modal" style="display:none;">
+    <div class="Address_Modal_Box App_Confirm_Box">
+        <button type="button" class="App_Confirm_Close_Btn" id="app-alert-close-x" aria-label="Close">
+            <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+        <div class="App_Confirm_Icon_Wrap App_Confirm_Icon_Info">
+            <i class="fas fa-info" aria-hidden="true"></i>
+        </div>
+        <h3 class="App_Confirm_Title" id="app-alert-title">Notice</h3>
+        <p class="App_Confirm_Message" id="app-alert-message"></p>
+        <div class="App_Confirm_Footer">
+            <button type="button" class="App_Confirm_Pill_Btn App_Confirm_Pill_Neutral App_Confirm_Pill_Solo" id="app-alert-ok">
+                <i class="fas fa-check" aria-hidden="true"></i>
+                OK
+            </button>
+        </div>
+    </div>
+</div>

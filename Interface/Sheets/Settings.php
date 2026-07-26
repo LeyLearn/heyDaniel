@@ -94,7 +94,7 @@ $metaDescription = "Manage your account settings on HeyDaniel.";
                 const confirmPassword = $("#settings-confirm-password").val();
 
                 if (!currentPassword || !newPassword || !confirmPassword) {
-                    alert("Please fill in all password fields.");
+                    showAppAlert("Please fill in all password fields.");
                     return;
                 }
 
@@ -111,13 +111,13 @@ $metaDescription = "Manage your account settings on HeyDaniel.";
                         confirm_password: confirmPassword
                     }),
                     success: function () {
-                        alert("Password updated.");
+                        showAppAlert("Password updated.");
                         $("#settings-current-password, #settings-new-password, #settings-confirm-password").val("");
                         $("#settings-security-panel").slideUp(200);
                     },
                     error: function (xhr) {
                         const res = JSON.parse(xhr.responseText);
-                        alert(res.error || "Failed to update password.");
+                        showAppAlert(res.error || "Failed to update password.");
                     }
                 });
             });

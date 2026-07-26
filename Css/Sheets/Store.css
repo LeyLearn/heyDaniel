@@ -273,7 +273,7 @@
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 550;
   cursor: pointer;
   transition: all var(--duration) var(--ease);
 }

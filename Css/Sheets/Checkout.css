@@ -377,8 +377,8 @@
   border-radius: 12px;
   background: rgba(2, 22, 60, 0.05);
   color: var(--text-dark);
-  font-size: 15px;
-  font-weight: 500;
+  font-size: var(--text-sm);
+  font-weight: 550;
   cursor: pointer;
   display: flex;
   justify-content: center;

@@ -4,9 +4,13 @@ include_once __DIR__ . "/../../Connect.php";
 include_once __DIR__ . "/../../Function/Components.php";
 
 $response = [
-    'cart_items' => [],
-    'message'    => null,
-    'error'      => null
+    'cart_items'                => [],
+    'is_processing'             => false,
+    'order_status'              => null,
+    'order_placed_at'           => null,
+    'scheduled_delivery_window' => null,
+    'message'                   => null,
+    'error'                     => null
 ];
 
 
@@ -37,16 +41,31 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
     $taxRate = (float)($_SESSION['tax_rate'] ?? 0.00);
 }
 
-$cartContent = cartContent($pdo, $userId, $taxRate);
+$activeOrderId = getActiveSameDayOrderId($pdo, $userId);
 
-if (!empty($cartContent['error'])) {
+if ($activeOrderId !== null) {
+    $orderStatus = getDisplayOrderStatus($pdo, $userId);
+    $content = processContent($pdo, $userId, $activeOrderId, $taxRate, $orderStatus);
+    $response['is_processing'] = true;
+    $response['order_status'] = $orderStatus;
+
+    $stmt = $pdo->prepare("SELECT DateAdded, ScheduledDeliveryWindow FROM OrderSent WHERE Id = ?");
+    $stmt->execute([$activeOrderId]);
+    $orderRow = $stmt->fetch();
+    $response['order_placed_at'] = $orderRow['DateAdded'] ?? null;
+    $response['scheduled_delivery_window'] = $orderRow['ScheduledDeliveryWindow'] ?? null;
+} else {
+    $content = cartContent($pdo, $userId, $taxRate);
+}
+
+if (!empty($content['error'])) {
     http_response_code(500);
-    $response['error'] = $cartContent['error'];
+    $response['error'] = $content['error'];
     echo json_encode($response);
     exit;
 }
 
-$response['cart_items'] = $cartContent['cart_items'];
+$response['cart_items'] = $content['cart_items'];
 
 
 echo json_encode($response);

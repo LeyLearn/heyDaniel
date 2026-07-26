@@ -247,7 +247,7 @@
   background: rgba(2, 22, 60, 0.05);
   border: 1px solid rgba(2, 22, 60, 0.1);
   border-radius: 8px;
-  padding: 20px;
+  padding: 5px 20px 5px 5px;
 }
 
 .Row_Card_Image_Wrap {
@@ -357,6 +357,179 @@
   }
 }
 
+/* ============================================================
+   Order-processing picking status (Cart.php read-only view) — same
+   Row_Card_Image_Wrap/Row_Card_Info left side as the editable cart row;
+   the status pill overlays the product image's top-left corner, and a
+   quantity-found box (progress bar + percent) replaces the quantity
+   stepper on the right.
+   ============================================================ */
+
+.Pick_Status_Image_Wrap {
+  position: relative;
+}
+
+.Pick_Status_Badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: lighter;
+  padding: 2px 7px;
+  border-radius: 10px;
+  color: #fff;
+}
+
+.Pick_Status_Badge span {
+  color: #fff;
+  font-size: var(--fine-print);
+}
+
+.Pick_Status_Badge svg {
+  width: 9px;
+  height: 9px;
+}
+
+.Pick_Status_In_Stock .Pick_Status_Badge svg,
+.Pick_Status_Partial .Pick_Status_Badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+@keyframes pick-status-spin {
+  to { transform: rotate(360deg); }
+}
+
+.Pick_Status_Badge_Spin {
+  animation: pick-status-spin 1s linear infinite;
+}
+
+.Pick_Status_Searching {
+  color: var(--text-muted);
+  font-size: var(--information);
+  padding-bottom: 8px;
+}
+
+.Pick_Status_Found_Text {
+  flex-shrink: 0;
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  white-space: nowrap;
+}
+
+.Pick_Status_Row .Product_Card_Rating_Count {
+  display: inline-block;
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.Pick_Status_Qty_Dots {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.Pick_Status_Qty_Dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--status-info);
+  animation: pick-status-qty-dot-pulse 1.2s ease-in-out infinite;
+}
+
+.Pick_Status_Qty_Dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.Pick_Status_Qty_Dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes pick-status-qty-dot-pulse {
+  0%, 80%, 100% { opacity: 0.25; }
+  40% { opacity: 1; }
+}
+
+.Row_Card.Pick_Status_In_Stock {
+  background: var(--status-success-bg);
+  border-color: transparent;
+}
+.Pick_Status_In_Stock .Pick_Status_Badge {
+  background: var(--status-success);
+}
+.Pick_Status_In_Stock .Pick_Status_Found_Text {
+  color: var(--status-success);
+}
+.Pick_Status_In_Stock .Product_Card_Rating_Count {
+  color: var(--status-success);
+  background: rgba(29, 122, 60, 0.12);
+}
+
+.Row_Card.Pick_Status_Out_Of_Stock {
+  background: rgba(141, 17, 17, 0.06);
+  border-color: transparent;
+}
+.Pick_Status_Out_Of_Stock .Pick_Status_Badge {
+  background: var(--primary);
+}
+.Pick_Status_Out_Of_Stock .Pick_Status_Found_Text {
+  color: var(--primary);
+}
+.Pick_Status_Out_Of_Stock .Product_Card_Rating_Count {
+  color: var(--primary);
+  background: rgba(141, 17, 17, 0.12);
+}
+
+.Row_Card.Pick_Status_Partial {
+  background: var(--status-warning-bg);
+  border-color: transparent;
+}
+.Pick_Status_Partial .Pick_Status_Badge {
+  background: var(--status-warning);
+}
+.Pick_Status_Partial .Pick_Status_Found_Text {
+  color: var(--status-warning);
+}
+.Pick_Status_Partial .Product_Card_Rating_Count {
+  color: var(--status-warning);
+  background: rgba(202, 138, 4, 0.12);
+}
+
+.Row_Card.Pick_Status_Processing {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: transparent;
+}
+.Pick_Status_Processing .Pick_Status_Badge {
+  background: var(--status-info);
+}
+.Pick_Status_Processing .Product_Card_Rating_Count {
+  color: var(--status-info);
+  background: rgba(26, 86, 219, 0.12);
+}
+
+/* Order is Pending (not yet assigned to a shopper) — reuses the same
+   warning-yellow Orders.css already uses for the Pending order-status
+   filter, for consistency with that meaning elsewhere in the app. It
+   happens to match Partial's color too, but the two never render in the
+   same list: Pending only ever appears when every item in the order is
+   pending (nothing's been picked yet). */
+.Row_Card.Pick_Status_Pending {
+  background: var(--status-warning-bg);
+  border-color: transparent;
+}
+.Pick_Status_Pending .Pick_Status_Badge {
+  background: var(--status-warning);
+}
+.Pick_Status_Pending .Product_Card_Rating_Count {
+  color: var(--status-warning);
+  background: rgba(202, 138, 4, 0.12);
+}
+
 /* GENERIC LIST PAGINATION (Cart, Wishlist, and similar item lists) */
 .List_Pagination {
   display: flex;
@@ -393,7 +566,8 @@
   border-radius: 6px;
   background: #fff;
   color: var(--text-dark);
-  font-size: var(--regular-text);
+  font-size: var(--text-sm);
+  font-weight: 550;
   cursor: pointer;
 }
 

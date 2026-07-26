@@ -80,23 +80,48 @@ function requireAuthenticatedUser(array $data): int
 }
 
 // Single source of truth for "does this user have a same-day order that's
-// still pending/being processed" — used both to gate UI (Add to cart vs Add
-// to order, cart icon vs process icon) and to scope every Process-table
-// read/write to the one order it actually belongs to. Process rows are kept
-// forever (buy-again history spanning every past order), so nothing here can
-// assume "any row for this user" means "the active order" the way it could
-// when Process only ever held one order's worth of rows.
+// still pending/being processed/out for delivery" — used both to gate UI
+// (Add to cart vs Add to order, cart icon vs process icon) and to scope
+// every Process-table read/write to the one order it actually belongs to.
+// Process rows are kept forever (buy-again history spanning every past
+// order), so nothing here can assume "any row for this user" means "the
+// active order" the way it could when Process only ever held one order's
+// worth of rows. Includes Shipped so Cart.php keeps routing to Process.php
+// (and blocking a new cart) while the driver is en route, not just while
+// the order is being picked.
 function getActiveSameDayOrderId(\PDO $db, int $userId): ?int
 {
     if ($userId <= 0) {
         return null;
     }
 
-    $stmt = $db->prepare("SELECT Id FROM OrderSent WHERE UserId = ? AND (OrderStatus = 'Processing' OR OrderStatus = 'Pending') ORDER BY DateAdded DESC LIMIT 1");
+    $stmt = $db->prepare("SELECT Id FROM OrderSent WHERE UserId = ? AND OrderStatus IN ('Pending', 'Processing', 'Shipped') ORDER BY DateAdded DESC LIMIT 1");
     $stmt->execute([$userId]);
     $orderId = $stmt->fetchColumn();
 
     return $orderId !== false ? (int)$orderId : null;
+}
+
+// Display-only status for the header cart/process icon — kept separate from
+// getActiveSameDayOrderId() (returns an id, not a display string, and
+// normalizes casing) even though both now cover the same Pending/
+// Processing/Shipped set.
+function getDisplayOrderStatus(\PDO $db, int $userId): ?string
+{
+    if ($userId <= 0) {
+        return null;
+    }
+
+    // Case-insensitive match (matches the column's ci collation) — but the
+    // raw stored value's casing is inconsistent in practice (seen both
+    // 'pending' and 'Processing' in the data), so the returned value is
+    // normalized to Title Case rather than passed through as-is. The
+    // frontend's status-to-color/label mapping depends on that consistency.
+    $stmt = $db->prepare("SELECT OrderStatus FROM OrderSent WHERE UserId = ? AND OrderStatus IN ('Pending', 'Processing', 'Shipped') ORDER BY DateAdded DESC LIMIT 1");
+    $stmt->execute([$userId]);
+    $status = $stmt->fetchColumn();
+
+    return $status !== false ? ucfirst(strtolower((string)$status)) : null;
 }
 
 function isSameDayEligible(\PDO $db, string $deviceSignature, int $userId): array
@@ -109,6 +134,7 @@ function isSameDayEligible(\PDO $db, string $deviceSignature, int $userId): arra
         'same_day_eligible' => false,
         'tax_rate'          => 0.00,
         'has_active_order'  => false,
+        'order_status'      => null,
         'message'           => null,
         'error'             => null
     ];
@@ -148,6 +174,7 @@ function isSameDayEligible(\PDO $db, string $deviceSignature, int $userId): arra
 
             if ($response['same_day_eligible']) {
                 $response['has_active_order'] = getActiveSameDayOrderId($db, $userId) !== null;
+                $response['order_status'] = getDisplayOrderStatus($db, $userId);
             }
         } else {
             return $response; // Device not found, return with is_device_known = false
@@ -366,6 +393,7 @@ function cartIcon(\PDO $db, int $userId): array
         'icon' => 'icon_cart',
         'total_count' => 0,
         'has_active_order' => false,
+        'order_status' => null,
         'error' => null
     ];
 
@@ -377,6 +405,7 @@ function cartIcon(\PDO $db, int $userId): array
         $activeOrderId = getActiveSameDayOrderId($db, $userId);
         $response['has_active_order'] = $activeOrderId !== null;
         $response['icon'] = $activeOrderId !== null ? 'icon_process' : 'icon_cart';
+        $response['order_status'] = getDisplayOrderStatus($db, $userId);
 
         if ($activeOrderId !== null) {
             $stmt = $db->prepare("SELECT COUNT(*) FROM Process WHERE UserId = ? AND OrderId = ? AND Quantity > 0");
@@ -475,6 +504,118 @@ function cartContent(\PDO $db, int $userId, float $taxRate): array
     } catch (\PDOException $e) {
         error_log("DB Error in cartContent: " . $e->getMessage());
         $response['error'] = "Internal server error during cart retrieval.";
+    }
+
+    return $response;
+}
+
+// Same shape/response key as cartContent() (Carted.php picks whichever one
+// ran) so the frontend's rendering code doesn't need to branch on shape —
+// only Cart.php's header/checkout-button visibility differs based on
+// is_processing. $orderStatus (from getDisplayOrderStatus(), passed in by
+// the caller rather than re-queried here) distinguishes a NULL QuantityFound
+// meaning "order is Pending, nobody's picked anything yet" from "order is
+// Processing, a shopper just hasn't resolved this particular item yet" —
+// same underlying NULL, different pick_status shown to the customer.
+function processContent(\PDO $db, int $userId, int $orderId, float $taxRate, ?string $orderStatus = null): array
+{
+    $response = [
+        'cart_items' => [],
+        'error'      => null
+    ];
+
+    try {
+        $cacheKey = "process_content:{$userId}:{$orderId}";
+        $cachedResults = QueryCache::get($cacheKey);
+
+        if ($cachedResults) {
+            $results = $cachedResults;
+        } else {
+            $sql = " SELECT
+        src.ProductId,
+        p.*,
+        pc.MainCategory,
+        CASE WHEN s.Id IS NOT NULL THEN 1 ELSE 0 END AS isSaved,
+        COALESCE(src.Quantity, 0)   AS ItemQuantity,
+        src.QuantityFound,
+        COALESCE(r.avg_rating, 0)   AS avg_rating,
+        COALESCE(r.review_count, 0) AS review_count
+    FROM Process src
+    INNER JOIN Products p
+            ON src.ProductId = p.Id
+    LEFT JOIN ProductCategories pc
+           ON pc.ProductId = p.Id
+    LEFT JOIN Saved s
+           ON s.ProductId = src.ProductId AND s.UserId = ?
+    LEFT JOIN (
+        SELECT
+            ProductId,
+            ROUND(AVG(Stars), 2)   AS avg_rating,
+            COUNT(*)               AS review_count
+        FROM ItemReviews
+        GROUP BY ProductId
+    ) r ON r.ProductId = src.ProductId
+      WHERE src.UserId = ? AND src.OrderId = ? AND src.Quantity > 0
+      ORDER BY src.DateAdded DESC ";
+
+            $stmt = $db->prepare($sql);
+            $stmt->execute([$userId, $userId, $orderId]);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if ($results) {
+                QueryCache::set($cacheKey, $results, 3600); // Cache for 1 hour
+            }
+        }
+
+        $sameDayCategories = ['Grocery', 'Frozen', 'Produce', 'Dairy'];
+
+        foreach ($results as $row) {
+            $rating = $row['review_count'] > 0
+                ? round((float)$row['avg_rating'], 2)
+                : "No ratings yet";
+
+            // NULL QuantityFound = not yet picked up by anyone — 'pending' if
+            // the order itself hasn't started being picked yet, 'processing'
+            // if a shopper is actively working the order and just hasn't
+            // gotten to this item. 0 = out of stock. Equal to the requested
+            // quantity = fully found. Anything in between = partially found.
+            $quantityFound = $row['QuantityFound'];
+            if ($quantityFound === null) {
+                $pickStatus = ($orderStatus === 'Pending') ? 'pending' : 'processing';
+            } elseif ((int)$quantityFound === 0) {
+                $pickStatus = 'out_of_stock';
+            } elseif ((int)$quantityFound >= (int)$row['ItemQuantity']) {
+                $pickStatus = 'in_stock';
+            } else {
+                $pickStatus = 'partial';
+            }
+
+            $response['cart_items'][] = [
+                'product_id'    => $row['ProductId'],
+                'brand'        => $row['Brand'],
+                'name'         => $row['Name'],
+                'oz'           => $row['Size'],
+                'price'        => (float)round($row['Price'] * (1 + $taxRate), 2),
+                'picture'      => $row['Picture'],
+                'is_on_sale'     => (bool)$row['isOnSale'],
+                'sale_price'    => (float)round($row['SalePrice'] * (1 + $taxRate), 2),
+                'is_bogo'       => (bool)$row['isBogo'],
+                'is_saved'      => (bool)$row['isSaved'],
+                'quantity'     => (int)$row['ItemQuantity'],
+                'quantity_found' => $quantityFound === null ? null : (int)$quantityFound,
+                'pick_status'  => $pickStatus,
+                'ratings'      => $rating,
+                'review_count' => (int)$row['review_count'],
+                'same_day_eligible' => in_array($row['MainCategory'], $sameDayCategories, true),
+                'total_price'   => (float)round(
+                    ($row['isOnSale'] ? $row['SalePrice'] : $row['Price']) * (1 + $taxRate) * (int)$row['ItemQuantity'],
+                    2
+                )
+            ];
+        }
+    } catch (\PDOException $e) {
+        error_log("DB Error in processContent: " . $e->getMessage());
+        $response['error'] = "Internal server error during order retrieval.";
     }
 
     return $response;
@@ -2398,6 +2539,171 @@ function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): a
     } catch (\PDOException $e) {
         error_log("DB Error in finalizeOrder: " . $e->getMessage());
         $response['error'] = "Internal server error during order finalization.";
+    }
+
+    return $response;
+}
+
+// Cancels the caller's active same-day order, but only while it's still
+// Pending — once a shopper has started Processing/picking it, the UI offers
+// Reschedule Delivery instead, so the update below is scoped to Pending only
+// (getActiveSameDayOrderId can return a Processing/Shipped order id too;
+// this rejects those rather than trusting the UI to have gated it). Mirrors
+// cancelMembership's shape. checkout() only authorizes the PaymentIntent
+// (capture_method: manual, captured later in finalizeOrder at delivery), so
+// cancelling here means voiding that hold via Stripe's PaymentIntent::cancel(),
+// not issuing a refund. Process/OrderTracking rows are left alone — they
+// persist forever as buy-again history regardless of the order's outcome
+// (see getActiveSameDayOrderId's comment).
+function cancelOrder(\PDO $db, int $userId): array
+{
+    $response = [
+        'success' => false,
+        'error'   => null
+    ];
+
+    if ($userId <= 0) {
+        $response['error'] = "User not authenticated.";
+        return $response;
+    }
+
+    $orderId = getActiveSameDayOrderId($db, $userId);
+
+    if ($orderId === null) {
+        $response['error'] = "No active order to cancel.";
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("SELECT StripePaymentIntentId FROM CustomerPaymentMethod WHERE UserId = ? LIMIT 1");
+        $stmt->execute([$userId]);
+        $paymentIntentId = $stmt->fetchColumn();
+
+        if ($paymentIntentId) {
+            \Stripe\Stripe::setApiKey($_ENV['STRIPE_SECRET_KEY'] ?? '');
+            try {
+                $paymentIntent = \Stripe\PaymentIntent::retrieve($paymentIntentId);
+                if (in_array($paymentIntent->status, ['requires_payment_method', 'requires_confirmation', 'requires_action', 'requires_capture'], true)) {
+                    $paymentIntent->cancel();
+                }
+            } catch (\Stripe\Exception\InvalidRequestException $e) {
+                // Already cancelled/captured on Stripe's side — proceed with the DB update regardless.
+            }
+
+            $stmt = $db->prepare("UPDATE CustomerPaymentMethod SET StripePaymentIntentId = NULL WHERE UserId = ?");
+            $stmt->execute([$userId]);
+        }
+
+        $stmt = $db->prepare("
+            UPDATE OrderSent
+            SET OrderStatus = 'Cancelled', isClosed = 1
+            WHERE Id = ? AND UserId = ? AND OrderStatus = 'Pending'
+        ");
+        $stmt->execute([$orderId, $userId]);
+
+        if ($stmt->rowCount() === 0) {
+            $response['error'] = "Order can no longer be cancelled.";
+            return $response;
+        }
+
+        $response['success'] = true;
+
+        createNotification($db, $userId, 'order', 'Order cancelled', "Your order #{$orderId} has been cancelled.");
+    } catch (\Stripe\Exception\ApiErrorException $e) {
+        error_log("Stripe Error in cancelOrder: " . $e->getMessage());
+        $response['error'] = "Unable to cancel order.";
+    } catch (\PDOException $e) {
+        error_log("DB Error in cancelOrder: " . $e->getMessage());
+        $response['error'] = "Internal server error while cancelling order.";
+    }
+
+    return $response;
+}
+
+// Reschedules the caller's active order to one of a fixed set of same-day
+// windows — there's no real delivery-routing/scheduling system behind this
+// yet (the ETA shown elsewhere is a hardcoded placeholder), so this is
+// deliberately just a label the customer picks and we store, validated
+// server-side against this exact list rather than trusting whatever string
+// the client sends. Keep in sync with the option list in Process.php's
+// modal markup. Only offered (and only takes effect) while the order is
+// Processing. A reschedule throws out whatever picking progress exists —
+// it resets every Process row's QuantityFound back to NULL (= "processing"/
+// not yet picked, per processContent()'s NULL-means-unpicked convention)
+// and drops OrderStatus back to Pending, so the order re-enters the queue
+// for the new window rather than resuming a partially-picked state from the
+// old one. That also means Cancel Order becomes available again afterward
+// (Pending, not Processing) — intentional, not a bug.
+function rescheduleDelivery(\PDO $db, int $userId, string $window): array
+{
+    $response = [
+        'success' => false,
+        'error'   => null
+    ];
+
+    if ($userId <= 0) {
+        $response['error'] = "User not authenticated.";
+        return $response;
+    }
+
+    $allowedWindows = [
+        'Today, 12:00 PM – 2:00 PM',
+        'Today, 2:00 PM – 4:00 PM',
+        'Today, 4:00 PM – 6:00 PM',
+        'Today, 6:00 PM – 8:00 PM',
+        'Tomorrow, 9:00 AM – 11:00 AM',
+    ];
+
+    if (!in_array($window, $allowedWindows, true)) {
+        $response['error'] = "Invalid delivery window.";
+        return $response;
+    }
+
+    $orderId = getActiveSameDayOrderId($db, $userId);
+
+    if ($orderId === null) {
+        $response['error'] = "No active order to reschedule.";
+        return $response;
+    }
+
+    try {
+        $db->beginTransaction();
+
+        $stmt = $db->prepare("
+            UPDATE OrderSent
+            SET ScheduledDeliveryWindow = ?, OrderStatus = 'Pending'
+            WHERE Id = ? AND UserId = ? AND OrderStatus = 'Processing'
+        ");
+        $stmt->execute([$window, $orderId, $userId]);
+
+        if ($stmt->rowCount() === 0) {
+            $db->rollBack();
+            $response['error'] = "Order can no longer be rescheduled.";
+            return $response;
+        }
+
+        $stmt = $db->prepare("UPDATE Process SET QuantityFound = NULL WHERE OrderId = ? AND UserId = ?");
+        $stmt->execute([$orderId, $userId]);
+
+        $db->commit();
+
+        // processContent() caches the raw Process rows (including
+        // QuantityFound) for an hour — nothing wrote to that column before
+        // this function existed, so that cache was never actually
+        // exercised until now. Must invalidate or the customer keeps seeing
+        // pre-reset picking progress.
+        QueryCache::delete("process_content:{$userId}:{$orderId}");
+
+        $response['success'] = true;
+        $response['scheduled_delivery_window'] = $window;
+
+        createNotification($db, $userId, 'order', 'Delivery rescheduled', "Your order #{$orderId}'s delivery has been rescheduled to {$window}.");
+    } catch (\PDOException $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        error_log("DB Error in rescheduleDelivery: " . $e->getMessage());
+        $response['error'] = "Internal server error while rescheduling delivery.";
     }
 
     return $response;

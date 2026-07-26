@@ -4,6 +4,7 @@ CREATE TABLE Process (
   ProductId      INT(11)    NOT NULL,
   OrderId        INT(11)    NULL,
   Quantity       INT(11)    NOT NULL,
+  QuantityFound  INT(11)    NULL,
   isStocked      TINYINT(1) NOT NULL DEFAULT 1,
   DateAdded      DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP,
   isMissing TINYINT(1) NOT NULL DEFAULT 0,

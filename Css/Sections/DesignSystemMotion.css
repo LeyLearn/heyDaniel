@@ -1,0 +1,314 @@
+/* ============================================================
+   HeyDaniel – Lux Motion & Behavior Layer
+   ============================================================ */
+
+:root {
+  /* --ease-out isn't defined by the currently-active token files (only
+     --ease is), and an undefined var() inside a transition/animation
+     shorthand invalidates the whole declaration — so this is required
+     for any of the rules below to actually apply. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---------- Global motion preferences ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- Soft entrance ---------- */
+@keyframes lux-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes lux-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes lux-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Apply to key containers */
+.Store_Page,
+.Profile_Layout,
+.Product_Card,
+.Order_Row_Wrap,
+.Address_Card,
+.Store_Empty_State {
+  animation: lux-fade-up 0.45s var(--ease-out) both;
+}
+
+/* Stagger product cards slightly */
+.Store_Grid > *:nth-child(1)  { animation-delay: 0.03s; }
+.Store_Grid > *:nth-child(2)  { animation-delay: 0.06s; }
+.Store_Grid > *:nth-child(3)  { animation-delay: 0.09s; }
+.Store_Grid > *:nth-child(4)  { animation-delay: 0.12s; }
+.Store_Grid > *:nth-child(5)  { animation-delay: 0.15s; }
+.Store_Grid > *:nth-child(6)  { animation-delay: 0.18s; }
+.Store_Grid > *:nth-child(7)  { animation-delay: 0.21s; }
+.Store_Grid > *:nth-child(8)  { animation-delay: 0.24s; }
+.Store_Grid > *:nth-child(n+9){ animation-delay: 0.27s; }
+
+/* ---------- Product Card – refined hover ---------- */
+.Product_Card {
+  transition:
+    transform 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out),
+    border-color 0.25s var(--ease);
+}
+
+.Product_Card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+  border-color: transparent;
+}
+
+/* Gentle image zoom on hover */
+.Product_Card_Image_Wrap {
+  overflow: hidden;
+}
+.Product_Card_Image_Wrap {
+  transition: transform 0.6s var(--ease-out);
+}
+.Product_Card:hover .Product_Card_Image_Wrap {
+  transform: scale(1.04);
+}
+
+/* Wishlist button – soft pop */
+.Product_Card_Wishlist {
+  transition:
+    transform 0.25s var(--ease-out),
+    background 0.2s var(--ease),
+    box-shadow 0.25s var(--ease);
+}
+.Product_Card_Wishlist:hover {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-sm);
+}
+.Product_Card_Wishlist:active {
+  transform: scale(0.94);
+}
+
+/* ---------- Buttons – tactile but quiet ---------- */
+.Primary_Btn,
+.Add_To_Cart_Btn,
+.Profile_Info_Save_Btn,
+.Secondary_Light_Btn {
+  position: relative;
+  overflow: hidden;
+  transition:
+    background-color 0.22s var(--ease),
+    color 0.22s var(--ease),
+    border-color 0.22s var(--ease),
+    box-shadow 0.25s var(--ease),
+    transform 0.18s var(--ease);
+}
+
+.Primary_Btn:hover,
+.Add_To_Cart_Btn:hover,
+.Profile_Info_Save_Btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.Primary_Btn:active,
+.Add_To_Cart_Btn:active,
+.Profile_Info_Save_Btn:active,
+.Secondary_Light_Btn:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: var(--shadow-xs);
+}
+
+/* Subtle shine on primary buttons */
+.Primary_Btn::after,
+.Add_To_Cart_Btn::after,
+.Profile_Info_Save_Btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.12),
+    transparent
+  );
+  transition: left 0.55s var(--ease-out);
+  pointer-events: none;
+}
+.Primary_Btn:hover::after,
+.Add_To_Cart_Btn:hover::after,
+.Profile_Info_Save_Btn:hover::after {
+  left: 120%;
+}
+
+/* ---------- Quantity controls ---------- */
+.Qty_Btn,
+.Qty_Decrement_Btn,
+.Search_Result_Add_Btn,
+.Search_Result_Qty_Btn {
+  transition:
+    background 0.2s var(--ease),
+    transform 0.18s var(--ease),
+    box-shadow 0.2s var(--ease);
+}
+.Qty_Btn:hover,
+.Qty_Decrement_Btn:hover,
+.Search_Result_Add_Btn:hover,
+.Search_Result_Qty_Btn:hover {
+  transform: scale(1.08);
+}
+.Qty_Btn:active,
+.Qty_Decrement_Btn:active,
+.Search_Result_Add_Btn:active,
+.Search_Result_Qty_Btn:active {
+  transform: scale(0.92);
+}
+
+/* ---------- Sidebar (mobile drawer) ---------- */
+.Store_Sidebar {
+  transition: transform 0.38s var(--ease-out);
+}
+.Store_Sidebar_Overlay {
+  transition: opacity 0.3s var(--ease);
+  backdrop-filter: blur(3px);
+}
+
+/* ---------- Filter chips ---------- */
+.Store_Chip {
+  transition:
+    background 0.2s var(--ease),
+    border-color 0.2s var(--ease),
+    transform 0.18s var(--ease);
+}
+.Store_Chip:hover {
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  transform: translateY(-1px);
+}
+
+/* ---------- Pagination ---------- */
+.Store_Pagination_Numbers button {
+  transition:
+    background 0.2s var(--ease),
+    color 0.2s var(--ease),
+    border-color 0.2s var(--ease),
+    transform 0.18s var(--ease);
+}
+.Store_Pagination_Numbers button:hover {
+  transform: translateY(-1px);
+}
+.Store_Pagination_Numbers button:active {
+  transform: scale(0.96);
+}
+.Store_Pagination_Numbers button.active {
+  transform: none;
+}
+
+/* ---------- Toggle switch ---------- */
+.Toggle_Switch {
+  transition: background 0.25s var(--ease);
+}
+.Toggle_Switch .Toggle_Knob {
+  transition: transform 0.28s var(--ease-out);
+}
+.Toggle_Switch:active .Toggle_Knob {
+  width: 22px; /* slight stretch on press */
+}
+
+/* ---------- Order rows & address cards ---------- */
+.Order_Row,
+.Address_Card {
+  transition:
+    box-shadow 0.28s var(--ease),
+    transform 0.28s var(--ease),
+    border-color 0.2s var(--ease);
+}
+.Order_Row:hover,
+.Address_Card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Expand / collapse order detail */
+.Order_Row_Detail {
+  overflow: hidden;
+  transition: max-height 0.35s var(--ease-out), opacity 0.3s var(--ease);
+}
+.Order_Row_Wrap.expanded .Order_Row_Chevron {
+  transform: rotate(180deg);
+  transition: transform 0.3s var(--ease-out);
+}
+.Order_Row_Chevron {
+  transition: transform 0.3s var(--ease-out);
+}
+
+/* ---------- Empty state ---------- */
+.Store_Empty_State {
+  animation: lux-scale-in 0.4s var(--ease-out) both;
+}
+.Store_Empty_Icon {
+  transition: transform 0.4s var(--ease-out);
+}
+.Store_Empty_State:hover .Store_Empty_Icon {
+  transform: scale(1.06);
+}
+
+/* ---------- Skeleton shimmer (already present, refined) ---------- */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.Skeleton_Block {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-3) 20%,
+    #ebe9e6 45%,
+    var(--color-surface-3) 70%
+  );
+  background-size: 220% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* ---------- Focus rings – elegant ---------- */
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 3px;
+  transition: outline-offset 0.15s var(--ease);
+}
+
+/* ---------- Utility classes you can use in JS ---------- */
+.lux-enter {
+  animation: lux-fade-up 0.4s var(--ease-out) both;
+}
+
+.lux-enter-scale {
+  animation: lux-scale-in 0.35s var(--ease-out) both;
+}
+
+/* Optional: apply when new cards are injected via AJAX */
+.Store_Grid .Product_Card,
+.Store_Similar_Grid .Product_Card {
+  animation: lux-fade-up 0.4s var(--ease-out) both;
+}

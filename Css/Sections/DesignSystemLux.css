@@ -1,0 +1,25 @@
+/* ============================================================
+   HeyDaniel Design System  –  Luxurious Standard (typography only)
+   Smaller type scale, lighter heading weight, tighter tracking.
+   Colors, spacing, radius, shadows, motion, and component chrome
+   intentionally left out — those stay on the existing styles.
+   ============================================================ */
+
+:root {
+  --text-xs:   0.6875rem;   /* 11px */
+  --text-sm:   0.8125rem;   /* 13px */
+  --text-base: 0.9375rem;   /* 15px */
+  --text-lg:   1.0625rem;   /* 17px */
+  --text-xl:   1.25rem;     /* 20px */
+  --text-2xl:  1.5rem;      /* 24px */
+  --text-3xl:  1.875rem;    /* 30px */
+}
+
+body {
+  letter-spacing: -0.01em;
+}
+
+h1, h2, h3, h4 {
+  font-weight: 560;
+  letter-spacing: -0.02em;
+}

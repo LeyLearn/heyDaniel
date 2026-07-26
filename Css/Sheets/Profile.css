@@ -126,6 +126,16 @@
   filter: brightness(0) invert(1);
 }
 
+/* Cart/process icon is inline SVG, not <img> (see Header.css .Nav_Icon_Svg) —
+   sized to match the other sidebar icons above. Active-state color already
+   comes from the existing ".Profile_Nav_Link.Active span" rule since this is
+   a span, so no invert-filter equivalent is needed here. */
+.Profile_Nav_Link svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
 .Profile_Nav_Logout {
   margin-top: 8px;
   padding-top: 12px;
@@ -1060,6 +1070,152 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* App-wide confirm/alert modal (Footer.php) — matches the user's own
+   mockup: centered layout, glowing circular icon, bold centered title,
+   centered gray description, optional context badge, pill-shaped dual
+   buttons with icons, and an optional "can't be undone" footnote. Uses
+   .Address_Modal_Box/.Address_Modal_Overlay for the outer shell
+   (position/backdrop/shadow) but overrides its own padding/border-radius
+   rather than the bordered Header/Body/Footer sub-blocks. */
+.App_Confirm_Box {
+  position: relative;
+  padding: 36px 32px 28px;
+  border-radius: 24px;
+  text-align: center;
+}
+
+.App_Confirm_Close_Btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: rgba(2, 22, 60, 0.4);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.App_Confirm_Close_Btn:hover {
+  color: rgba(2, 22, 60, 0.7);
+}
+
+.App_Confirm_Icon_Wrap {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  color: #fff;
+}
+
+.App_Confirm_Icon_Danger {
+  background: var(--primary);
+  box-shadow: 0 0 0 14px rgba(141, 17, 17, 0.08);
+}
+
+.App_Confirm_Icon_Info {
+  background: var(--secondary);
+  box-shadow: 0 0 0 14px rgba(2, 22, 60, 0.08);
+}
+
+.App_Confirm_Title {
+  margin: 0 0 8px;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  text-align: center;
+}
+
+.App_Confirm_Message {
+  margin: 0 auto 20px;
+  max-width: 340px;
+  font-size: var(--regular-text);
+  color: rgba(2, 22, 60, 0.55);
+  line-height: 1.5;
+  text-align: center;
+}
+
+.App_Confirm_Badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 auto 24px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--bg-light);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 550;
+}
+
+.App_Confirm_Footer {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.App_Confirm_Pill_Btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  padding: 13px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: var(--text-sm);
+  font-weight: 550;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+/* Header.css's bare `span { color: var(--secondary) }` rule otherwise wins
+   over these buttons' own color (they set it on the <button>, not the
+   <span> label inside it) — same class of bug as the font-size gotcha on
+   that same selector. */
+.App_Confirm_Pill_Btn span {
+  color: inherit;
+}
+
+.App_Confirm_Pill_Btn.App_Confirm_Pill_Solo {
+  flex: none;
+  min-width: 140px;
+}
+
+.App_Confirm_Pill_Danger {
+  background: var(--primary);
+  color: #fff;
+}
+
+.App_Confirm_Pill_Danger:hover {
+  filter: brightness(1.08);
+}
+
+.App_Confirm_Pill_Neutral {
+  background: var(--bg-light);
+  color: var(--text-dark);
+}
+
+.App_Confirm_Pill_Neutral:hover {
+  filter: brightness(0.97);
+}
+
+.App_Confirm_Note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 16px 0 0;
+  font-size: var(--fine-print);
+  color: var(--text-muted);
 }
 
 /* .Address_Modal_Field_Row / .Address_Modal_Field moved to Input.css */

@@ -1,5 +1,22 @@
 <?php
 $path = "../../";
+
+require_once __DIR__ . "/../../Server/Connect.php";
+require_once __DIR__ . "/../../Server/Function/Components.php";
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// An order that's still active (Pending, being picked, or out for delivery)
+// gets its own page/template (Process.php) instead of this file toggling
+// between two states client-side.
+$activeOrderId = getActiveSameDayOrderId($pdo, (int)($_SESSION['user_id'] ?? 0));
+if ($activeOrderId !== null) {
+    require __DIR__ . "/Process.php";
+    exit;
+}
+
 $pageTitle = "Cart - HeyDaniel";
 $metaDescription = "Review your cart and proceed to checkout with HeyDaniel.";
 ?>
@@ -17,13 +34,14 @@ $metaDescription = "Review your cart and proceed to checkout with HeyDaniel.";
             <div class="Cart_Layout">
                 <div class="Cart_Items">
                     <div class="Section_Header">
-                        <h2>Your Cart <span class="Section_Header_Count" id="cart-item-count"></span></h2>
+                        <h2><span id="cart-section-title">Your Cart</span> <span class="Section_Header_Count" id="cart-item-count"></span></h2>
                         <button type="button" class="Cart_Clear_Btn" id="cart-clear-btn">
                             <img src="<?php echo $path ?>Assets/Icons/trash.svg" alt="" />
                             <span>Clear</span>
                         </button>
                     </div>
                     <p id="cart-empty-message" class="Store_Empty" style="display:none;">Your cart is empty.</p>
+
                     <div class="Row_Card_List" id="cart-items-container">
                         <?php for ($i = 0; $i < 3; $i++) { ?>
                             <div class="Skeleton_Row_Card">
@@ -53,9 +71,9 @@ $metaDescription = "Review your cart and proceed to checkout with HeyDaniel.";
                 </div>
 
                 <aside class="Cart_Summary" id="cart-summary" style="display:none;">
-                    <h2>Order Summary</h2>
+                    <h2 id="cart-summary-title">Order Summary</h2>
 
-                    <div class="Promo_Code_Row">
+                    <div class="Promo_Code_Row" id="cart-promo-row">
                         <div class="Promo_Code_Input_Wrap">
                             <input type="text" id="cart-promo-code" placeholder="Have a promo code?" />
                             <button type="button" class="Cart_Promo_Apply_Btn" id="cart-promo-apply" aria-label="Apply promo code">
@@ -64,25 +82,27 @@ $metaDescription = "Review your cart and proceed to checkout with HeyDaniel.";
                         </div>
                     </div>
 
-                    <div class="Cart_Summary_Row">
-                        <span>Subtotal</span>
-                        <span class="cart-summary-subtotal">$0.00</span>
-                    </div>
-                    <div class="Cart_Summary_Row">
-                        <span>Delivery Fee</span>
-                        <span class="cart-summary-delivery">$0.00</span>
+                    <div id="cart-summary-totals">
+                        <div class="Cart_Summary_Row">
+                            <span>Subtotal</span>
+                            <span class="cart-summary-subtotal">$0.00</span>
+                        </div>
+                        <div class="Cart_Summary_Row">
+                            <span>Delivery Fee</span>
+                            <span class="cart-summary-delivery">$0.00</span>
+                        </div>
+
+                        <div class="Cart_Summary_Total_Row">
+                            <span>Total</span>
+                            <span class="cart-summary-total">$0.00</span>
+                        </div>
                     </div>
 
-                    <div class="Cart_Summary_Total_Row">
-                        <span>Total</span>
-                        <span class="cart-summary-total">$0.00</span>
-                    </div>
-
-                    <a href="/HeyDaniel/Interface/Sheets/Checkout.php" class="Cart_Checkout_Btn Btn_Checkout">
+                    <a href="/HeyDaniel/Interface/Sheets/Checkout.php" class="Cart_Checkout_Btn Btn_Checkout" id="cart-checkout-btn">
                         <i class="fas fa-lock" aria-hidden="true"></i> Proceed to checkout
                     </a>
 
-                    <ul class="Trust_Badges">
+                    <ul class="Trust_Badges" id="cart-trust-badges">
                         <li>
                             <span class="Trust_Badge_Icon Icon_Circle"><img src="<?php echo $path ?>Assets/Icons/lock.svg" alt="" /></span>
                             <span>Secure Checkout</span>
@@ -113,13 +133,13 @@ $metaDescription = "Review your cart and proceed to checkout with HeyDaniel.";
             });
 
             $("#cart-clear-btn").on("click", function () {
-                if (confirm("Remove all items from your cart?")) {
+                showAppConfirm("Remove all items from your cart?", function () {
                     clearCart();
-                }
+                }, { title: "Clear cart", confirmLabel: "Clear cart" });
             });
 
             $("#cart-promo-apply").on("click", function () {
-                alert("Promo codes are coming soon.");
+                showAppAlert("Promo codes are coming soon.");
             });
 
             $("#cart-pagination-numbers").on("click", ".List_Page_Btn", function () {

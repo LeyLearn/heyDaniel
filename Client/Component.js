@@ -72,16 +72,89 @@ function getHasActiveOrder() {
     return false;
 }
 
+// Inline (not <img src>) so the icon's stroke="currentColor" actually
+// inherits the nav's color instead of rendering as an isolated black image,
+// and so the process icon can be spun via CSS animation.
+const CART_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="24" height="24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" /></svg>';
+// Clock — Pending.
+const PENDING_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 2" /></svg>';
+// Spinning ring — Processing.
+const PROCESS_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" class="Process_Spin"><path d="M12 3a9 9 0 0 1 9 9" opacity="0.25" /><path d="M21 12a9 9 0 0 1-9 9" /><path d="M12 21a9 9 0 0 1-9-9" opacity="0.25" /><path d="M3 12a9 9 0 0 1 9-9" /></svg>';
+// Truck (same path as Assets/Icons/truck.svg) — Shipped.
+const SHIPPED_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" /></svg>';
+
+const STATUS_ICON_SVG = {
+    Pending: PENDING_ICON_SVG,
+    Processing: PROCESS_ICON_SVG,
+    Shipped: SHIPPED_ICON_SVG
+};
+
+const ORDER_STATUS_CLASSES = "Status_Pending Status_Processing Status_Shipped";
+const DISPLAY_ORDER_STATUSES = ["Pending", "Processing", "Shipped"];
+
+// Words the label rotates through every 5s while a status is active (a
+// single-item list just displays statically — Pending/Shipped read better
+// fixed, only Processing rotates through its list). The icon's aria-label
+// stays fixed on the real status name (set once below) regardless, so
+// screen readers aren't spammed with updates every 5 seconds.
+const PENDING_DOTS_HTML = 'Pending<span class="Dot_Pulse"><span></span><span></span><span></span></span>';
+
+const STATUS_WORD_ROTATION = {
+    Pending: [PENDING_DOTS_HTML],
+    Processing: ["Processing...", "Sorting...", "Assembling...", "Packaging..."],
+    Shipped: ["En route"]
+};
+const STATUS_ROTATION_INTERVAL_MS = 5000;
+let statusRotationTimer = null;
+
 // Re-applies the active-order UI state (nav cart icons + any already-painted
-// "Add to cart" buttons) — called whenever a fresh has_active_order value
-// comes back from DeviceCheck()/cartIcon(), since those two AJAX calls race
-// against product-card rendering on page load.
+// "Add to cart" buttons) — called whenever fresh has_active_order/order_status
+// values come back from DeviceCheck()/cartIcon(), since those two AJAX calls
+// race against product-card rendering on page load.
+//
+// order_status is deliberately broader than has_active_order (it also covers
+// Shipped) and only controls the icon/label's appearance — hasActiveOrder
+// alone still decides the "Add to cart" vs "Add to order" button text, since
+// that's tied to actual cart-blocking behavior (Processing/Pending only).
 function applyActiveOrderUI() {
     const hasActiveOrder = getHasActiveOrder();
-    const iconSrc = hasActiveOrder ? "/HeyDaniel/Assets/Icons/process.svg" : "/HeyDaniel/Assets/Icons/cart.svg";
-    const iconAlt = hasActiveOrder ? "Order in progress" : "Shopping cart";
+    const orderStatus = window.orderStatus || null;
+    const isDisplayActive = DISPLAY_ORDER_STATUSES.includes(orderStatus);
 
-    $("#nav-cart-icon, #account-nav-cart-icon").attr("src", iconSrc).attr("alt", iconAlt);
+    const iconMarkup = isDisplayActive ? STATUS_ICON_SVG[orderStatus] : CART_ICON_SVG;
+    const iconAriaLabel = isDisplayActive ? ("Order " + orderStatus.toLowerCase()) : "Shopping cart";
+    const statusClass = isDisplayActive ? "Status_" + orderStatus : null;
+
+    $("#nav-cart-icon, #nav-cart-label, #account-nav-cart-icon, #account-nav-cart-label")
+        .removeClass(ORDER_STATUS_CLASSES)
+        .addClass(statusClass);
+
+    $("#nav-cart-icon").html(iconMarkup).attr("aria-label", iconAriaLabel);
+    $("#account-nav-cart-icon").html(iconMarkup);
+
+    if (statusRotationTimer) {
+        clearInterval(statusRotationTimer);
+        statusRotationTimer = null;
+    }
+
+    const words = isDisplayActive ? STATUS_WORD_ROTATION[orderStatus] : null;
+    if (words) {
+        // .html(), not .text() — Pending's entry carries the animated-dots
+        // markup (see PENDING_DOTS_HTML). Every entry here is a hardcoded
+        // developer string, never user input, so this is safe.
+        $("#nav-cart-label, #account-nav-cart-label").html(words[0]);
+
+        if (words.length > 1) {
+            let wordIndex = 1 % words.length;
+            statusRotationTimer = setInterval(function () {
+                $("#nav-cart-label, #account-nav-cart-label").html(words[wordIndex]);
+                wordIndex = (wordIndex + 1) % words.length;
+            }, STATUS_ROTATION_INTERVAL_MS);
+        }
+    } else {
+        $("#nav-cart-label, #account-nav-cart-label").text("Cart");
+    }
+
     $(".Add_To_Cart_Btn").text(hasActiveOrder ? "Add to order" : "Add to cart");
 }
 
@@ -110,6 +183,7 @@ function DeviceCheck() {
             }
             else {
                 window.hasActiveOrder = !!data.has_active_order;
+                window.orderStatus = data.order_status || null;
                 applyActiveOrderUI();
 
                 if (data.is_device_known === false) {
@@ -320,6 +394,7 @@ function cartIcon() {
                 $("#account-nav-cart-badge").text(totalCount).toggle(totalCount > 0);
 
                 window.hasActiveOrder = !!data.has_active_order;
+                window.orderStatus = data.order_status || null;
                 applyActiveOrderUI();
             }
         },
@@ -355,7 +430,16 @@ function notificationsBadge() {
 const CART_PAGE_SIZE = 5;
 let cartPageAllItems = [];
 let cartPageCurrentPage = 1;
+let cartIsProcessing = false;
+let cartPageSortBy = 'status';
+const PICK_STATUS_SORT_RANK = { in_stock: 0, processing: 1, pending: 1, partial: 2, out_of_stock: 3 };
 
+// Cart.php and Process.php are now two separate pages/templates (routed
+// server-side — Cart.php requires Process.php when an order is actively
+// being picked, otherwise renders the normal cart itself) rather than one
+// page that toggled between states client-side. Each page sets
+// cartIsProcessing once, up front, before calling cartItem(); this just
+// fetches/renders the right item list for whichever page is loaded.
 function cartItem(resetPage) {
     if (resetPage === undefined) {
         resetPage = true;
@@ -376,9 +460,16 @@ function cartItem(resetPage) {
                 cartPageCurrentPage = 1;
             }
 
+            if (cartIsProcessing && $("#cart-section-title").length) {
+                $("#cart-section-title").text("Order " + (data.order_status || "Processing"));
+                updateOrderProgressTracker(data.order_status, cartPageAllItems, data.order_placed_at, data.scheduled_delivery_window);
+                updateOrderStatusCards(data.order_status, cartPageAllItems, data.scheduled_delivery_window);
+                updateOrderActionControl(data.order_status);
+            }
+
             if (data.message || !cartPageAllItems.length) {
                 $("#cart-items-container").empty();
-                $("#cart-empty-message").show();
+                $("#cart-empty-message").text(cartIsProcessing ? "No items are currently being processed." : "Your cart is empty.").show();
                 $("#cart-summary").hide();
                 $("#cart-pagination").hide();
                 $("#cart-item-count").text("0 items");
@@ -398,23 +489,399 @@ function cartItem(resetPage) {
     });
 }
 
+const ORDER_PROGRESS_STAGE = { Pending: 1, Processing: 1, Shipped: 2, Delivered: 3 };
+
+// How many of the order's items have actually been resolved (found,
+// partial, or out of stock) vs still "processing"/"pending" — the real
+// signal behind "Picking Items" progress, since there's no backend field
+// for it directly.
+function pickingProgressFraction(items) {
+    if (!items || !items.length) {
+        return 0;
+    }
+    const resolvedCount = items.filter(function (item) {
+        return item.pick_status !== "processing" && item.pick_status !== "pending";
+    }).length;
+    return resolvedCount / items.length;
+}
+
+// 4-step model: 1 Order Received (Pending — nobody's picking yet, so this
+// is where a Pending order actually sits, not step 2), 2 Picking Items
+// (Processing, driven by pickingProgressFraction), 3 On the Way (fires once
+// order_status hits Shipped — Cart.php now routes here for Pending/
+// Processing/Shipped orders), 4 Delivered (order_status has left this page
+// by then, since Delivered/Cancelled drop out of the active-order set).
+function computeOrderProgressStep(orderStatus, items) {
+    const orderStage = ORDER_PROGRESS_STAGE[orderStatus] || 1;
+    const fraction = pickingProgressFraction(items);
+    let step;
+    if (orderStage === 3) {
+        step = 4;
+    } else if (orderStage === 2) {
+        step = 3;
+    } else if (orderStatus === "Pending") {
+        step = 1;
+    } else {
+        step = 2;
+    }
+    return { step: step, fraction: fraction };
+}
+
+const ORDER_PROGRESS_TOTAL_STEPS = 4;
+
+// Same icon paths used in the 4-step row (Process.php), reused here for the
+// mini status card so the icon swaps to match whichever step is active.
+// Step 2's "Getting your order ready" card gets its own clipboard-check
+// icon rather than reusing the tracker row's Picking Items icon.
+const ORDER_PROGRESS_RECEIVED_ICON = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>';
+const ORDER_PROGRESS_READY_ICON = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0 1 18 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3 1.5 1.5 3-3.75" /></svg>';
+const ORDER_PROGRESS_TRUCK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" /></svg>';
+const ORDER_PROGRESS_HOME_ICON = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>';
+
+const ORDER_PROGRESS_STEP_ICON = {
+    1: ORDER_PROGRESS_RECEIVED_ICON,
+    2: ORDER_PROGRESS_READY_ICON,
+    3: ORDER_PROGRESS_TRUCK_ICON,
+    4: ORDER_PROGRESS_HOME_ICON
+};
+
+const ORDER_PROGRESS_STEP_COPY = {
+    1: { title: "Order received", sub: "Waiting for a shopper to start your order." },
+    2: { title: "Getting your order ready", sub: "Your shopper is picking your items." },
+    3: { title: "On the way to you", sub: "We're almost there!" },
+    4: { title: "Delivered", sub: "Enjoy your order!" }
+};
+
+// A stable per-page-load ETA window (now + 45 to +75 minutes) — there's no
+// real delivery-time estimate from the backend, so this is a placeholder,
+// same spirit as the hardcoded Personal Shopper stats. Computed once and
+// cached so it doesn't jump around on every poll.
+let cachedEtaWindow = null;
+// A rescheduled order has a real (customer-picked) window to show instead
+// of the fake computed one — skips the cache entirely since it comes fresh
+// off the server each time, not a client-side placeholder.
+function getEtaWindow(scheduledWindow) {
+    if (scheduledWindow) {
+        return { window: scheduledWindow, minutesAway: null, dateLabel: scheduledWindow };
+    }
+    if (cachedEtaWindow) {
+        return cachedEtaWindow;
+    }
+    const now = new Date();
+    const start = new Date(now.getTime() + 45 * 60000);
+    const end = new Date(now.getTime() + 75 * 60000);
+    const fmt = function (d) {
+        return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    };
+    const dateFmt = now.toLocaleDateString(undefined, { weekday: undefined, month: "long", day: "numeric" });
+    cachedEtaWindow = {
+        window: fmt(start) + " – " + fmt(end),
+        minutesAway: 45,
+        dateLabel: "Today, " + dateFmt
+    };
+    return cachedEtaWindow;
+}
+
+// Top-of-page tracker on Process.php: ETA header, mini status card, and the
+// 5-step row. No-op if it isn't on the page (Cart.php doesn't have it).
+function updateOrderProgressTracker(orderStatus, items, orderPlacedAt, scheduledWindow) {
+    const $tracker = $("#order-progress-tracker");
+    if (!$tracker.length) {
+        return;
+    }
+
+    const progress = computeOrderProgressStep(orderStatus, items);
+    const step = progress.step;
+    const eta = getEtaWindow(scheduledWindow);
+
+    $("#order-progress-eta-window").text(eta.window);
+    $("#order-progress-eta-minutes").text(scheduledWindow ? "Rescheduled" : eta.minutesAway + " min away");
+    $("#order-progress-eta-note")
+        .text(scheduledWindow ? "Updated" : "Arriving soon")
+        .toggleClass("Order_Progress_Eta_Note_Badge", !!scheduledWindow);
+    $("#order-progress-eta-away-dot").toggle(!scheduledWindow);
+
+    const copy = ORDER_PROGRESS_STEP_COPY[step] || ORDER_PROGRESS_STEP_COPY[2];
+    $("#order-progress-mini-status-title").text(copy.title);
+    $("#order-progress-mini-status-sub").text(copy.sub);
+    $("#order-progress-mini-status-icon").html(ORDER_PROGRESS_STEP_ICON[step] || ORDER_PROGRESS_STEP_ICON[2]);
+
+    const totalDots = 6;
+    const filledDots = Math.min(totalDots, Math.round(((step - 1) / (ORDER_PROGRESS_TOTAL_STEPS - 1)) * totalDots));
+    const $dots = $("#order-progress-mini-dots").empty();
+    for (let i = 0; i < totalDots; i++) {
+        $('<span class="Order_Progress_Mini_Dot"></span>').toggleClass("Filled", i < filledDots).appendTo($dots);
+    }
+
+    $tracker.find(".Order_Progress_Step").each(function () {
+        const s = parseInt($(this).data("step"), 10);
+        $(this).removeClass("Active Completed");
+        let timeText = "Upcoming";
+        if (s < step) {
+            $(this).addClass("Completed");
+            timeText = s === 1 && orderPlacedAt ? formatTimeOfDay(orderPlacedAt) : "Completed";
+        } else if (s === step) {
+            $(this).addClass("Active");
+            timeText = "In progress";
+        }
+        $("#order-progress-step-" + s + "-time").text(timeText);
+    });
+
+    for (let i = 1; i <= ORDER_PROGRESS_TOTAL_STEPS - 1; i++) {
+        let width = i < step ? 100 : 0;
+        if (step === 2 && i === 2) {
+            width = Math.round(progress.fraction * 100);
+        }
+        $("#order-progress-bar-" + i + " .Order_Progress_Bar_Fill").css("width", width + "%");
+    }
+}
+
+function formatTimeOfDay(mysqlDateTime) {
+    const parsed = new Date(mysqlDateTime.replace(" ", "T"));
+    if (isNaN(parsed)) {
+        return "Completed";
+    }
+    return parsed.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+let lastOrderStatusFetch = null;
+
+// Right-column "Current Status" + "Estimated Delivery" cards on Process.php.
+function updateOrderStatusCards(orderStatus, items, scheduledWindow) {
+    if (!$("#order-status-headline").length) {
+        return;
+    }
+
+    const progress = computeOrderProgressStep(orderStatus, items);
+    const copy = ORDER_PROGRESS_STEP_COPY[progress.step] || ORDER_PROGRESS_STEP_COPY[2];
+    $("#order-status-headline").text(copy.title);
+
+    if (progress.step === 2 && items && items.length) {
+        const resolvedCount = items.filter(function (item) {
+            return item.pick_status !== "processing" && item.pick_status !== "pending";
+        }).length;
+        $("#order-status-sub").text("Your shopper has found " + resolvedCount + " of " + items.length + " items so far.");
+    } else {
+        $("#order-status-sub").text(copy.sub);
+    }
+
+    const eta = getEtaWindow(scheduledWindow);
+    $("#order-status-eta-window").text(eta.window);
+    $("#order-status-eta-date").text(eta.dateLabel);
+    $("#order-status-eta-pill").html(
+        scheduledWindow
+            ? '<i class="fas fa-calendar-alt" aria-hidden="true"></i> Rescheduled'
+            : '<i class="fas fa-clock" aria-hidden="true"></i> ' + eta.minutesAway + " min away"
+    );
+
+    lastOrderStatusFetch = new Date();
+    $("#order-status-updated").text("Last updated: just now");
+}
+
+// Header action next to the "Order Processing" title — exactly one of the
+// three is ever shown, keyed off order_status: Pending can still be
+// cancelled outright, Processing switches to Reschedule Delivery (a shopper
+// is already picking, so cancelling out isn't offered), and Shipped swaps
+// in the item-list Sort-by control since there's nothing left to cancel or
+// reschedule once the driver's already en route.
+function updateOrderActionControl(orderStatus) {
+    const $cancel = $("#cancel-order-btn");
+    const $reschedule = $("#reschedule-delivery-btn");
+    const $sort = $("#cart-sort-row");
+
+    $cancel.hide();
+    $reschedule.hide();
+    $sort.hide();
+
+    if (orderStatus === "Processing") {
+        $reschedule.show();
+    } else if (orderStatus === "Shipped") {
+        $sort.show();
+    } else {
+        $cancel.show();
+    }
+}
+
+// "Last updated" ticks forward client-side between polls so it doesn't
+// freeze at "just now" — cheap, avoids a fake-precision timestamp.
+setInterval(function () {
+    if (!lastOrderStatusFetch || !$("#order-status-updated").length) {
+        return;
+    }
+    const minutesAgo = Math.floor((Date.now() - lastOrderStatusFetch.getTime()) / 60000);
+    $("#order-status-updated").text(minutesAgo <= 0 ? "Last updated: just now" : "Last updated: " + minutesAgo + " min ago");
+}, 30000);
+
+// Visual-only preference toggle (no backend for delivery notifications yet)
+// — persisted in localStorage so it survives a refresh, same non-destructive
+// spirit as any other client-side display preference.
+function initOrderStatusToggle() {
+    const $toggle = $("#order-status-notify-toggle");
+    if (!$toggle.length) {
+        return;
+    }
+    const stored = localStorage.getItem("hd_realtime_updates");
+    const isOn = stored === null ? true : stored === "true";
+    $toggle.toggleClass("Toggle_On", isOn).attr("aria-pressed", isOn ? "true" : "false");
+
+    $toggle.on("click", function () {
+        const nowOn = !$toggle.hasClass("Toggle_On");
+        $toggle.toggleClass("Toggle_On", nowOn).attr("aria-pressed", nowOn ? "true" : "false");
+        localStorage.setItem("hd_realtime_updates", nowOn ? "true" : "false");
+    });
+}
+
+// Icons render white on their own colored pill background now (badge sits
+// inline in the row's status pill, not overlaid on a white circle on the
+// image), so every icon is stroke="#fff" regardless of status. "in_stock"
+// and "partial" reuse the exact paths from Assets/Icons/check.svg and
+// alert.svg (just recolored), rather than a hand-drawn approximation.
+// "processing" spins via its own .Pick_Status_Badge_Spin animation (Card.css).
+const PICK_STATUS_META = {
+    in_stock: {
+        rowClass: "Pick_Status_In_Stock",
+        badgeLabel: "Found",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="12" height="12" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>'
+    },
+    out_of_stock: {
+        rowClass: "Pick_Status_Out_Of_Stock",
+        badgeLabel: "Out of Stock",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="12" height="12" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18 18 6M6 6l12 12" /></svg>'
+    },
+    partial: {
+        rowClass: "Pick_Status_Partial",
+        badgeLabel: "Partial",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="12" height="12" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>'
+    },
+    processing: {
+        rowClass: "Pick_Status_Processing",
+        badgeLabel: "Processing",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="12" height="12" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="Pick_Status_Badge_Spin"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>'
+    },
+    // Order is Pending — nobody's picking yet (distinct from "processing",
+    // which is an unresolved item *within* an order a shopper is actively
+    // working). Static clock, no spin, since nothing's in motion yet.
+    pending: {
+        rowClass: "Pick_Status_Pending",
+        badgeLabel: "Pending",
+        icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="12" height="12" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>'
+    }
+};
+
+// Read-only picking-status row for Cart.php's "order in progress" view —
+// no price, no quantity controls (can't edit/buy an order that's already
+// being picked), just what's been found so far. Reuses the same Row_Card
+// image/info markup as the editable cart row for visual consistency. The
+// status pill overlays the image's top-left corner; the right side is just
+// plain "X out of Y found" text (or "Out of stock"), except "processing"
+// which keeps the 3-dot loading indicator since there's no count yet.
+function buildProcessingItemCard(item) {
+    const productId = item.product_id;
+    const itemUrl = "/HeyDaniel/Interface/Sheets/Item.php?id=" + productId;
+    const meta = PICK_STATUS_META[item.pick_status] || PICK_STATUS_META.processing;
+    const isProcessingStatus = item.pick_status === "processing";
+    const isPendingStatus = item.pick_status === "pending";
+    const isUnresolvedStatus = isProcessingStatus || isPendingStatus;
+    const foundQty = item.pick_status === "in_stock" ? item.quantity
+        : item.pick_status === "out_of_stock" ? 0
+        : item.pick_status === "partial" ? item.quantity_found
+        : null;
+
+    // Stars show found-ratio, not the product's real review rating — more
+    // useful here than an unrelated review score while checking an order.
+    // Processing/Pending have no found-count yet, so it's 0 stars, with the
+    // status line on its own line underneath instead of inline next to the count.
+    const $ratingRow = $('<p class="Product_Card_Rating"></p>').html(
+        renderProductStars(isUnresolvedStatus ? 0 : (foundQty / item.quantity) * 5) +
+        '<span class="Product_Card_Rating_Count">' + meta.badgeLabel + '</span>'
+    );
+    const $searchingText = isUnresolvedStatus
+        ? $('<p class="Pick_Status_Searching"></p>').text(
+            isPendingStatus ? "Waiting to be picked up by a shopper..." : "Looking for product availability..."
+        )
+        : null;
+
+    const $foundIndicator = isUnresolvedStatus
+        ? $('<div class="Pick_Status_Qty_Dots"></div>').append(
+            $('<span class="Pick_Status_Qty_Dot"></span>'),
+            $('<span class="Pick_Status_Qty_Dot"></span>'),
+            $('<span class="Pick_Status_Qty_Dot"></span>')
+        )
+        : $('<span class="Pick_Status_Found_Text"></span>').text(
+            item.pick_status === "out_of_stock" ? "Out of stock" : foundQty + " out of " + item.quantity + " found"
+        );
+
+    return $('<div class="Row_Card Pick_Status_Row"></div>')
+        .addClass(meta.rowClass)
+        .attr("data-product-id", productId)
+        .append(
+            $('<a class="Row_Card_Image_Wrap Pick_Status_Image_Wrap"></a>')
+                .attr("href", itemUrl)
+                .css("background-image", "url(" + item.picture + ")")
+                .append(
+                    $('<span class="Pick_Status_Badge"></span>').html(meta.icon + '<span>' + meta.badgeLabel + '</span>')
+                ),
+            $('<div class="Row_Card_Info"></div>').append(
+                $('<p class="Product_Card_Brand"></p>').text(item.brand),
+                $('<h3 class="Row_Card_Title"></h3>').append($('<a></a>').attr("href", itemUrl).text(item.name)),
+                $ratingRow,
+                $searchingText,
+                $('<div class="Row_Card_Meta"></div>').append(
+                    item.oz ? $('<span class="Product_Card_Size"></span>').text(item.oz) : null,
+                    item.same_day_eligible
+                        ? $('<span class="Product_Card_Delivery"></span>').text("Same-day eligible")
+                        : $('<span class="Product_Card_Delivery Standard"></span>').text("Fast delivery")
+                )
+            ),
+            $foundIndicator
+        );
+}
+
 function setCartPage(page) {
     cartPageCurrentPage = page;
     renderCartPage();
 }
 
+function setCartSort(sortBy) {
+    cartPageSortBy = sortBy;
+    cartPageCurrentPage = 1;
+    renderCartPage();
+}
+
+function sortProcessingItems(items, sortBy) {
+    const sorted = items.slice();
+    if (sortBy === 'name') {
+        sorted.sort(function (a, b) { return a.name.localeCompare(b.name); });
+    } else if (sortBy === 'availability') {
+        sorted.sort(function (a, b) {
+            return (a.quantity_found / a.quantity) - (b.quantity_found / b.quantity);
+        });
+    } else {
+        sorted.sort(function (a, b) {
+            return PICK_STATUS_SORT_RANK[a.pick_status] - PICK_STATUS_SORT_RANK[b.pick_status];
+        });
+    }
+    return sorted;
+}
+
 function renderCartPage() {
     const $container = $("#cart-items-container").empty();
+    const items = cartIsProcessing ? sortProcessingItems(cartPageAllItems, cartPageSortBy) : cartPageAllItems;
 
-    const totalPages = Math.max(1, Math.ceil(cartPageAllItems.length / CART_PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(items.length / CART_PAGE_SIZE));
     if (cartPageCurrentPage > totalPages) {
         cartPageCurrentPage = totalPages;
     }
 
     const startIndex = (cartPageCurrentPage - 1) * CART_PAGE_SIZE;
-    const pageItems = cartPageAllItems.slice(startIndex, startIndex + CART_PAGE_SIZE);
+    const pageItems = items.slice(startIndex, startIndex + CART_PAGE_SIZE);
 
     pageItems.forEach(function (item) {
+        if (cartIsProcessing) {
+            $container.append(buildProcessingItemCard(item));
+            return;
+        }
+
         const product = {
             product_id: item.product_id,
             brand: item.brand,
@@ -447,7 +914,7 @@ function renderCartPage() {
     });
 
     $("#cart-pagination-label").text(
-        "Showing " + (startIndex + 1) + " to " + Math.min(startIndex + CART_PAGE_SIZE, cartPageAllItems.length) + " of " + cartPageAllItems.length + " items"
+        "Showing " + (startIndex + 1) + " to " + Math.min(startIndex + CART_PAGE_SIZE, items.length) + " of " + items.length + " items"
     );
 
     const $pages = $("#cart-pagination-numbers").empty();
@@ -1619,6 +2086,33 @@ function deleteAddress(addressId) {
     });
 }
 
+function cancelOrder() {
+    return $.ajax({
+        method: "POST",
+        url: "/HeyDaniel/Server/index.php",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify({
+            action: "cancel_order",
+            device_type: "Web"
+        })
+    });
+}
+
+function rescheduleDelivery(windowLabel) {
+    return $.ajax({
+        method: "POST",
+        url: "/HeyDaniel/Server/index.php",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify({
+            action: "reschedule_delivery",
+            device_type: "Web",
+            window: windowLabel
+        })
+    });
+}
+
 function listAddressesRequest() {
     return $.ajax({
         method: "POST",
@@ -1735,17 +2229,16 @@ function initAddressBook(containerSelector, addBtnSelector) {
 
     $(containerSelector).on("click", ".Address_Card_Delete_Btn", function () {
         const addressId = $(this).closest(".Address_Card").data("address-id");
-        if (!confirm("Delete this address?")) {
-            return;
-        }
-        deleteAddress(addressId)
-            .done(function () {
-                location.reload();
-            })
-            .fail(function (xhr) {
-                const res = JSON.parse(xhr.responseText);
-                alert(res.error || "Failed to delete address.");
-            });
+        showAppConfirm("Delete this address?", function () {
+            deleteAddress(addressId)
+                .done(function () {
+                    location.reload();
+                })
+                .fail(function (xhr) {
+                    const res = JSON.parse(xhr.responseText);
+                    showAppAlert(res.error || "Failed to delete address.");
+                });
+        }, { title: "Delete address", confirmLabel: "Delete" });
     });
 
     $("#address-modal-close, #address-modal-cancel").on("click", function () {
@@ -1765,7 +2258,7 @@ function initAddressBook(containerSelector, addBtnSelector) {
         const zip = $("#address-form-zip").val().trim();
 
         if (!street || !city || !state || !zip) {
-            alert("Please fill in address, city, state, and zip code.");
+            showAppAlert("Please fill in address, city, state, and zip code.");
             return;
         }
 
@@ -1786,7 +2279,7 @@ function initAddressBook(containerSelector, addBtnSelector) {
             })
             .fail(function (xhr) {
                 const res = JSON.parse(xhr.responseText);
-                alert(res.error || "Failed to save address.");
+                showAppAlert(res.error || "Failed to save address.");
             });
     });
 }
@@ -2686,3 +3179,63 @@ function itemPush(product_id, table) {
         }
     });
 }
+
+// App-wide replacement for native confirm()/alert() (Footer.php has the
+// modal markup, loaded on every page). Native confirm() is synchronous and
+// returns a boolean immediately; a styled modal can't block like that, so
+// callers pass the "what happens if confirmed" code as a callback instead
+// of wrapping it in `if (confirm(...))`.
+function showAppConfirm(message, onConfirm, options) {
+    options = options || {};
+    $("#app-confirm-title").text(options.title || "Please confirm");
+    $("#app-confirm-message").text(message);
+    $("#app-confirm-ok-label").text(options.confirmLabel || "Yes, continue");
+    $("#app-confirm-cancel-label").text(options.cancelLabel || "No, go back");
+    $("#app-confirm-icon").attr("class", options.icon || "fas fa-question");
+
+    if (options.badge) {
+        $("#app-confirm-badge").text(options.badge).show();
+    } else {
+        $("#app-confirm-badge").hide();
+    }
+
+    if (options.note === false) {
+        $("#app-confirm-note").hide();
+    } else {
+        $("#app-confirm-note-text").text(typeof options.note === "string" ? options.note : "This action cannot be undone");
+        $("#app-confirm-note").show();
+    }
+
+    $("#app-confirm-ok").off("click").on("click", function () {
+        hideAppConfirm();
+        onConfirm();
+    });
+    $("#app-confirm-modal").show();
+}
+
+function hideAppConfirm() {
+    $("#app-confirm-modal").hide();
+}
+
+function showAppAlert(message, options) {
+    options = options || {};
+    $("#app-alert-title").text(options.title || "Notice");
+    $("#app-alert-message").text(message);
+    $("#app-alert-modal").show();
+}
+
+function hideAppAlert() {
+    $("#app-alert-modal").hide();
+}
+
+$(document).ready(function () {
+    $("#app-confirm-close-x, #app-confirm-cancel").on("click", hideAppConfirm);
+    $("#app-alert-close-x, #app-alert-ok").on("click", hideAppAlert);
+
+    // click on the dark backdrop (not the content box) dismisses either modal
+    $("#app-confirm-modal, #app-alert-modal").on("click", function (e) {
+        if (e.target === this) {
+            $(this).hide();
+        }
+    });
+});

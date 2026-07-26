@@ -8,6 +8,7 @@ $response = [
     'icon' => 'icon_cart',
     'total_count' => 0,
     'has_active_order' => false,
+    'order_status' => null,
     'error' => null
 ];
 
@@ -49,6 +50,7 @@ if (!empty($cartIcon['error'])) {
 $response['total_count'] = $cartIcon['total_count'];
 $response['has_active_order'] = $cartIcon['has_active_order'];
 $response['icon'] = $cartIcon['icon'];
+$response['order_status'] = $cartIcon['order_status'];
 
 echo json_encode($response);
 exit;

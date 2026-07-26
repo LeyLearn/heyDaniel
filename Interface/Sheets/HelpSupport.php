@@ -69,7 +69,7 @@ $metaDescription = "Get help with your HeyDaniel account and orders.";
             });
 
             $("#help-search-btn").on("click", function () {
-                alert("Help search is coming soon.");
+                showAppAlert("Help search is coming soon.");
             });
         });
     </script>

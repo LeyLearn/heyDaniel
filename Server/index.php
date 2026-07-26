@@ -48,6 +48,8 @@ $routes = [
     'finalize_order'    => 'Secure/Checkout/FinalizeOrder.php',
     'order_history'     => 'Secure/Order/OrderHistory.php',
     'order_details'     => 'Secure/Order/OrderDetails.php',
+    'cancel_order'      => 'Secure/Order/CancelOrder.php',
+    'reschedule_delivery' => 'Secure/Order/RescheduleDelivery.php',
 
     // Reviews
     'reviews_get'       => 'Secure/Reviews/GetReviews.php',

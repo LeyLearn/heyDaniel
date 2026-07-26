@@ -139,7 +139,7 @@ $metaDescription = "Your order has been placed. Thank you for shopping with HeyD
             });
 
             $("#confirmation-track-btn").on("click", function () {
-                alert("Order tracking is coming soon.");
+                showAppAlert("Order tracking is coming soon.");
             });
         });
     </script>
