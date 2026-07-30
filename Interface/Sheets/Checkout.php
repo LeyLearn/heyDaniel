@@ -176,7 +176,6 @@ $metaDescription = "Complete your order with HeyDaniel.";
                         </label>
                         <?php if ($isMember) { ?>
                             <label class="Delivery_Method_Card" id="checkout-delivery-same-day" data-method="same-day" style="display:none;">
-                                <span class="Delivery_Method_Recommended" style="display:none;">Recommended</span>
                                 <input type="radio" name="delivery-method" value="same-day" />
                                 <img src="<?php echo $path ?>Assets/Icons/truck.svg" alt="" />
                                 <div class="Delivery_Method_Info">
@@ -188,18 +187,39 @@ $metaDescription = "Complete your order with HeyDaniel.";
                             </label>
                         <?php } else { ?>
                             <div class="Delivery_Method_Card Delivery_Method_Locked" id="checkout-delivery-same-day" data-method="same-day" style="display:none;">
+                                <span class="Delivery_Method_Recommended" style="display:none;">Recommended</span>
                                 <img src="<?php echo $path ?>Assets/Icons/truck.svg" alt="" />
                                 <div class="Delivery_Method_Info">
                                     <span class="Delivery_Method_Name"><i class="fas fa-lock" aria-hidden="true"></i> Same-Day Delivery</span>
                                     <span class="Delivery_Method_Desc">Within 4 hours &mdash; HeyDaniel+ members only</span>
+                                    <span class="Delivery_Method_Free_Badge">Free Delivery</span>
                                 </div>
                                 <button type="button" class="Delivery_Method_Join_Btn" data-open-membership-modal>Join for $9.99/mo</button>
                             </div>
+                            <label class="Delivery_Method_Card" id="checkout-delivery-same-day-paid" data-method="same-day-paid" style="display:none;">
+                                <input type="radio" name="delivery-method" value="same-day-paid" />
+                                <img src="<?php echo $path ?>Assets/Icons/truck.svg" alt="" />
+                                <div class="Delivery_Method_Info">
+                                    <span class="Delivery_Method_Name">Same-Day Delivery</span>
+                                    <span class="Delivery_Method_Desc">Within 4 hours &mdash; pay per order, no subscription</span>
+                                    <span class="Checkout_Selected_Badge" style="display:none;">Selected</span>
+                                </div>
+                                <span class="Delivery_Method_Price">$7.99</span>
+                            </label>
                         <?php } ?>
                     </div>
                     <div class="Checkout_Field" id="checkout-tip-field" style="display:none;">
-                        <label for="checkout-tip">Add a tip for your driver (optional)</label>
-                        <input type="number" id="checkout-tip" min="0" step="0.01" placeholder="0.00" />
+                        <label>Add a tip for your driver (optional)</label>
+                        <div class="Tip_Percent_Options" id="checkout-tip-percent-options">
+                            <button type="button" class="Tip_Percent_Btn" data-tip-percent="5"><i class="fas fa-dollar-sign" aria-hidden="true"></i> 5%</button>
+                            <button type="button" class="Tip_Percent_Btn" data-tip-percent="10"><i class="fas fa-dollar-sign" aria-hidden="true"></i> 10%</button>
+                            <button type="button" class="Tip_Percent_Btn" data-tip-percent="20"><i class="fas fa-dollar-sign" aria-hidden="true"></i> 20%</button>
+                            <button type="button" class="Tip_Percent_Btn" data-tip-percent="custom"><i class="fas fa-dollar-sign" aria-hidden="true"></i> Custom</button>
+                        </div>
+                        <div class="Checkout_Field_Icon_Wrap" id="checkout-tip-custom-wrap" style="display:none;">
+                            <i class="fas fa-dollar-sign" aria-hidden="true"></i>
+                            <input type="number" id="checkout-tip" min="0" step="0.01" placeholder="0.00" />
+                        </div>
                     </div>
 
                     <div class="Checkout_Section_Header" id="checkout-section-payment">
@@ -308,6 +328,10 @@ $metaDescription = "Complete your order with HeyDaniel.";
                     <span>Tax</span>
                     <span id="checkout-tax">$0.00</span>
                 </div>
+                <div class="Cart_Summary_Row" id="checkout-delivery-fee-row" style="display:none;">
+                    <span>Delivery fee</span>
+                    <span id="checkout-delivery-fee-total">$0.00</span>
+                </div>
                 <div class="Cart_Summary_Row" id="checkout-tip-row" style="display:none;">
                     <span>Tip</span>
                     <span id="checkout-tip-total">$0.00</span>
@@ -349,6 +373,7 @@ $metaDescription = "Complete your order with HeyDaniel.";
             const isSameDayEligible = <?php echo json_encode((bool)($_SESSION['same_day_eligible'] ?? false)); ?>;
             const addressSameDayEligible = <?php echo json_encode($addressSameDayEligible); ?>;
             const checkoutTaxRate = <?php echo json_encode((float)($_SESSION['tax_rate'] ?? 0)); ?>;
+            const SAME_DAY_PAID_FEE = 7.99;
 
             $(document).ready(function () {
                 // ============================
@@ -394,17 +419,33 @@ $metaDescription = "Complete your order with HeyDaniel.";
                 updateCheckoutSteps();
 
                 $("#checkout-delivery-same-day").toggle(isSameDayEligible);
+                $("#checkout-delivery-same-day-paid").toggle(isSameDayEligible);
 
-                if (isSameDayEligible && isMember) {
-                    // Same-day becomes the recommended default when the address qualifies.
-                    $("#checkout-delivery-methods label[data-method='standard']")
-                        .removeClass("Selected")
-                        .find(".Delivery_Method_Recommended, .Checkout_Selected_Badge").hide();
-                    $("#checkout-delivery-same-day")
-                        .addClass("Selected")
-                        .find(".Delivery_Method_Recommended, .Checkout_Selected_Badge").show();
-                    $("#checkout-delivery-same-day input[name='delivery-method']").prop("checked", true);
+                if (isSameDayEligible) {
+                    // Standard/Express shipping don't make sense once same-day is
+                    // on the table — hide them rather than just deprioritizing,
+                    // so the real choice is membership vs. pay-per-order (or just
+                    // the free perk for existing members).
+                    $("#checkout-delivery-methods label[data-method='standard']").hide();
+                    $("#checkout-delivery-methods label[data-method='express']").hide();
+
+                    if (isMember) {
+                        $("#checkout-delivery-same-day")
+                            .addClass("Selected")
+                            .find(".Checkout_Selected_Badge").show();
+                        $("#checkout-delivery-same-day input[name='delivery-method']").prop("checked", true);
+                    } else {
+                        // Non-members: nudge toward the subscription with the
+                        // "Recommended" badge, but default-select the one-time
+                        // $7.99 option so checkout isn't blocked on joining.
+                        $("#checkout-delivery-same-day .Delivery_Method_Recommended").show();
+                        $("#checkout-delivery-same-day-paid")
+                            .addClass("Selected")
+                            .find(".Checkout_Selected_Badge").show();
+                        $("#checkout-delivery-same-day-paid input[name='delivery-method']").prop("checked", true);
+                    }
                     $("#checkout-tip-field").show();
+                    updateTotal();
                 }
 
                 $("input[name='delivery-method']").on("change", function () {
@@ -412,7 +453,7 @@ $metaDescription = "Complete your order with HeyDaniel.";
                     $("#checkout-delivery-methods .Checkout_Selected_Badge").hide();
                     $(this).closest(".Delivery_Method_Card").addClass("Selected");
                     $(this).closest(".Delivery_Method_Card").find(".Checkout_Selected_Badge").show();
-                    $("#checkout-tip-field").toggle($(this).val() === "same-day");
+                    $("#checkout-tip-field").toggle($(this).val() === "same-day" || $(this).val() === "same-day-paid");
                     updateTotal();
                 });
 
@@ -536,17 +577,21 @@ $metaDescription = "Complete your order with HeyDaniel.";
                 loadSavedCard();
 
                 function isSameDaySelected() {
-                    return isSameDayEligible && isMember && $("input[name='delivery-method']:checked").val() === "same-day";
+                    const selectedMethod = $("input[name='delivery-method']:checked").val();
+                    return isSameDayEligible && (selectedMethod === "same-day" || selectedMethod === "same-day-paid");
                 }
 
                 function updateTotal() {
                     const subtotal = parseFloat($("#checkout-subtotal").text().replace('$', '')) || 0;
                     const tax = parseFloat($("#checkout-tax").text().replace('$', '')) || 0;
+                    const deliveryFee = $("input[name='delivery-method']:checked").val() === "same-day-paid" ? SAME_DAY_PAID_FEE : 0;
                     const tip = isSameDaySelected() ? (parseFloat($("#checkout-tip").val()) || 0) : 0;
 
+                    $("#checkout-delivery-fee-row").toggle(deliveryFee > 0);
+                    $("#checkout-delivery-fee-total").text('$' + deliveryFee.toFixed(2));
                     $("#checkout-tip-row").toggle(tip > 0);
                     $("#checkout-tip-total").text('$' + tip.toFixed(2));
-                    $("#checkout-total").text('$' + (subtotal + tax + tip).toFixed(2));
+                    $("#checkout-total").text('$' + (subtotal + tax + tip + deliveryFee).toFixed(2));
                 }
 
                 function loadSummary() {
@@ -558,7 +603,7 @@ $metaDescription = "Complete your order with HeyDaniel.";
                         data: JSON.stringify({ action: "cart_items", device_type: "Web" }),
                         success: function (data) {
                             if (data.message || !data.cart_items || !data.cart_items.length) {
-                                window.location.href = "/HeyDaniel/Interface/Sheets/Cart.php";
+                                window.location.href = "/HeyDaniel/Interface/Sheets/Cart";
                                 return;
                             }
 
@@ -588,12 +633,31 @@ $metaDescription = "Complete your order with HeyDaniel.";
                             updateTotal();
                         },
                         error: function () {
-                            window.location.href = "/HeyDaniel/Interface/Sheets/Cart.php";
+                            window.location.href = "/HeyDaniel/Interface/Sheets/Cart";
                         }
                     });
                 }
 
                 $("#checkout-tip").on("input", updateTotal);
+
+                $(document).on("click", ".Tip_Percent_Btn", function () {
+                    const $btn = $(this);
+                    const percent = $btn.data("tip-percent");
+
+                    $(".Tip_Percent_Btn").removeClass("Selected");
+                    $btn.addClass("Selected");
+
+                    if (percent === "custom") {
+                        $("#checkout-tip-custom-wrap").show();
+                        $("#checkout-tip").val("").focus();
+                    } else {
+                        $("#checkout-tip-custom-wrap").hide();
+                        const subtotal = parseFloat($("#checkout-subtotal").text().replace('$', '')) || 0;
+                        $("#checkout-tip").val((subtotal * percent / 100).toFixed(2));
+                    }
+
+                    updateTotal();
+                });
 
                 loadSummary();
 
@@ -623,7 +687,7 @@ $metaDescription = "Complete your order with HeyDaniel.";
                         const deliveryMethod = $("input[name='delivery-method']:checked").val() || "standard";
 
                         checkout(address, paymentMethodId, tipAmount, deliveryMethod, function (orderId) {
-                            window.location.href = "/HeyDaniel/Interface/Sheets/Confirmation.php?order_id=" + orderId;
+                            window.location.href = "/HeyDaniel/Interface/Sheets/Confirmation?order_id=" + orderId;
                         }, function (message) {
                             $error.text(message).show();
                             $btn.prop("disabled", false);

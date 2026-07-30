@@ -11,7 +11,7 @@
   background: rgba(0, 0, 0, 0.05);
   padding: 16px 16px 20px;
   margin-bottom: 20px;
-  border-bottom: 1px solid rgba(2, 22, 60, 0.08);
+  border-bottom: 1px solid rgba(var(--secondary-rgb), 0.08);
 }
 
 .Order_Progress_Eta_Row {
@@ -53,7 +53,7 @@
 
 .Order_Progress_Eta_Label {
   font-size: var(--fine-print);
-  color: rgba(2, 22, 60, 0.55);
+  color: rgba(var(--secondary-rgb), 0.55);
 }
 
 .Order_Progress_Eta_Window {
@@ -66,6 +66,16 @@
   white-space: nowrap;
 }
 
+.Order_Progress_Eta_Pending_Badge {
+  align-self: flex-start;
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+  color: #fff;
+  background: var(--status-warning);
+  padding: 3px 10px;
+  border-radius: 10px;
+}
+
 .Order_Progress_Eta_Away {
   font-size: var(--fine-print);
   font-weight: var(--font-weight);
@@ -76,11 +86,11 @@
 }
 
 .Order_Progress_Eta_Away_Dot {
-  color: rgba(2, 22, 60, 0.35);
+  color: rgba(var(--secondary-rgb), 0.35);
 }
 
 #order-progress-eta-note {
-  color: rgba(2, 22, 60, 0.55);
+  color: rgba(var(--secondary-rgb), 0.55);
   font-weight: var(--font-weight);
 }
 
@@ -136,7 +146,7 @@
 
 .Order_Progress_Mini_Status_Text span {
   font-size: var(--fine-print);
-  color: rgba(2, 22, 60, 0.55);
+  color: rgba(var(--secondary-rgb), 0.55);
 }
 
 .Order_Progress_Mini_Dots {
@@ -150,7 +160,7 @@
   width: 14px;
   height: 4px;
   border-radius: 2px;
-  background: rgba(2, 22, 60, 0.15);
+  background: rgba(var(--secondary-rgb), 0.15);
 }
 
 .Order_Progress_Mini_Dot.Filled {
@@ -174,8 +184,8 @@
 .Order_Progress_Step_Icon {
   width: 36px;
   height: 36px;
-  background: rgba(2, 22, 60, 0.06);
-  color: rgba(2, 22, 60, 0.35);
+  background: rgba(var(--secondary-rgb), 0.06);
+  color: rgba(var(--secondary-rgb), 0.35);
   transition: background 0.2s, color 0.2s, box-shadow 0.2s;
 }
 
@@ -193,7 +203,7 @@
 
 .Order_Progress_Step_Time {
   font-size: 0.6rem;
-  color: rgba(2, 22, 60, 0.45);
+  color: rgba(var(--secondary-rgb), 0.45);
 }
 
 .Order_Progress_Step.Completed .Order_Progress_Step_Icon {
@@ -217,7 +227,7 @@
 .Order_Progress_Bar {
   flex: 1;
   height: 2px;
-  background: rgba(2, 22, 60, 0.1);
+  background: rgba(var(--secondary-rgb), 0.1);
   margin-top: 18px;
   border-radius: 1px;
   overflow: hidden;
@@ -250,10 +260,10 @@
 .Cart_Items {
   flex: 1;
   min-width: 0;
-  background: #fff;
-  border: 1px solid rgba(2, 22, 60, 0.08);
+  background: var(--surface);
+  border: 1px solid rgba(var(--secondary-rgb), 0.08);
   border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(2, 22, 60, 0.04);
+  box-shadow: 0 2px 10px rgba(var(--secondary-rgb), 0.04);
   padding: 24px;
 }
 
@@ -262,7 +272,7 @@
   align-items: center;
   justify-content: space-between;
   padding-bottom: 16px;
-  border-bottom: 1px solid rgba(2, 22, 60, 0.08);
+  border-bottom: 1px solid rgba(var(--secondary-rgb), 0.08);
 }
 
 .Cart_Sort_Row {
@@ -306,10 +316,10 @@
 .Cart_Summary {
   width: 360px;
   flex-shrink: 0;
-  background: #fff;
-  border: 1px solid rgba(2, 22, 60, 0.08);
+  background: var(--surface);
+  border: 1px solid rgba(var(--secondary-rgb), 0.08);
   border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(2, 22, 60, 0.04);
+  box-shadow: 0 2px 10px rgba(var(--secondary-rgb), 0.04);
   padding: 24px;
   position: sticky;
   top: 20px;
@@ -461,8 +471,8 @@
   width: 130px;
   height: 130px;
   border-radius: 50%;
-  background: #fff;
-  border: 1px solid rgba(2, 22, 60, 0.08);
+  background: var(--surface);
+  border: 1px solid rgba(var(--secondary-rgb), 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -495,7 +505,7 @@
 .Employee_Profile_Title {
   margin: 0;
   font-size: var(--fine-print);
-  color: rgba(2, 22, 60, 0.55);
+  color: rgba(var(--secondary-rgb), 0.55);
 }
 
 .Employee_Profile_Tier {
@@ -509,15 +519,15 @@
 }
 
 .Employee_Profile_Tier_Dot {
-  color: rgba(2, 22, 60, 0.35);
+  color: rgba(var(--secondary-rgb), 0.35);
 }
 
 .Employee_Profile_Contact {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  background: #fff;
-  border: 1px solid rgba(2, 22, 60, 0.08);
+  background: var(--surface);
+  border: 1px solid rgba(var(--secondary-rgb), 0.08);
   border-radius: 10px;
   padding: 18px 10px;
   margin-bottom: 18px;
@@ -548,7 +558,7 @@
 
 .Employee_Profile_Contact_Label {
   font-size: var(--fine-print);
-  color: rgba(2, 22, 60, 0.55);
+  color: rgba(var(--secondary-rgb), 0.55);
 }
 
 .Employee_Profile_Contact_Value {
@@ -577,7 +587,7 @@
 .Employee_Profile_Rating {
   padding-bottom: 18px;
   margin-bottom: 18px;
-  border-bottom: 1px solid rgba(2, 22, 60, 0.08);
+  border-bottom: 1px solid rgba(var(--secondary-rgb), 0.08);
 }
 
 .Employee_Profile_Rating_Head {
@@ -595,7 +605,7 @@
 
 .Employee_Profile_Rating_Score {
   font-size: var(--fine-print);
-  color: rgba(2, 22, 60, 0.55);
+  color: rgba(var(--secondary-rgb), 0.55);
 }
 
 .Employee_Profile_Rating_Score strong {
@@ -637,7 +647,7 @@
 
 .Employee_Profile_Review_Count {
   font-size: var(--fine-print);
-  color: rgba(2, 22, 60, 0.55);
+  color: rgba(var(--secondary-rgb), 0.55);
 }
 
 .Employee_Profile_Stats {
@@ -652,8 +662,8 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  background: #fff;
-  border: 1px solid rgba(2, 22, 60, 0.08);
+  background: var(--surface);
+  border: 1px solid rgba(var(--secondary-rgb), 0.08);
   border-radius: 12px;
   padding: 14px 16px;
 }
@@ -690,7 +700,7 @@
 
 .Employee_Profile_Stat_Label {
   font-size: var(--fine-print);
-  color: rgba(2, 22, 60, 0.55);
+  color: rgba(var(--secondary-rgb), 0.55);
 }
 
 .Employee_Profile_Stat_Value {
@@ -716,7 +726,7 @@
 
 .Employee_Profile_Stat_Aside_Label {
   font-size: var(--fine-print);
-  color: rgba(2, 22, 60, 0.55);
+  color: rgba(var(--secondary-rgb), 0.55);
 }
 
 .Employee_Profile_Stat_Aside_Value {
@@ -737,8 +747,8 @@
 }
 
 .Employee_Profile_Level_Section {
-  background: #fff;
-  border: 1px solid rgba(2, 22, 60, 0.08);
+  background: var(--surface);
+  border: 1px solid rgba(var(--secondary-rgb), 0.08);
   border-radius: 12px;
   padding: 16px;
 }
@@ -783,7 +793,7 @@
   right: 5px;
   top: 50%;
   height: 2px;
-  background: rgba(2, 22, 60, 0.1);
+  background: rgba(var(--secondary-rgb), 0.1);
   transform: translateY(-50%);
 }
 
@@ -794,7 +804,7 @@
   width: 10px;
   height: 10px;
   border-radius: 2px;
-  background: rgba(2, 22, 60, 0.15);
+  background: rgba(var(--secondary-rgb), 0.15);
   transform: rotate(45deg);
 }
 
@@ -814,7 +824,7 @@
 .Employee_Profile_Level_Track_Labels span {
   flex: 1;
   font-size: var(--fine-print);
-  color: rgba(2, 22, 60, 0.55);
+  color: rgba(var(--secondary-rgb), 0.55);
   text-align: center;
 }
 
@@ -836,8 +846,8 @@
    "Get real-time updates" toggle. Same card shell as .Cart_Summary's other
    children so they read as one stack. */
 .Order_Status_Card {
-  background: #fff;
-  border: 1px solid rgba(2, 22, 60, 0.08);
+  background: var(--surface);
+  border: 1px solid rgba(var(--secondary-rgb), 0.08);
   border-radius: 12px;
   padding: 18px;
   margin-bottom: 16px;
@@ -861,7 +871,7 @@
 .Order_Status_Head_Label {
   font-size: var(--fine-print);
   font-weight: var(--font-weight);
-  color: rgba(2, 22, 60, 0.55);
+  color: rgba(var(--secondary-rgb), 0.55);
 }
 
 .Order_Status_Headline {
@@ -874,7 +884,7 @@
 .Order_Status_Sub {
   margin: 0 0 16px;
   font-size: var(--information);
-  color: rgba(2, 22, 60, 0.55);
+  color: rgba(var(--secondary-rgb), 0.55);
   line-height: 1.5;
 }
 
@@ -883,7 +893,7 @@
   align-items: center;
   gap: 12px;
   padding-top: 14px;
-  border-top: 1px solid rgba(2, 22, 60, 0.08);
+  border-top: 1px solid rgba(var(--secondary-rgb), 0.08);
 }
 
 .Order_Status_Shopper_Photo {
@@ -914,7 +924,7 @@
 
 .Order_Status_Shopper_Label {
   font-size: var(--fine-print);
-  color: rgba(2, 22, 60, 0.55);
+  color: rgba(var(--secondary-rgb), 0.55);
 }
 
 .Order_Status_Shopper_Name {
@@ -930,7 +940,7 @@
 .Order_Status_Shopper_Rating {
   font-size: var(--fine-print);
   font-weight: var(--font-weight);
-  color: rgba(2, 22, 60, 0.65);
+  color: rgba(var(--secondary-rgb), 0.65);
 }
 
 .Order_Status_Shopper_Rating .fa-star {
@@ -971,7 +981,7 @@
   display: block;
   margin-top: 12px;
   font-size: 0.6rem;
-  color: rgba(2, 22, 60, 0.45);
+  color: rgba(var(--secondary-rgb), 0.45);
 }
 
 .Order_Status_Detail_Row {
@@ -992,7 +1002,7 @@
 .Order_Status_Detail_Label {
   font-size: var(--fine-print);
   font-weight: var(--font-weight);
-  color: rgba(2, 22, 60, 0.55);
+  color: rgba(var(--secondary-rgb), 0.55);
 }
 
 .Order_Status_Detail_Window {
@@ -1000,6 +1010,13 @@
   font-size: 1.15rem;
   font-weight: var(--font-weight);
   color: var(--secondary);
+}
+
+.Order_Message_Placeholder_Text {
+  margin: 10px 0 0;
+  font-size: var(--fine-print);
+  color: rgba(var(--secondary-rgb), 0.55);
+  line-height: 1.5;
 }
 
 .Order_Status_Detail_Foot {
@@ -1011,7 +1028,7 @@
 
 .Order_Status_Detail_Date {
   font-size: var(--fine-print);
-  color: rgba(2, 22, 60, 0.55);
+  color: rgba(var(--secondary-rgb), 0.55);
 }
 
 .Order_Status_Detail_Pill {
@@ -1038,7 +1055,7 @@
 .Order_Status_Toggle_Text p {
   margin: 4px 0 0;
   font-size: var(--information);
-  color: rgba(2, 22, 60, 0.55);
+  color: rgba(var(--secondary-rgb), 0.55);
   line-height: 1.4;
 }
 
@@ -1076,7 +1093,7 @@
 
 .Quality_Banner_Text span {
   font-size: var(--information);
-  color: rgba(2, 22, 60, 0.65);
+  color: rgba(var(--secondary-rgb), 0.65);
 }
 
 .Quality_Banner_Link {

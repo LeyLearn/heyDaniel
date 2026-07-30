@@ -4,7 +4,7 @@
   align-items: center;
   gap: 14px;
   padding: 16px;
-  border: 1px solid rgba(2, 22, 60, 0.08);
+  border: 1px solid rgba(var(--secondary-rgb), 0.08);
   border-radius: 8px;
   margin-bottom: 12px;
 }

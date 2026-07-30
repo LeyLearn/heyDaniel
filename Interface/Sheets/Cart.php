@@ -98,7 +98,7 @@ $metaDescription = "Review your cart and proceed to checkout with HeyDaniel.";
                         </div>
                     </div>
 
-                    <a href="/HeyDaniel/Interface/Sheets/Checkout.php" class="Cart_Checkout_Btn Btn_Checkout" id="cart-checkout-btn">
+                    <a href="/HeyDaniel/Interface/Sheets/Checkout" class="Cart_Checkout_Btn Btn_Checkout" id="cart-checkout-btn">
                         <i class="fas fa-lock" aria-hidden="true"></i> Proceed to checkout
                     </a>
 

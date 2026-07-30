@@ -208,18 +208,20 @@ function generateDeviceSignature(): string
 //   - new zip ISN'T eligible, cart HAS perishables    -> hold off; caller
 //     must show the conflict and only commit via removePerishablesFromCart()
 //     once the user confirms (see that function below).
-function updateDeviceZip(\PDO $db, string $deviceSignature, string $deviceType, string $zipcode, int $userId): array
+function updateDeviceZip(\PDO $db, string $deviceSignature, string $deviceType, string $zipcode, int $userId, bool $confirmCancelOrder = false): array
 {
     $response = [
-        'zipcode'               => $zipcode,
-        'same_day_eligible'     => false,
-        'tax_rate'              => 0.00,
-        'city'                  => null,
-        'state'                 => null,
-        'requires_confirmation' => false,
-        'perishable_items'      => [],
-        'message'               => null,
-        'error'                 => null
+        'zipcode'                            => $zipcode,
+        'same_day_eligible'                  => false,
+        'tax_rate'                           => 0.00,
+        'city'                               => null,
+        'state'                              => null,
+        'requires_confirmation'              => false,
+        'perishable_items'                   => [],
+        'requires_order_cancel_confirmation' => false,
+        'order_in_transit'                   => false,
+        'message'                            => null,
+        'error'                              => null
     ];
 
     // 1. Input validation
@@ -333,8 +335,31 @@ function updateDeviceZip(\PDO $db, string $deviceSignature, string $deviceType, 
         return $response;
     }
 
-    // 5. If the new zip isn't eligible, a conflict is only possible if the
-    // cart actually holds perishables — check before committing anything.
+    // 5. If the new zip isn't eligible, a Pending/Processing order can no
+    // longer be fulfilled at this address — but cancelling it is a real
+    // consequence, so unless the caller already confirmed via
+    // $confirmCancelOrder, hold off here and let the user decide (mirrors
+    // the perishables-in-cart confirmation below, just gated on a separate
+    // flag since these are independent things to confirm). A Shipped order
+    // is already out for delivery to the address on file, so it's left
+    // alone either way; the caller just gets a heads-up via
+    // order_in_transit instead. Runs before the perishables check so it
+    // still fires even when that branch would otherwise hold off too.
+    if (!$response['same_day_eligible'] && $userId > 0) {
+        $activeOrderStatus = getDisplayOrderStatus($db, $userId);
+        if ($activeOrderStatus === 'Shipped') {
+            $response['order_in_transit'] = true;
+        } elseif ($activeOrderStatus !== null) {
+            if (!$confirmCancelOrder) {
+                $response['requires_order_cancel_confirmation'] = true;
+                return $response; // hold off — caller must not commit yet
+            }
+            cancelOrder($db, $userId, ['Pending', 'Processing']);
+        }
+    }
+
+    // 6. A conflict is only possible if the cart actually holds
+    // perishables — check before committing anything.
     if (!$response['same_day_eligible'] && $userId > 0) {
         try {
             $stmt = $db->prepare("
@@ -364,7 +389,7 @@ function updateDeviceZip(\PDO $db, string $deviceSignature, string $deviceType, 
         }
     }
 
-    // 6. No conflict — safe to commit the device's new zip/eligibility now.
+    // 7. No conflict — safe to commit the device's new zip/eligibility now.
     // This write is what isSameDayEligible() reads back on every future page
     // load to rehydrate the session, so it must never happen before we know
     // there's nothing left for the user to confirm.
@@ -1090,18 +1115,32 @@ function pullingProducts(\PDO $db, bool $isSameDayEligible, string $table, int $
         return $response;
     }
 
+    // "Popular" (RecentlyViewed) is intentionally site-wide trending, not
+    // personal to the caller. "Discover Great Deals" (SearchHistory) and
+    // "RecentlyBought" (ItemBoughtHistory) are personal history, so those two
+    // get scoped to the caller's own UserId - without this they were pulling
+    // every user's search/purchase history mixed together.
+    $scopeToUser = true;
     if ($table === "Recommendations") {
         $table = "SearchHistory";
     } else if ($table === "RecentlyBought") {
         $table = "ItemBoughtHistory";
     } else {
         $table = "RecentlyViewed";
+        $scopeToUser = false;
     }
 
+    $userScopeFilter = $scopeToUser ? "WHERE UserId = ?" : "";
 
     try {
         $activeOrderId = getActiveSameDayOrderId($db, $userId);
 
+        // Dedup (latest row per product) happens in its own subquery before
+        // joining Products, same reasoning as recentlyViewed(): grouping by
+        // r.ProductId at the outer level while selecting p.* would violate
+        // ONLY_FULL_GROUP_BY. Without this, a product with multiple rows in
+        // the source table (e.g. viewed several times) showed up repeated in
+        // the slider instead of once.
         $buildQuery = "
             SELECT
                 r.ProductId,
@@ -1111,7 +1150,12 @@ function pullingProducts(\PDO $db, bool $isSameDayEligible, string $table, int $
                 COALESCE(proc.Quantity, 0)   AS ProcessQuantity,
                 COALESCE(rv.avg_rating, 0)   AS avg_rating,
                 COALESCE(rv.review_count, 0) AS review_count
-            FROM {$table} r
+            FROM (
+                SELECT ProductId, MAX(Id) AS LastId
+                FROM {$table}
+                {$userScopeFilter}
+                GROUP BY ProductId
+            ) r
             INNER JOIN Products p ON p.Id = r.ProductId
             LEFT JOIN Saved s
                 ON s.ProductId = r.ProductId AND s.UserId = ?
@@ -1129,12 +1173,15 @@ function pullingProducts(\PDO $db, bool $isSameDayEligible, string $table, int $
             ) rv ON rv.ProductId = r.ProductId
             LEFT JOIN ProductCategories pc ON pc.ProductId = r.ProductId
             WHERE (? = 1 OR pc.MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy'))
-            ORDER BY r.Id DESC
+            ORDER BY r.LastId DESC
             LIMIT 16
         ";
 
+        $params = $scopeToUser ? [$userId] : [];
+        array_push($params, $userId, $userId, $userId, $activeOrderId, (int)$isSameDayEligible);
+
         $stmt = $db->prepare($buildQuery);
-        $stmt->execute([$userId, $userId, $userId, $activeOrderId, (int)$isSameDayEligible]);
+        $stmt->execute($params);
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($results as $item) {
@@ -1278,7 +1325,7 @@ function searchEngine(\PDO $db, string $searchTerm, bool $isSameDayEligible, flo
             : "AND pc.MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy')";
 
         $query = "
-            SELECT p.*, COALESCE(cart.Quantity, 0) AS CartQuantity, COALESCE(proc.Quantity, 0) AS ProcessQuantity FROM Products p
+            SELECT p.*, pc.MainCategory, COALESCE(cart.Quantity, 0) AS CartQuantity, COALESCE(proc.Quantity, 0) AS ProcessQuantity FROM Products p
             LEFT JOIN ProductCategories pc ON pc.ProductId = p.Id
             LEFT JOIN Cart cart ON cart.ProductId = p.Id AND cart.UserId = ?
             LEFT JOIN Process proc ON proc.ProductId = p.Id AND proc.UserId = ? AND proc.OrderId = ?
@@ -1307,6 +1354,7 @@ function searchEngine(\PDO $db, string $searchTerm, bool $isSameDayEligible, flo
                 'brand'      => $row['Brand'],
                 'name'       => $row['Name'],
                 'oz'         => $row['Size'],
+                'category'   => $row['MainCategory'],
                 'price'      => (float)round($row['Price'] * (1 + $taxRate), 2),
                 'picture'    => $row['Picture'],
                 'is_on_sale' => (bool)$row['isOnSale'],
@@ -1929,6 +1977,148 @@ function logoutUser(\PDO $db, int $userId, string $token): array
     return $response;
 }
 
+// Categories are backend-driven (whatever text a product gets tagged with),
+// but icon images are still hand-uploaded files named after the category
+// (Assets/Categories/{CategoryName}.png) — there's no DB-backed icon mapping.
+// A category with no matching file yet (e.g. just added, or an existing one
+// whose name doesn't match the legacy hardcoded set like "Beauty & Personal
+// Care") falls back to a generic placeholder rather than a broken image.
+// Returns a filename relative to Assets/Categories/, not a full path.
+// Front-page product tiles ("On Sale" / "BOGO" / "What's New" / "Featured"),
+// same-day-eligibility-aware like every other product listing. Featured is
+// backed by Products.isFeatured, which someone has to actually set per
+// product for that section to have content — it isn't derived from anything.
+// A section with zero matching products is left out entirely rather than
+// rendered empty. DISTINCT on the product columns (not pc.*) keeps this safe
+// even if a product ever has more than one ProductCategories row.
+function homepageCollections(\PDO $db, bool $isSameDayEligible): array
+{
+    $eligibilityFilter = $isSameDayEligible
+        ? ""
+        : "AND pc.MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy')";
+
+    // 'filter' is a ready-to-use query string fragment Store.php's URL reader
+    // understands (see item 13) - e.g. "sale=1" makes the "Shop more" link
+    // Store?sale=1. Null for sections Store has no matching filter for yet
+    // (What's New has no hard-filter equivalent, only the "Newest" sort;
+    // Featured has no Store-side concept at all).
+    $sections = [
+        ['title' => 'On Sale',    'bg' => '#F3F3F3', 'where' => 'p.isOnSale = 1',   'filter' => 'sale=1'],
+        ['title' => 'BOGO',       'bg' => '#f2f3f2', 'where' => 'p.isBogo = 1',     'filter' => 'bogo=1'],
+        ['title' => "What's New", 'bg' => '#f0e517', 'where' => '1 = 1',            'filter' => null],
+        ['title' => 'Featured',   'bg' => '#0bb1f3', 'where' => 'p.isFeatured = 1', 'filter' => null],
+    ];
+
+    $collections = [];
+
+    foreach ($sections as $section) {
+        try {
+            $stmt = $db->prepare("
+                SELECT DISTINCT p.Id, p.Name, p.Picture, pc.MainCategory
+                FROM Products p
+                LEFT JOIN ProductCategories pc ON pc.ProductId = p.Id
+                WHERE {$section['where']}
+                {$eligibilityFilter}
+                ORDER BY p.DateAdded DESC
+                LIMIT 4
+            ");
+            $stmt->execute();
+            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if (empty($items)) {
+                continue;
+            }
+
+            $collections[] = [
+                'title'  => $section['title'],
+                'bg'     => $section['bg'],
+                'filter' => $section['filter'],
+                'items'  => array_map(static fn ($row) => [
+                    'product_id' => (int)$row['Id'],
+                    'image'      => $row['Picture'],
+                    'alt'        => $row['Name'],
+                    'category'   => $row['MainCategory'],
+                ], $items),
+            ];
+        } catch (\PDOException $e) {
+            error_log("DB Error in homepageCollections ({$section['title']}): " . $e->getMessage());
+        }
+    }
+
+    return $collections;
+}
+
+// Second box-category row, grouped by MainCategory instead of a product
+// flag (isOnSale/isBogo/etc.) - same shape/return format as
+// homepageCollections() so both feed the same renderer. As of 2026-07-29 the
+// catalog has zero products tagged with any of these four categories, so
+// every section here will legitimately come back empty (and get skipped,
+// same as any homepageCollections() section with no matches) until real
+// products in these categories exist - that's expected, not a bug. The
+// exact category name to match against is a best guess (no existing product
+// to confirm the real naming convention against) - if products eventually
+// get added under a different exact spelling, update the 'category' value
+// here to match.
+function homepageCategoryCollections(\PDO $db, bool $isSameDayEligible): array
+{
+    $eligibilityFilter = $isSameDayEligible
+        ? ""
+        : "AND pc.MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy')";
+
+    $sections = [
+        ['title' => 'Pet food',  'bg' => '#FBEAE3', 'category' => 'Pets'],
+        ['title' => 'Car tools', 'bg' => '#EAF3FB', 'category' => 'Automotive'],
+        ['title' => 'Gardening', 'bg' => '#EAF3E6', 'category' => 'Garden'],
+        ['title' => 'Gym',       'bg' => '#FBEAF0', 'category' => 'Fitness'],
+    ];
+
+    $collections = [];
+
+    foreach ($sections as $section) {
+        try {
+            $stmt = $db->prepare("
+                SELECT DISTINCT p.Id, p.Name, p.Picture, pc.MainCategory
+                FROM Products p
+                INNER JOIN ProductCategories pc ON pc.ProductId = p.Id
+                WHERE pc.MainCategory = ?
+                {$eligibilityFilter}
+                ORDER BY p.DateAdded DESC
+                LIMIT 4
+            ");
+            $stmt->execute([$section['category']]);
+            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if (empty($items)) {
+                continue;
+            }
+
+            $collections[] = [
+                'title'  => $section['title'],
+                'bg'     => $section['bg'],
+                'filter' => 'category=' . urlencode($section['category']),
+                'items'  => array_map(static fn ($row) => [
+                    'product_id' => (int)$row['Id'],
+                    'image'      => $row['Picture'],
+                    'alt'        => $row['Name'],
+                    'category'   => $row['MainCategory'],
+                ], $items),
+            ];
+        } catch (\PDOException $e) {
+            error_log("DB Error in homepageCategoryCollections ({$section['title']}): " . $e->getMessage());
+        }
+    }
+
+    return $collections;
+}
+
+function categoryIconPath(string $categoryName): string
+{
+    $safeName = preg_replace('/[^A-Za-z0-9 &-]/', '', $categoryName);
+    $iconFile = __DIR__ . "/../../Assets/Categories/{$safeName}.png";
+
+    return file_exists($iconFile) ? "{$safeName}.png" : "Placeholder.svg";
+}
+
 function mainCategories(\PDO $db, bool $isSameDayEligible): array
 {
     $response = [
@@ -1948,7 +2138,8 @@ function mainCategories(\PDO $db, bool $isSameDayEligible): array
         foreach ($categories as $category) {
             if ($category['MainCategory'] !== null) {
                 $response['categories'][] = [
-                    'name' => $category['MainCategory']
+                    'name' => $category['MainCategory'],
+                    'icon' => categoryIconPath($category['MainCategory'])
                 ];
             }
         }
@@ -1979,7 +2170,8 @@ function subCategories(\PDO $db, string $mainCategory, bool $isSameDayEligible):
         foreach ($subcategories as $subcategory) {
             if ($subcategory['SubCategory'] !== null) {
                 $response['sub_categories'][] = [
-                    'name' => $subcategory['SubCategory']
+                    'name' => $subcategory['SubCategory'],
+                    'icon' => categoryIconPath($subcategory['SubCategory'])
                 ];
             }
         }
@@ -2010,7 +2202,8 @@ function thirdCategories(\PDO $db, string $subCategory, bool $isSameDayEligible)
         foreach ($thirdCategories as $category) {
             if ($category['ThirdCategory'] !== null) {
                 $response['third_categories'][] = [
-                    'name' => $category['ThirdCategory']
+                    'name' => $category['ThirdCategory'],
+                    'icon' => categoryIconPath($category['ThirdCategory'])
                 ];
             }
         }
@@ -2027,7 +2220,12 @@ function filterStore(\PDO $db, int $userId, bool $hasActiveOrder, bool $isSameDa
     return store($db, $userId, $hasActiveOrder, $isSameDayEligible, $taxRate, $filter, $limit);
 }
 
-function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, float $tipAmount, string $paymentMethodId, array $address): array
+// Flat one-time fee for same-day delivery when the customer isn't a
+// HeyDaniel+ member — the membership's $9.99/mo perk is unlimited free
+// same-day, this is the pay-per-order alternative for everyone else.
+const SAME_DAY_PAID_FEE = 7.99;
+
+function submitCheckout(\PDO $db, int $userId, bool $isSameDay, bool $paidSameDay, float $taxRate, float $tipAmount, string $paymentMethodId, array $address): array
 {
     $response = [
         'order_id' => null,
@@ -2048,17 +2246,27 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
     // actually charged via Stripe) — clamp before it ever reaches the math.
     $tipAmount = max(0.0, $tipAmount);
 
-    // Same-day is a HeyDaniel+ perk — the client already gates this in the
-    // UI, but a stale page or a direct API call could still send
-    // is_same_day=true for a non-member, so re-check server-side rather
-    // than trusting the flag.
+    $sameDayFee = 0.00;
+
+    // Membership-gated free same-day is a HeyDaniel+ perk — the client
+    // already gates this in the UI, but a stale page or a direct API call
+    // could still send is_same_day=true for a non-member, so re-check
+    // server-side rather than trusting the flag.
     if ($isSameDay) {
         $stmt = $db->prepare("SELECT IsMember FROM Users WHERE Id = ? LIMIT 1");
         $stmt->execute([$userId]);
         if (!(bool)$stmt->fetchColumn()) {
             $isSameDay = false;
-            $tipAmount = 0.0;
         }
+    } elseif ($paidSameDay) {
+        // Pay-per-order same-day — no membership required, but it isn't
+        // free: SAME_DAY_PAID_FEE gets added to the total and charged below.
+        $isSameDay  = true;
+        $sameDayFee = SAME_DAY_PAID_FEE;
+    }
+
+    if (!$isSameDay) {
+        $tipAmount = 0.0;
     }
 
     // Validate address
@@ -2098,7 +2306,7 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
         $subtotal  = array_sum(array_map(fn($item) => $item['UnitPrice'] * $item['Quantity'], $cartItems));
         $taxAmount = round($subtotal * $taxRate, 2);
         $tip       = $isSameDay ? round($tipAmount, 2) : 0.00;
-        $total     = round($subtotal + $taxAmount + $tip, 2);
+        $total     = round($subtotal + $taxAmount + $tip + $sameDayFee, 2);
         $itemCount = array_sum(array_column($cartItems, 'Quantity'));
 
         // Check for existing Stripe Customer
@@ -2192,13 +2400,36 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
             $address['Phone']
         ]);
 
+        // A same-day order needs a real 3-hour buffer (shopping + prep +
+        // delivery) to still land before closing — one placed too late in
+        // the day to fit that buffer can't honestly promise "today," so it
+        // gets pinned upfront to tomorrow's opening window instead of the
+        // usual ASAP placeholder ETA. Uses the same store-hours constants
+        // as the reschedule flow (getRescheduleWindowOptions()) so the two
+        // stay consistent.
+        date_default_timezone_set('America/New_York');
+        $now = time();
+        $closeToday = strtotime(date('Y-m-d', $now) . ' ' . STORE_CLOSE_HOUR . ':00:00');
+        $missedSameDayCutoff = $isSameDay && ($now + 3 * 3600 >= $closeToday);
+
+        $scheduledWindow = null;
+        $scheduledStart  = null;
+        $scheduledEnd    = null;
+        if ($missedSameDayCutoff) {
+            $nextWindow      = getNextDayOpeningWindow($now);
+            $scheduledWindow = $nextWindow['label'];
+            $scheduledStart  = date('Y-m-d H:i:s', $nextWindow['start']);
+            $scheduledEnd    = date('Y-m-d H:i:s', $nextWindow['end']);
+        }
+
         // Insert into OrderSent first so its Id is available to tag each
         // line item below with the OrderId it belongs to.
         $stmt = $db->prepare("
             INSERT INTO OrderSent (
                 UserId, ItemQuantity, OrderRevenue, FinalOrderRevenue, OrderLiability,
-                TipAmount, isSameDay, isTipped, OrderStatus
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+                TipAmount, SameDayFee, isSameDay, isTipped, OrderStatus,
+                ScheduledDeliveryWindow, ScheduledDeliveryStart, ScheduledDeliveryEnd
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
         ");
         $stmt->execute([
             $userId,
@@ -2207,8 +2438,12 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, float $taxRate, 
             $total,
             $taxAmount,
             $tip,
+            $sameDayFee,
             (int)$isSameDay,
-            (int)($tip > 0)
+            (int)($tip > 0),
+            $scheduledWindow,
+            $scheduledStart,
+            $scheduledEnd
         ]);
 
         $orderId = (int)$db->lastInsertId();
@@ -2544,18 +2779,47 @@ function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): a
     return $response;
 }
 
-// Cancels the caller's active same-day order, but only while it's still
-// Pending — once a shopper has started Processing/picking it, the UI offers
-// Reschedule Delivery instead, so the update below is scoped to Pending only
+// Cancels the caller's active same-day order. Default caller (the manual
+// Cancel Order button) is scoped to Pending only — once a shopper has
+// started Processing/picking it, the UI offers Reschedule Delivery instead
 // (getActiveSameDayOrderId can return a Processing/Shipped order id too;
-// this rejects those rather than trusting the UI to have gated it). Mirrors
-// cancelMembership's shape. checkout() only authorizes the PaymentIntent
-// (capture_method: manual, captured later in finalizeOrder at delivery), so
-// cancelling here means voiding that hold via Stripe's PaymentIntent::cancel(),
-// not issuing a refund. Process/OrderTracking rows are left alone — they
-// persist forever as buy-again history regardless of the order's outcome
-// (see getActiveSameDayOrderId's comment).
-function cancelOrder(\PDO $db, int $userId): array
+// the default rejects those rather than trusting the UI to have gated it).
+// updateDeviceZip() passes a wider $allowedStatuses (Pending/Processing/
+// Shipped) since an ineligible zip switch cancels the order outright
+// regardless of how far along it is. Mirrors cancelMembership's shape.
+// checkout() only authorizes the PaymentIntent (capture_method: manual,
+// captured later in finalizeOrder at delivery), so cancelling here means
+// voiding that hold via Stripe's PaymentIntent::cancel(), not issuing a
+// refund. Process/OrderTracking rows are left alone — they persist forever
+// as buy-again history regardless of the order's outcome (see
+// getActiveSameDayOrderId's comment).
+// Best-effort "check this order right now" ping to the order-status
+// WebSocket daemon (Server/WebSocket/run.php), so a write this request just
+// committed shows up for anyone watching that order immediately instead of
+// waiting for the daemon's own periodic poll. Fire-and-forget on purpose:
+// a very short connect timeout and every failure mode (daemon not running,
+// port closed, whatever) is swallowed rather than surfaced, since the
+// WebSocket path is a nice-to-have on top of the REST API this request is
+// already correctly serving - it must never be able to fail or slow down
+// the actual write it's reporting on.
+function notifyOrderStatusServer(int $orderId): void
+{
+    $socket = @stream_socket_client(
+        "tcp://127.0.0.1:8081",
+        $errno,
+        $errstr,
+        0.2
+    );
+
+    if ($socket === false) {
+        return;
+    }
+
+    @fwrite($socket, json_encode(['order_id' => $orderId]) . "\n");
+    @fclose($socket);
+}
+
+function cancelOrder(\PDO $db, int $userId, array $allowedStatuses = ['Pending']): array
 {
     $response = [
         'success' => false,
@@ -2594,12 +2858,13 @@ function cancelOrder(\PDO $db, int $userId): array
             $stmt->execute([$userId]);
         }
 
+        $placeholders = implode(',', array_fill(0, count($allowedStatuses), '?'));
         $stmt = $db->prepare("
             UPDATE OrderSent
             SET OrderStatus = 'Cancelled', isClosed = 1
-            WHERE Id = ? AND UserId = ? AND OrderStatus = 'Pending'
+            WHERE Id = ? AND UserId = ? AND OrderStatus IN ($placeholders)
         ");
-        $stmt->execute([$orderId, $userId]);
+        $stmt->execute([$orderId, $userId, ...$allowedStatuses]);
 
         if ($stmt->rowCount() === 0) {
             $response['error'] = "Order can no longer be cancelled.";
@@ -2607,6 +2872,7 @@ function cancelOrder(\PDO $db, int $userId): array
         }
 
         $response['success'] = true;
+        notifyOrderStatusServer($orderId);
 
         createNotification($db, $userId, 'order', 'Order cancelled', "Your order #{$orderId} has been cancelled.");
     } catch (\Stripe\Exception\ApiErrorException $e) {
@@ -2620,13 +2886,126 @@ function cancelOrder(\PDO $db, int $userId): array
     return $response;
 }
 
-// Reschedules the caller's active order to one of a fixed set of same-day
-// windows — there's no real delivery-routing/scheduling system behind this
-// yet (the ETA shown elsewhere is a hardcoded placeholder), so this is
-// deliberately just a label the customer picks and we store, validated
-// server-side against this exact list rather than trusting whatever string
-// the client sends. Keep in sync with the option list in Process.php's
-// modal markup. Only offered (and only takes effect) while the order is
+// Store hours used to generate reschedule delivery windows.
+const STORE_OPEN_HOUR  = 8;
+const STORE_CLOSE_HOUR = 21;
+
+// Reschedule always offers at least this many options, spilling into
+// following days once the current/nearest day runs out of room rather than
+// collapsing to a single fallback slot.
+const MIN_RESCHEDULE_OPTIONS = 6;
+
+// Tomorrow's opening delivery block (store open time to open+4h) — the
+// fallback slot getRescheduleWindowOptions() offers once today runs out of
+// room, and also what a same-day order automatically gets pinned to when
+// it's placed too late for same-day delivery to be physically possible
+// (see submitCheckout()'s cutoff check).
+function getNextDayOpeningWindow(?int $now = null): array
+{
+    date_default_timezone_set('America/New_York');
+    $now = $now ?? time();
+
+    $today        = date('Y-m-d', $now);
+    $openToday    = strtotime("{$today} " . STORE_OPEN_HOUR . ':00:00');
+    $openTomorrow = $openToday + 86400;
+    $closeTomorrow = $openTomorrow + 4 * 3600;
+    $day  = date('D, j M', $openTomorrow);
+    $time = date('g:i A', $openTomorrow) . ' – ' . date('g:i A', $closeTomorrow);
+
+    return [
+        'start' => $openTomorrow,
+        'end'   => $closeTomorrow,
+        'day'   => $day,
+        'time'  => $time,
+        'label' => "{$day}, {$time}",
+    ];
+}
+
+// Generates the delivery windows a customer can reschedule into: 2-hour
+// blocks, the first starting 3 hours from now (rounded up to the next
+// :00/:30 for a clean display time). Walks forward day by day — today,
+// tomorrow, the day after — generating each day's blocks between store
+// open/close, until at least MIN_RESCHEDULE_OPTIONS exist. This is what
+// makes it keep going into tomorrow (and beyond, if needed) once the
+// current day runs out of room, rather than stopping at whatever's left
+// today plus one fixed fallback slot — the 7-day cap is just a safety net,
+// not a real constraint (store hours alone give ~6 slots/day, so this
+// realistically never needs more than 2 days). There's no real
+// delivery-routing/scheduling system behind this yet (the ETA shown
+// elsewhere is a hardcoded placeholder), so this only produces the labels
+// offered to and validated for rescheduleDelivery() — not real
+// capacity/availability.
+function getRescheduleWindowOptions(?int $now = null): array
+{
+    date_default_timezone_set('America/New_York');
+    $now = $now ?? time();
+
+    $start = $now + 3 * 3600;
+    $start -= $start % 60;
+    $remainder = ($start / 60) % 30;
+    if ($remainder !== 0) {
+        $start += (30 - $remainder) * 60;
+    }
+
+    $options = [];
+
+    for ($daysAhead = 0; $daysAhead < 7 && count($options) < MIN_RESCHEDULE_OPTIONS; $daysAhead++) {
+        $dayDate  = date('Y-m-d', $now + $daysAhead * 86400);
+        $openDay  = strtotime("{$dayDate} " . STORE_OPEN_HOUR . ':00:00');
+        $closeDay = strtotime("{$dayDate} " . STORE_CLOSE_HOUR . ':00:00');
+
+        // Only the lead-time floor applies to today; every later day starts
+        // fresh at opening.
+        $slotStart = $daysAhead === 0 ? max($start, $openDay) : $openDay;
+
+        while ($slotStart + 2 * 3600 <= $closeDay && count($options) < MIN_RESCHEDULE_OPTIONS) {
+            $slotEnd = $slotStart + 2 * 3600;
+            // Same "Today" vs weekday-date convention formatScheduledDeliveryWindow()
+            // uses for displaying an already-saved window, so labels stay
+            // consistent once a picked slot is stored and redisplayed later.
+            $day  = $daysAhead === 0 ? 'Today' : date('D, j M', $slotStart);
+            $time = date('g:i A', $slotStart) . ' – ' . date('g:i A', $slotEnd);
+            $options[] = [
+                'start' => $slotStart,
+                'end'   => $slotEnd,
+                'day'   => $day,
+                'time'  => $time,
+                'label' => "{$day}, {$time}",
+            ];
+            $slotStart = $slotEnd;
+        }
+    }
+
+    return $options;
+}
+
+// Formats a saved delivery window for display: if its date matches the
+// viewer's current date, shows "Today, <time range>" instead of whatever
+// weekday/date it was labeled with at reschedule time — so a window saved
+// as "Mon, 27 Jul, 8:00 AM – 12:00 PM" correctly reads as "Today, 8:00 AM –
+// 12:00 PM" once that day actually arrives, rather than staying frozen on
+// the date it was picked under. Falls back to the raw saved label when
+// Start/End weren't recorded (rows written before those columns existed).
+function formatScheduledDeliveryWindow(?string $start, ?string $end, ?string $rawLabel = null): ?string
+{
+    if (!$start || !$end) {
+        return $rawLabel;
+    }
+
+    date_default_timezone_set('America/New_York');
+
+    $startTs = strtotime($start);
+    $endTs   = strtotime($end);
+    $day     = (date('Y-m-d', $startTs) === date('Y-m-d')) ? 'Today' : date('D, j M', $startTs);
+    $time    = date('g:i A', $startTs) . ' – ' . date('g:i A', $endTs);
+
+    return "{$day}, {$time}";
+}
+
+// Reschedules the caller's active order to one of the same-day/next-day
+// windows computed by getRescheduleWindowOptions(), validated server-side
+// against that same generator rather than trusting whatever string the
+// client sends. Only offered (and only takes effect) while the order is
 // Processing. A reschedule throws out whatever picking progress exists —
 // it resets every Process row's QuantityFound back to NULL (= "processing"/
 // not yet picked, per processContent()'s NULL-means-unpicked convention)
@@ -2646,15 +3025,16 @@ function rescheduleDelivery(\PDO $db, int $userId, string $window): array
         return $response;
     }
 
-    $allowedWindows = [
-        'Today, 12:00 PM – 2:00 PM',
-        'Today, 2:00 PM – 4:00 PM',
-        'Today, 4:00 PM – 6:00 PM',
-        'Today, 6:00 PM – 8:00 PM',
-        'Tomorrow, 9:00 AM – 11:00 AM',
-    ];
+    $windowOptions = getRescheduleWindowOptions();
+    $matchedOption = null;
+    foreach ($windowOptions as $option) {
+        if ($option['label'] === $window) {
+            $matchedOption = $option;
+            break;
+        }
+    }
 
-    if (!in_array($window, $allowedWindows, true)) {
+    if ($matchedOption === null) {
         $response['error'] = "Invalid delivery window.";
         return $response;
     }
@@ -2671,10 +3051,10 @@ function rescheduleDelivery(\PDO $db, int $userId, string $window): array
 
         $stmt = $db->prepare("
             UPDATE OrderSent
-            SET ScheduledDeliveryWindow = ?, OrderStatus = 'Pending'
+            SET ScheduledDeliveryWindow = ?, ScheduledDeliveryStart = FROM_UNIXTIME(?), ScheduledDeliveryEnd = FROM_UNIXTIME(?), OrderStatus = 'Pending', WasRescheduled = 1
             WHERE Id = ? AND UserId = ? AND OrderStatus = 'Processing'
         ");
-        $stmt->execute([$window, $orderId, $userId]);
+        $stmt->execute([$window, $matchedOption['start'], $matchedOption['end'], $orderId, $userId]);
 
         if ($stmt->rowCount() === 0) {
             $db->rollBack();
@@ -2696,6 +3076,7 @@ function rescheduleDelivery(\PDO $db, int $userId, string $window): array
 
         $response['success'] = true;
         $response['scheduled_delivery_window'] = $window;
+        notifyOrderStatusServer($orderId);
 
         createNotification($db, $userId, 'order', 'Delivery rescheduled', "Your order #{$orderId}'s delivery has been rescheduled to {$window}.");
     } catch (\PDOException $e) {
@@ -2981,6 +3362,40 @@ function collectEmail(\PDO $db, string $userEmail, bool $isUpdatingPassword): ar
     } catch (\PDOException $e) {
         error_log("DB Error in collectEmail: " . $e->getMessage());
         $response['error'] = "Internal server error during email collection.";
+    }
+
+    return $response;
+}
+
+function subscribeNewsletter(\PDO $db, string $email): array
+{
+    $response = [
+        'success' => false,
+        'message' => null,
+        'error'   => null
+    ];
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $response['error'] = 'Invalid email format.';
+        return $response;
+    }
+
+    try {
+        // Signing up again with the same email is a no-op, not an error —
+        // the UNIQUE key on Email absorbs the repeat via ON DUPLICATE KEY
+        // (updating DateAdded is harmless and avoids a separate SELECT).
+        $stmt = $db->prepare("
+            INSERT INTO NewsletterSubscribers (Email)
+            VALUES (?)
+            ON DUPLICATE KEY UPDATE DateAdded = DateAdded
+        ");
+        $stmt->execute([$email]);
+
+        $response['success'] = true;
+        $response['message'] = "You're subscribed! Look out for deals in your inbox.";
+    } catch (\PDOException $e) {
+        error_log("DB Error in subscribeNewsletter: " . $e->getMessage());
+        $response['error'] = "Internal server error during newsletter signup.";
     }
 
     return $response;

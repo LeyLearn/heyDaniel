@@ -20,6 +20,21 @@ function asset_v($relativePath, $path)
   <meta name="author" content="HeyDaniel">
   <meta name="description" content="<?= isset($metaDescription) ? $metaDescription : 'HeyDaniel - Your online shopping destination.' ?>">
   <script>
+    // Applied before any stylesheet loads, so there's no flash of the wrong
+    // theme on page load/navigation - every page in this app is a separate
+    // full server render, not a SPA, so this has to re-run on every single
+    // page rather than once. Falls back to the OS-level preference when the
+    // user hasn't picked one explicitly yet; toggle button is in Header.php,
+    // click handler in Interaction.js.
+    (function () {
+      var stored = localStorage.getItem("hd-theme");
+      var theme = stored || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      if (theme === "dark") {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    })();
+  </script>
+  <script>
     window.isLoggedIn = false;
     window.isloggedin = false;
     window.isMember = false;

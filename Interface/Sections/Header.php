@@ -45,6 +45,11 @@ $safeFirstName = isset($firstName) ? (string)$firstName : "";
         </div>
         <!-- users -->
         <nav class="user-actions">
+            <!-- dark mode toggle -->
+            <button class="nav-theme-toggle" id="theme-toggle-btn" type="button" aria-label="Toggle dark mode" aria-pressed="false">
+                <i class="fas fa-moon" id="theme-toggle-icon" aria-hidden="true"></i>
+            </button>
+
             <!-- setting || user icon -->
             <button class="nav-account">
                 <?php if ($userId === 0) { ?>

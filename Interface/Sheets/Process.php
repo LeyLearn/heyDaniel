@@ -22,7 +22,7 @@ $metaDescription = "Track your order as it's being picked and packed by HeyDanie
                     <div class="Section_Header">
                         <h2><span id="cart-section-title">Order Processing</span> <span class="Section_Header_Count" id="cart-item-count"></span></h2>
                         <button type="button" class="Order_Action_Btn" id="cancel-order-btn" style="display:none;"><img src="<?php echo $path ?>Assets/Icons/close.svg" alt="" />Cancel Order</button>
-                        <button type="button" class="Order_Action_Btn" id="reschedule-delivery-btn" style="display:none;"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>Reschedule</button>
+                        <button type="button" class="Order_Action_Btn" id="reschedule-delivery-btn" style="display:none;"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5m-9-6h.008v.008H12v-.008ZM12 15h.008v.008H12V15Zm0 2.25h.008v.008H12v-.008ZM9.75 15h.008v.008H9.75V15Zm0 2.25h.008v.008H9.75v-.008ZM7.5 15h.008v.008H7.5V15Zm0 2.25h.008v.008H7.5v-.008Zm6.75-4.5h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V15Zm0 2.25h.008v.008h-.008v-.008Zm2.25-4.5h.008v.008H16.5v-.008Zm0 2.25h.008v.008H16.5V15Z" /></svg>Reschedule</button>
                         <div class="Cart_Sort_Row" id="cart-sort-row" style="display:none;">
                             <label class="Store_Sort_Label" for="cart-sort">Sort by</label>
                             <select id="cart-sort" class="Store_Select Store_Select--sm">
@@ -40,6 +40,7 @@ $metaDescription = "Track your order as it's being picked and packed by HeyDanie
                                 <div class="Order_Progress_Eta_Text">
                                     <span class="Order_Progress_Eta_Label">Estimated delivery</span>
                                     <h3 class="Order_Progress_Eta_Window" id="order-progress-eta-window">&mdash;</h3>
+                                    <span class="Order_Progress_Eta_Pending_Badge" id="order-progress-eta-pending-badge" style="display:none;">Pending</span>
                                     <span class="Order_Progress_Eta_Away">
                                         <i class="fas fa-clock" aria-hidden="true"></i>
                                         <span id="order-progress-eta-minutes">&mdash;</span>
@@ -157,6 +158,16 @@ $metaDescription = "Track your order as it's being picked and packed by HeyDanie
                             </div>
                         </div>
                         <span class="Order_Status_Updated" id="order-status-updated">Last updated: just now</span>
+                    </div>
+
+                    <!-- Reserved spot for in-app messaging with your shopper -
+                         not built yet, this is just the placeholder. -->
+                    <div class="Order_Status_Card Order_Message_Placeholder">
+                        <div class="Order_Status_Detail_Row">
+                            <span class="Icon_Circle Order_Status_Detail_Icon"><i class="fas fa-comment-dots" aria-hidden="true"></i></span>
+                            <span class="Order_Status_Detail_Label">Messages</span>
+                        </div>
+                        <p class="Order_Message_Placeholder_Text">Chatting with your shopper here is coming soon. For now, use the message or call button above to reach them.</p>
                     </div>
 
                     <div class="Order_Status_Card">
@@ -303,54 +314,25 @@ $metaDescription = "Track your order as it's being picked and packed by HeyDanie
     <div class="Address_Modal_Overlay" id="reschedule-modal-overlay" style="display:none;">
         <div class="Address_Modal_Box">
             <div class="Address_Modal_Header">
-                <h3>Reschedule Delivery</h3>
+                <div class="Reschedule_Modal_Title_Row">
+                    <span class="Reschedule_Modal_Icon"><i class="fas fa-calendar-plus" aria-hidden="true"></i></span>
+                    <div>
+                        <h3>Reschedule</h3>
+                        <p class="Reschedule_Modal_Subtitle">Select a new time for today</p>
+                    </div>
+                </div>
                 <button type="button" class="Address_Modal_Close_Btn Btn_Icon_Ghost" id="reschedule-modal-close" aria-label="Close">
                     <i class="fas fa-times" aria-hidden="true"></i>
                 </button>
             </div>
             <div class="Address_Modal_Body">
-                <div class="Delivery_Method_Options" id="reschedule-window-options">
-                    <label class="Delivery_Method_Card" data-window="Today, 12:00 PM – 2:00 PM">
-                        <input type="radio" name="reschedule-window" value="Today, 12:00 PM – 2:00 PM" />
-                        <div class="Delivery_Method_Info">
-                            <span class="Delivery_Method_Name">Today, 12:00 PM &ndash; 2:00 PM</span>
-                            <span class="Checkout_Selected_Badge" style="display:none;">Selected</span>
-                        </div>
-                    </label>
-                    <label class="Delivery_Method_Card" data-window="Today, 2:00 PM – 4:00 PM">
-                        <input type="radio" name="reschedule-window" value="Today, 2:00 PM – 4:00 PM" />
-                        <div class="Delivery_Method_Info">
-                            <span class="Delivery_Method_Name">Today, 2:00 PM &ndash; 4:00 PM</span>
-                            <span class="Checkout_Selected_Badge" style="display:none;">Selected</span>
-                        </div>
-                    </label>
-                    <label class="Delivery_Method_Card" data-window="Today, 4:00 PM – 6:00 PM">
-                        <input type="radio" name="reschedule-window" value="Today, 4:00 PM – 6:00 PM" />
-                        <div class="Delivery_Method_Info">
-                            <span class="Delivery_Method_Name">Today, 4:00 PM &ndash; 6:00 PM</span>
-                            <span class="Checkout_Selected_Badge" style="display:none;">Selected</span>
-                        </div>
-                    </label>
-                    <label class="Delivery_Method_Card" data-window="Today, 6:00 PM – 8:00 PM">
-                        <input type="radio" name="reschedule-window" value="Today, 6:00 PM – 8:00 PM" />
-                        <div class="Delivery_Method_Info">
-                            <span class="Delivery_Method_Name">Today, 6:00 PM &ndash; 8:00 PM</span>
-                            <span class="Checkout_Selected_Badge" style="display:none;">Selected</span>
-                        </div>
-                    </label>
-                    <label class="Delivery_Method_Card" data-window="Tomorrow, 9:00 AM – 11:00 AM">
-                        <input type="radio" name="reschedule-window" value="Tomorrow, 9:00 AM – 11:00 AM" />
-                        <div class="Delivery_Method_Info">
-                            <span class="Delivery_Method_Name">Tomorrow, 9:00 AM &ndash; 11:00 AM</span>
-                            <span class="Checkout_Selected_Badge" style="display:none;">Selected</span>
-                        </div>
-                    </label>
-                </div>
+                <span class="Reschedule_Date_Chip"><i class="fas fa-calendar-alt" aria-hidden="true"></i> Today &middot; <span id="reschedule-date-text"></span></span>
+                <div class="Reschedule_Slot_Options" id="reschedule-window-options"></div>
                 <p class="credential-error" id="reschedule-modal-error" style="display:none;"></p>
             </div>
-            <div class="Address_Modal_Footer">
-                <button type="button" class="Secondary_Light_Btn" id="reschedule-modal-cancel">Cancel</button>
-                <button type="button" class="Profile_Info_Save_Btn" id="reschedule-modal-save">Confirm</button>
+            <div class="Address_Modal_Footer Reschedule_Modal_Footer">
+                <button type="button" class="Profile_Info_Save_Btn Profile_Info_Save_Btn--full" id="reschedule-modal-save" disabled><i class="fas fa-check-circle" aria-hidden="true"></i> Confirm reschedule</button>
+                <button type="button" class="Secondary_Light_Btn Secondary_Light_Btn--full" id="reschedule-modal-cancel"><i class="fas fa-times" aria-hidden="true"></i> Cancel</button>
             </div>
         </div>
     </div>
@@ -360,9 +342,42 @@ $metaDescription = "Track your order as it's being picked and packed by HeyDanie
     <script>
         $(document).ready(function () {
             cartIsProcessing = true;
-            cartItem();
             summary();
             initOrderStatusToggle();
+
+            // Live updates: a shopper picking this order can change its status/
+            // item state server-side at any moment, and none of that reaches this
+            // tab on its own. Primary path is a push from the order-status
+            // WebSocket daemon (Server/WebSocket/run.php - a separate process,
+            // see that file for how to start it) — cheap regardless of how many
+            // tabs are watching, since the daemon does one DB check per order
+            // per tick and fans the signal out, instead of every tab polling on
+            // its own. cartItem(false) keeps whatever sort/page the customer is
+            // on instead of resetting it, same as the reschedule-save flow.
+            let liveUpdateFallbackTimer = null;
+            function refreshOrder() {
+                cartItem(false);
+                summary();
+            }
+            function startPollingFallback() {
+                if (liveUpdateFallbackTimer) {
+                    return;
+                }
+                liveUpdateFallbackTimer = setInterval(refreshOrder, 15000);
+            }
+
+            cartItem(true, function () {
+                const socket = connectOrderStatusSocket(window.currentOrderId, refreshOrder);
+                if (!socket) {
+                    startPollingFallback();
+                    return;
+                }
+                // The daemon not running, or dropping mid-session, shouldn't
+                // mean the page stops updating — fall back to polling rather
+                // than going silent.
+                socket.onerror = startPollingFallback;
+                socket.onclose = startPollingFallback;
+            });
 
             $("#profile-logout-btn").on("click", function () {
                 logout();
@@ -382,11 +397,31 @@ $metaDescription = "Track your order as it's being picked and packed by HeyDanie
             });
 
             $("#reschedule-delivery-btn").on("click", function () {
-                $("#reschedule-window-options .Delivery_Method_Card").removeClass("Selected");
-                $("#reschedule-window-options .Checkout_Selected_Badge").hide();
-                $("#reschedule-window-options input[type='radio']").prop("checked", false);
+                const $options = $("#reschedule-window-options").empty();
+                $("#reschedule-modal-save").prop("disabled", true);
                 $("#reschedule-modal-error").hide();
+                $("#reschedule-date-text").text(new Date().toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }));
                 $("#reschedule-modal-overlay").show();
+
+                getRescheduleWindows()
+                    .done(function (res) {
+                        (res.windows || []).forEach(function (win) {
+                            $("<label></label>")
+                                .addClass("Reschedule_Slot_Card")
+                                .attr("data-window", win.label)
+                                .append(
+                                    $("<input type='radio' name='reschedule-window' />").val(win.label),
+                                    $("<div></div>").addClass("Reschedule_Slot_Info").append(
+                                        $("<span></span>").addClass("Reschedule_Slot_Time").text(win.time || ""),
+                                        $("<span></span>").addClass("Reschedule_Slot_Meta").text(win.day || "")
+                                    )
+                                )
+                                .appendTo($options);
+                        });
+                    })
+                    .fail(function () {
+                        $("#reschedule-modal-error").text("Couldn't load delivery windows.").show();
+                    });
             });
 
             $("#reschedule-modal-close, #reschedule-modal-cancel").on("click", function () {
@@ -400,10 +435,10 @@ $metaDescription = "Track your order as it's being picked and packed by HeyDanie
             });
 
             $("#reschedule-window-options").on("change", "input[name='reschedule-window']", function () {
-                $("#reschedule-window-options .Delivery_Method_Card").removeClass("Selected");
-                $("#reschedule-window-options .Checkout_Selected_Badge").hide();
-                $(this).closest(".Delivery_Method_Card").addClass("Selected")
-                    .find(".Checkout_Selected_Badge").show();
+                $("#reschedule-window-options .Reschedule_Slot_Card").removeClass("Selected");
+                $(this).closest(".Reschedule_Slot_Card").addClass("Selected");
+                $("#reschedule-modal-save").prop("disabled", false);
+                $("#reschedule-modal-error").hide();
             });
 
             $("#reschedule-modal-save").on("click", function () {

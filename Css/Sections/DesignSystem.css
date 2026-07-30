@@ -37,7 +37,7 @@
   --radius-xl:  14px;
   --radius-full: 9999px;
 
-  --shadow-xs: 0 1px 2px rgba(2, 22, 60, 0.06);
+  --shadow-xs: 0 1px 2px rgba(var(--secondary-rgb), 0.06);
   --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.15);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.18);
@@ -46,17 +46,27 @@
   --duration-slow: 400ms;
   --ease: ease-in-out;
 
-  --color-surface:   #fff;
+  --color-surface:   var(--surface, #fff);
   --color-surface-2: var(--bg-light);
   --color-surface-3: var(--bg-light);
-  --color-border:        rgba(2, 22, 60, 0.1);
+  --color-border:        rgba(var(--secondary-rgb), 0.1);
   --color-border-strong: var(--border-light);
   --color-ink:           var(--text-dark);
   --color-ink-secondary: var(--text-muted);
-  --color-ink-muted:     rgba(2, 22, 60, 0.45);
+  --color-ink-muted:     rgba(var(--secondary-rgb), 0.45);
   --color-primary:       var(--secondary);
   --color-primary-hover: var(--secondary-light);
-  --color-primary-soft:  rgba(2, 22, 60, 0.08);
+  --color-primary-soft:  rgba(var(--secondary-rgb), 0.08);
+}
+
+/* The three rgba(var(--secondary-rgb), ...) tokens above are a translucent navy tint
+   meant to sit on a white surface - on a dark surface that same navy tint
+   just reads as a barely-visible dark smudge, so dark mode needs its own
+   (light-tinted) versions rather than inheriting these unchanged. */
+[data-theme="dark"] {
+  --color-border:       rgba(255, 255, 255, 0.12);
+  --color-ink-muted:    rgba(231, 232, 234, 0.5);
+  --color-primary-soft: rgba(102, 137, 189, 0.16);
 }
 
 body {

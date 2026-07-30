@@ -21,7 +21,7 @@ $metaDescription = "Manage your account settings on HeyDaniel.";
                     </div>
 
                     <div class="Settings_List">
-                        <a href="/HeyDaniel/Interface/Sheets/Profile.php" class="Settings_Row Btn_Nav_Row">
+                        <a href="/HeyDaniel/Interface/Sheets/Profile" class="Settings_Row Btn_Nav_Row">
                             <div class="Settings_Row_Text">
                                 <p class="Settings_Row_Title">Account Settings</p>
                                 <p class="Settings_Row_Desc">Manage your personal information.</p>

@@ -1,0 +1,482 @@
+HeyDaniel - Issue Fix List
+==========================
+Running list of issues to fix. Add new ones as we find them, check off when done.
+
+[x] 11. Cleanup pass (while user researched WebSocket concepts): removed
+       objects.txt (stray 3.6MB git-object dump at project root, flagged since
+       item 5's scan, never code). Confirmed renderExploreCategories() +
+       $exploreCategories in Interface/Sections/Main.php were still fully dead
+       (flagged in item 2's notes) and removed them, plus the now-orphaned
+       .main-explore-cat* CSS in Css/Sections/Main.css and the 12 now-orphaned
+       images in Assets/Categories/Explore/ (confirmed zero remaining
+       references before deleting; all were tracked in git, so recoverable).
+       Also audited: every function in Components.php (64), Component.js
+       (105), and Interaction.js (14) is actually called somewhere - no other
+       dead code found. Only 2 classes exist in the whole project (Cache.php's
+       pre-existing QueryCache/RateLimiter/RedisCache, and the WebSocket
+       Ratchet shim) - left Cache.php alone, didn't rewrite it to procedural
+       without you here to review since it's high-traffic shared
+       infrastructure (login/register/checkout rate limiting + read-path
+       caching), not something to risk unattended. Verified front page still
+       renders clean (no console errors) after the Main.php/Main.css edits.
+       Done 2026-07-28.
+
+[x] 1. UI page URLs show .php extension (e.g. /Interface/Sheets/Store.php) - hidden via
+       .htaccess rewrite + updated all internal links to extensionless URLs. Verified
+       in browser (301 redirect from old .php URLs, query strings preserved, API
+       untouched). Done 2026-07-28.
+
+[x] 2. Front-page category buttons (Shop Beauty, Shop Electronics, category tiles, etc.)
+       all link to the plain Store page instead of filtering to that category.
+       - Fixed: Store.php now reads ?category=X from the URL on load, waits for
+         the category dropdown to populate, selects it, and applies the filter
+         (same code path as picking it manually) - shows the active-filter chip
+         too. A plain /Store with no ?category= behaves exactly as before.
+       - Fixed: hero CTAs (Interface/Sections/Main.php:107-127, each slide got a
+         'category' field: "Shop beauty" -> Beauty & Personal Care, "Shop home &
+         living" -> Household [closest real match, dev DB has no exact "Home &
+         Living" category], "Shop electronics" -> Electronics) and the circle
+         category icons (:400, using their own real category name) both now link
+         to Store?category=<urlencoded name>.
+       - Note: Interface/Sections/Main.php:206 (explore tiles, "Furniture/Gaming/
+         Fitness/..." grid) turned out to be DEAD CODE - renderExploreCategories()
+         is defined but never called anywhere in the file, so those tiles don't
+         actually render on the page at all. Left as-is (out of scope to add a
+         whole new visible section), but flagging since it's unused code sitting
+         in the file.
+       - Verified live: circle-icon URLs build correctly (incl. urlencoding "Beauty
+         & Personal Care"'s &), clicking through to Store?category=Beauty+%26+
+         Personal+Care pre-selects the dropdown, shows the chip, and returns 3
+         filtered products; direct ?category=Electronics returns 5; plain /Store
+         still returns all 16 with nothing selected. Done 2026-07-28.
+
+[x] 3. The 4-product square tiles on the front page are static/hardcoded, not real data.
+       - Fixed: new homepageCollections() in Components.php builds 4 real,
+         same-day-eligibility-aware sections - On Sale (isOnSale), BOGO (isBogo),
+         What's New (most recent DateAdded), Featured (new isFeatured column,
+         added to Products/Tables/Product.sql - see below). A section with 0
+         matching products is left out rather than shown empty.
+       - Featured needed a real signal to exist at all: added Products.isFeatured
+         (TINYINT, default 0) per your call to add the flag. Set it on 4 dev
+         products (Countertop Microwave, PowerCore Charger, Hydro Boost
+         Moisturizer, Switch OLED Console) so the section had content to verify
+         against - nothing is auto-featured, someone has to flip it per product.
+       - Also removed a second, near-duplicate hardcoded "row 2" of collections
+         (Interface/Sections/Main.php, was reusing the same stock photos under
+         different fake groupings "until more product images are added") -
+         doesn't make sense once this is real data, so it's gone rather than
+         doubled up.
+       - Each tile is now a real product: clickable through to its Item page,
+         real image, real alt text. Old "last box only has 3 images" complaint
+         is moot now - BOGO correctly shows exactly 2 tiles because only 2
+         products are actually marked BOGO in the catalog, not padded to a
+         fixed count.
+       - Verified live: 4 sections rendered (On Sale x4, BOGO x2, What's New x4,
+         Featured x4), each tile's product_id/image/alt matched the live DB
+         query results exactly, no console errors. Done 2026-07-28.
+
+[x] 4. Circle category section (front page) is a hardcoded list, needs to be
+       backend-driven instead. Backend is the driver, not frontend - e.g. adding a
+       "Sofa" product tagged category "Furniture" should make a Furniture circle
+       appear on the front page automatically, no frontend edit needed.
+       - Fixed: Interface/Sections/Main.php now calls mainCategories($pdo, ...)
+         (already existed, was only used for the Store dropdown before) instead
+         of a hardcoded array - whatever's actually in ProductCategories.MainCategory
+         shows up automatically.
+       - Fixed icon fallback: new categoryIconPath() in Components.php checks
+         Assets/Categories/{CategoryName}.png via file_exists(), falls back to a
+         new generic Assets/Categories/Placeholder.svg when no dedicated image
+         exists yet - per your call to use a placeholder for now since picture
+         upload will be required when products get added later (that add-product
+         flow doesn't exist in this codebase yet, so not building it here).
+       - Verified live: front page now shows the 4 real categories from the dev DB
+         (Beauty & Personal Care, Electronics, Grocery, Household) instead of the
+         old hardcoded 8. Electronics correctly picked up its existing icon file;
+         the other 3 (whose real names don't match the old hand-made filenames)
+         correctly fell back to the placeholder, confirmed via network tab (both
+         Placeholder.svg and Electronics.png returned 200). Done 2026-07-28.
+
+[x] 5. Product rows (recently viewed, popular, etc.) must only show unique products,
+       no repeats.
+       - Fixed: pullingProducts() (Server/Function/Components.php) now dedupes via
+         a "SELECT ProductId, MAX(Id) AS LastId ... GROUP BY ProductId" subquery
+         before joining Products, same pattern recentlyViewed() already used.
+         Verified against live API (pulling_products/Popular): product_ids came
+         back [1, 4, 16, 2] - all unique, where before the fix products 1 and 4
+         would have repeated (they have 6 and 9 rows respectively in
+         RecentlyViewed). Done 2026-07-28.
+       - NEW ISSUE FOUND while fixing this: pullingProducts()'s query never scopes
+         by UserId at all (only used in JOIN conditions, not in the main FROM) -
+         so "Popular Products"/"Discover Great Deals"/"RecentlyBought" sliders
+         pull from every user's history mixed together, not just the current
+         user's. Didn't touch this - unclear if "Popular" is meant to be global
+         (defensible reading of the name) vs "Discover Great Deals"/"RecentlyBought"
+         which sound like they should be personal. Needs a decision, see item 10.
+
+[x] 6. Newsletter section (footer) should be hidden when logged in, and isn't
+       functional at all right now.
+       - Fixed: Interface/Sections/Footer.php now wraps the block in
+         "if (!isset($userId) || $userId === 0)" - same pattern Header.php
+         already uses through the same include chain.
+       - Fixed: added ids to the input/button, a click + Enter-key handler in
+         Client/Interaction.js, a newsletterSubscribe() AJAX call in
+         Client/Component.js, a newsletter_subscribe route ->
+         Server/Secure/Newsletter/Subscribe.php -> subscribeNewsletter() in
+         Components.php, and a new NewsletterSubscribers table (Email UNIQUE,
+         so resubscribing is a harmless no-op instead of an error).
+       - Verified live: subscribed a test email via curl and via the actual page
+         (JS click), confirmed row landed in NewsletterSubscribers, confirmed
+         resubscribing the same email doesn't error, confirmed invalid email
+         is rejected both client-side and server-side. Logged-in hide verified
+         by code-pattern match (identical to Header.php's existing check)
+         rather than a full login session - low-risk one-line conditional.
+         Done 2026-07-28.
+
+[x] 7. Clicking a product in the search-bar dropdown results should take the user
+       to the Store page filtered to similar items, not to that product's Item
+       detail page.
+       - Fixed: searchEngine() now selects pc.MainCategory and returns it as
+         'category' on each product. Search-result click handler
+         (Client/Component.js) now goes to Store?category=<encoded category>
+         instead of Item?id=..., falling back to a plain Store link if a product
+         has no category on file. The add-to-cart stepper inside each result
+         already stopPropagation()s, so it still works without triggering
+         navigation.
+       - Verified live: searched "iphone", clicked the result, landed on
+         Store?category=Electronics, dropdown pre-selected, 5 products shown -
+         same filtering path item 2 built. Done 2026-07-28.
+
+[x] 8. Store page needs the same circle-category row as the front page, with
+       click-to-drill-down: click a category (e.g. Furniture) -> its subcategories
+       show as circles (Sofa, TV, Table); click a subcategory (e.g. Sofa) -> its
+       types/brands show as circles.
+       - Fixed: added a circle row above the product grid (Interface/Sheets/
+         Store.php) that drills Main -> Sub -> Third, with a back button. Built
+         on the existing mainCategories()/subCategories()/thirdCategories()
+         backend cascade - no backend changes needed here, just new frontend.
+       - Sync design: the dropdowns stay the actual source of truth - circles are
+         rendered by reading whichever <select>'s current <option>s, and clicking
+         a circle just sets that <select>'s value and fires its native change
+         event (the same code path as picking it manually). That's what makes
+         circle-click and dropdown-pick two entry points into one shared state
+         instead of two disconnected mechanisms, satisfying your sync note.
+       - Clicking a circle filters immediately (no separate "Apply filters" click
+         needed, unlike manual dropdown use) - matches a quick-browse circle UI.
+       - Verified live end-to-end: main circles (Beauty & Personal Care,
+         Electronics, Grocery, Household) -> clicked Electronics -> sub circles
+         (Accessories, Audio, Cell Phones, Gaming, Kitchen Appliances) + 5
+         products -> clicked Cell Phones -> third-level circle (Smartphones) + 1
+         product + 2 filter chips -> back button returned to sub-level, kept
+         Electronics selected, back to 5 products -> manually changing the Main
+         Category dropdown to Grocery correctly re-rendered circles to Grocery's
+         subcategories (Dairy/Frozen/Pantry/Produce) - confirms both directions
+         sync -> Reset button correctly returned to main-level circles and all
+         16 products. Done 2026-07-28.
+
+[x] 9. Process page needs live updates (order status, item states) instead of only
+       refreshing on page load / after an action. Include the little cart/order
+       summary section up in the header too, since it also changes with order state.
+       - UPGRADED 2026-07-28 (same day, later): replaced the 15s poll below with
+         a real WebSocket push - see Server/WebSocket/OrderStatusServer.php +
+         run.php (new cboden/ratchet dependency). One long-running PHP daemon
+         process (NOT served through Apache - start with
+         `/Applications/XAMPP/xamppfiles/bin/php Server/WebSocket/run.php`,
+         must be the XAMPP php binary) checks each currently-watched order for
+         a changed fingerprint (OrderStatus/WasRescheduled/ScheduledDeliveryWindow
+         + a hash of its Process rows) once every 3s and only pushes to that
+         order's subscribed tabs when something actually changed - one DB check
+         per order regardless of how many tabs are watching it, which is the
+         "cheap" part per-tab polling didn't have. The push itself carries no
+         data, just a signal; the client reacts by calling the same
+         cartItem(false)/summary() it already used for polling, so there's still
+         one source of truth for how order data is shaped. Falls back to the
+         original 15s polling automatically if the socket never connects or
+         drops mid-session (daemon not running, etc.) - live updates matter more
+         than avoiding polling when the push path is down.
+       - SPEED FIX same day: you correctly called out that this still "felt"
+         slow - it was, because it was poll-based push, not push-on-write: the
+         3s timer meant a change could sit for up to 3s before the daemon even
+         looked, on top of the AJAX round-trip after the signal arrived. Fixed
+         by having the write paths this app actually controls
+         (cancelOrder()/rescheduleDelivery() in Components.php) notify the
+         daemon the instant they commit, via a new notifyOrderStatusServer()
+         - a fire-and-forget ping to a loopback-only (127.0.0.1, not public)
+         trigger socket the daemon also listens on (run.php, port 8081). The
+         3s periodic check is now just a catch-all safety net for changes that
+         don't go through this app's own write paths (e.g. a future
+         shopper-facing endpoint), not the common case. Measured with a real
+         WS client end-to-end (DB mutation -> trigger ping -> push received):
+         0ms, vs. up to 3000ms before.
+       - Auth: a client subscribes with {order_id}; the daemon reads the
+         PHPSESSID cookie off the WS handshake, reads that session file directly
+         off disk (session_start() can't be used inside this daemon - it tries
+         to send a cookie header, and PHP's CLI SAPI considers headers "sent"
+         the moment the startup echo() runs, so every later call would fail),
+         and confirms via getActiveSameDayOrderId() that the session's user
+         actually owns the requested order before subscribing it - same check
+         every REST endpoint already does, just re-derived for a non-HTTP
+         context. Verified both directions with a real Node WS test client
+         against seeded orders: correct owner gets subscribed and receives a
+         push after the order's DB row was mutated externally; a different
+         user's session gets an explicit "Not authorized" and is disconnected.
+       - Original fixed-then-superseded description: Process.php polling every
+         15s (setInterval calling cartItem(false) + summary()) - kept below only
+         as what the fallback now does when the socket path is unavailable.
+       - CORRECTION to my own earlier note in this file: the header order-summary
+         amount is NOT actually dead markup - I was wrong. A separate function,
+         summary() (Client/Component.js:1459 -> Summary() in Components.php),
+         already updates it correctly on every page load (wired up in
+         Interaction.js's global ready() block, which runs on every page) and
+         after cart actions, and it correctly switches between Cart and Process
+         as the pricing source depending on whether there's an active order. It
+         just wasn't polled, so it could go stale while sitting on Process.php -
+         that's now fixed by including it in the same 15s interval above.
+       - Added a dedicated "Messages" placeholder card on Process.php (below the
+         shopper info card) reserving a real spot for future user<->shopper
+         messaging - not just the existing small icon button (which already
+         showed a "coming soon" alert and still does, left alone).
+       - Verification note: Process.php is only ever reached through Cart.php's
+         internal routing when the session's logged-in user has an active
+         same-day order (confirmed pre-existing/by-design, not something this
+         touched) - couldn't click through it live without real login
+         credentials. Verified instead via `php -l` (clean) and by server-side
+         rendering the actual template with XAMPP's PHP binary: no fatal errors,
+         no warnings, both the new placeholder card and the polling code
+         confirmed present in the real rendered output.
+
+[x] 10. pullingProducts() (Server/Function/Components.php) doesn't scope its query
+       by UserId at all - "Popular Products", "Discover Great Deals", and the
+       RecentlyBought slider currently pull from every user's history mixed
+       together, not just the current user's. Found while fixing item 5.
+       - Fixed per the split I proposed: "Popular" (RecentlyViewed) stays
+         site-wide/global (unscoped), while "Discover Great Deals"
+         (SearchHistory) and "RecentlyBought" (ItemBoughtHistory) are now scoped
+         to WHERE UserId = ? in the dedup subquery, gated by a new $scopeToUser
+         flag so it's just those two, not Popular.
+       - Verified by calling pullingProducts() directly (bypassing the need for
+         two real login sessions) with two different UserIds against seeded test
+         rows: User 1's "Recommendations" returned only their own products
+         [2,1], User 5's returned only [3]; "RecentlyBought" split the same way
+         ([4] vs [6,5]); "Popular" returned the identical list for both users,
+         confirming it correctly stayed global. Test rows removed after.
+         Done 2026-07-28.
+
+[x] 12. Changing to a non-same-day-eligible zip doesn't refresh the front-page
+       box categories (On Sale/BOGO/What's New/Featured) - items from
+       ineligible categories (Grocery/Frozen/Produce/Dairy) stay visible after
+       the switch instead of dropping out.
+       - Fixed: new homepage_collections route -> Server/Secure/Products/
+         HomepageCollections.php wrapping homepageCollections() (same pattern
+         as pulling_products/ProductSlide.php). New client functions
+         refreshHomepageCollections() (fetches) + renderHomepageCollections()
+         (rebuilds .main-sale-cat-container using the exact same classes/markup
+         renderSaleCollections() produces server-side), wired into
+         DeviceLog()'s success handler right next to refreshProductSliders().
+       - Verified live: called renderHomepageCollections() after emptying the
+         container - rebuilt output was pixel-identical in structure to the
+         server-rendered version (same tile hrefs, same "Shop more" hrefs,
+         same section count). Confirmed the endpoint itself returns correct
+         eligibility-filtered data via curl. Done 2026-07-29.
+
+[x] 13. "Shop more" links on the box categories (On Sale/BOGO/etc.) just go to
+       the plain Store page instead of filtering to that section - e.g.
+       clicking "Shop more" under BOGO should land on Store already filtered
+       to BOGO items.
+       - Fixed: homepageCollections() now includes a 'filter' key per section
+         ('sale' for On Sale, 'bogo' for BOGO, null for What's New/Featured -
+         no Store-side equivalent for those two yet, confirmed still true).
+         renderSaleCollections() (Main.php) uses it to build
+         Store?sale=1 / Store?bogo=1 links, falling back to a plain Store link
+         when null. Store.php's initial-load script now reads ?sale=1/?bogo=1
+         the same way it already read ?category=, pre-checking the matching
+         checkbox before applying filters.
+       - Verified live: Store?sale=1 -> Sale checkbox checked, 4 products,
+         "On Sale" chip. Store?bogo=1 -> Bogo checkbox checked, 2 products,
+         "BOGO" chip. Plain /Store and ?category=X both re-verified unaffected
+         (16 products / correctly filtered respectively). Done 2026-07-29.
+
+[x] 14. Clicking a product tile inside a box category (On Sale/BOGO/etc.) goes
+       to that product's Item detail page - should instead go to the Store
+       page filtered to similar items, matching the pattern already built for
+       search-result clicks (item 7).
+       - Fixed: homepageCollections() now selects/returns pc.MainCategory as
+         'category' per item (same gap item 7 hit in searchEngine() and fixed
+         the same way). renderSaleCollections() tiles now link to
+         Store?category=<urlencoded category>, falling back to a plain Store
+         link if a product has no category on file.
+       - Verified live: front-page tile hrefs confirmed pointing to
+         Store?category=Grocery / ?category=Electronics etc. instead of
+         Item?id=. Done 2026-07-29.
+
+[x] 15. Bring back a second row of box categories on the front page - was there
+       before, removed when item 3 made the first row real data (the old one
+       was hardcoded stock-photo collages reusing the same images under fake
+       groupings, not real product data, so it was deleted rather than kept
+       as more placeholder content). This time: Pet food, Car tools,
+       Gardening, and Gym sections, real data like the first row.
+       - Fixed: new homepageCategoryCollections() in Components.php - same
+         shape/return format as homepageCollections() so both feed the same
+         renderer, but grouped by MainCategory instead of a product flag.
+         Wired into Interface/Sections/Main.php as a second
+         .main-sale-cat-container, only rendered when non-empty (avoids a
+         blank ~80px gap from an empty container - that CSS has real
+         margin/padding even with nothing inside).
+       - Also generalized how "Shop more" links work while in here: the
+         'filter' field on both functions is now a ready-to-use query string
+         fragment ("sale=1", "bogo=1", "category=Pets") instead of a bare
+         keyword - lets this row's sections link to Store?category=X the same
+         way item 14's tile clicks do, reusing the exact same mechanism
+         instead of inventing a second one.
+       - Category names used (Pets/Automotive/Garden/Fitness) are a best
+         guess - the dev DB has zero products tagged with any of them right
+         now, so there's no existing product to confirm the real naming
+         convention against. Noted in the function's own comment for whoever
+         adds the first real product in one of these categories.
+       - Verified live: confirmed the row correctly renders nothing (no
+         stray empty container) with zero matching products. Seeded a
+         temporary test product tagged MainCategory 'Pets', confirmed the
+         "Pet food" section appeared with the correct tile and "Shop more"
+         links (both Store?category=Pets), then deleted the test product and
+         re-confirmed On Sale/BOGO's ?sale=1/?bogo=1 links still worked
+         correctly after the 'filter' field refactor. Done 2026-07-29.
+
+[x] 16. Store page's circle-category filter row (item 8) doesn't match the
+       site's UI pattern - needs actual pictures per circle, like the
+       front-page category circles have, not plain text pills. Keep the
+       text/title labels as they are, just add the picture.
+       - Fixed: mainCategories()/subCategories()/thirdCategories()
+         (Components.php) now each call categoryIconPath() per category and
+         include it as 'icon' - same mechanism the front page already used,
+         now shared instead of front-page-only. The three Secure/Store/
+         Filter/*.php endpoints needed no changes, they already pass their
+         function's return value straight through. Simplified Main.php's own
+         setup to read $category['icon'] directly instead of a second,
+         redundant categoryIconPath() call it was doing before.
+       - Client/Component.js's mainCategories()/subCategories()/
+         thirdCategories() JS now stash icon as a data-icon attribute on each
+         <option> (the only place this data can ride along, since the
+         dropdown was already the source of truth circles read from).
+         renderCategoryCircles() (Store.php) reads it and renders a small
+         round image + label instead of a plain text pill; CSS
+         (.Store_Circle_Item_Img) added to Store.css to fit it inside the
+         existing pill shape.
+       - Verified live at all 3 drilldown levels: Main-level circles show
+         real pictures (Electronics got its actual icon, the other 3
+         correctly fell back to Placeholder.svg, same as the front page).
+         Sub-level (drilled into Electronics) correctly showed Placeholder.svg
+         for all 5 - expected, sub/third categories have never had dedicated
+         icon files. Filtering, chips, and the front page's own circles all
+         re-confirmed unaffected, no console errors. Done 2026-07-30.
+
+[x] 17. Logging out while on a page the user shouldn't be on once logged out
+       (an account-only page) should send them to the front page, not reload
+       the same page.
+       - Fixed: logout() (Client/Component.js) now checks the current path
+         against an account-only list (Profile, Orders, Saved, Addresses,
+         PaymentMethods, Notifications, Settings, Cart, Checkout) and redirects
+         to / instead of reloading when matched. Cart's included even though
+         it degrades gracefully for guests (empty-cart view) rather than
+         erroring, since it may be showing Process/active-order content tied
+         to the now-destroyed session - reloading it would silently swap the
+         order view out for an unrelated empty cart with no explanation.
+         Everywhere else (Store, Item, HelpSupport, etc.) already renders fine
+         logged out, so those still just reload.
+       - Verified live: confirmed the path-matching logic correctly flags
+         /Interface/Sheets/Profile as account-only and /Interface/Sheets/Store
+         as not. Couldn't exercise the full AJAX success path without real
+         login credentials (guest logout calls correctly 401 "Unauthorized"
+         server-side, confirmed by reading Logout.php - nothing to fix there,
+         that's correct behavior). Done 2026-07-29.
+
+[x] 18. Clicking the header's "Order Summary" widget should take you to Cart
+       (or Process, if there's an active same-day order - same routing
+       Cart.php already does internally).
+       - Fixed: added a one-line click handler in Client/Interaction.js
+         (matching the existing .nav-cart pattern right above it) navigating
+         to /Interface/Sheets/Cart. No client-side branching needed - Cart.php
+         already internally serves Process.php's content when there's an
+         active order, so this single link covers both cases automatically.
+       - Small discovery: the CSS (.summary-order in Header.css) already had
+         cursor: pointer and a :hover background state - this was clearly
+         built to be clickable and just never got the JS wired up.
+       - Verified live: clicked it on the front page, landed on
+         /Interface/Sheets/Cart. Done 2026-07-29.
+
+[ ] 19. Reschedule modal only ever shows 1 time-slot option - needs at least 6.
+       If the store's closed for the rest of the day, it should keep
+       generating options into the next day (and beyond if needed) instead of
+       collapsing to a single generic "tomorrow" slot.
+       - Root cause found: getRescheduleWindowOptions() (Components.php)
+         generates 2-hour windows in a loop for TODAY only, then unconditionally
+         appends exactly one getNextDayOpeningWindow() call at the end - no
+         loop across multiple days. Any time after ~6pm (since there's a
+         mandatory 3-hour lead time and the store closes at 9pm -
+         STORE_CLOSE_HOUR = 21), zero today-windows fit the loop condition, so
+         the result is just that single next-day option - matches exactly what
+         you're seeing, and it's not an edge case, it's roughly a third of the
+         day (6pm-midnight+) where this happens every time.
+       - Fixed: rewrote as a loop over MIN_RESCHEDULE_OPTIONS (new constant,
+         =6) that walks forward day by day - today, tomorrow, the day after -
+         generating each day's 2-hour blocks between STORE_OPEN_HOUR/
+         STORE_CLOSE_HOUR, until enough options exist (capped at 7 days as a
+         safety net, never actually needed since ~6 slots/day means 2 days
+         always covers it). Left getNextDayOpeningWindow() completely
+         untouched - it's used separately by submitCheckout() for the
+         missed-same-day-cutoff case and didn't need to change.
+       - Next-day+ labels use the same "Today" vs weekday-date convention
+         formatScheduledDeliveryWindow() already uses for displaying a saved
+         window, so labels stay consistent before and after a slot is picked.
+       - Verified by calling getRescheduleWindowOptions() directly with 5
+         different times of day: mid-morning, mid-afternoon, late evening
+         (past the old bug's ~6pm cutoff), right at closing, and middle of
+         the night - every single one now returns exactly 6 options, correctly
+         spilling into "Thu, 30 Jul" once the current day runs out. Confirmed
+         the live endpoint (Secure/Order/RescheduleWindows.php) is a pure
+         label/day/time pass-through with no assumptions about count, so it
+         picks up the fix automatically. Done 2026-07-29.
+
+[x] 20. New DB table(s) for product nutrition facts + description (food
+       products) and a simpler facts + description (non-food products).
+       Need to nail down the exact schema before building - see questions.
+       - Per your answers: two separate tables, full US nutrition label detail
+         for food.
+       - Created Tables/ProductNutritionFacts.sql (food): ServingSize,
+         ServingsPerContainer, Calories, TotalFat, SaturatedFat, TransFat,
+         Cholesterol, Sodium, TotalCarbohydrates, DietaryFiber, TotalSugars,
+         AddedSugars, Protein, Ingredients, Allergens, Description - one row
+         per product, ProductId UNIQUE + FOREIGN KEY ON DELETE CASCADE
+         (matches ProductImages.sql's existing FK convention).
+       - Created Tables/ProductFacts.sql (non-food): just Facts + Description,
+         deliberately unstructured since non-food "facts" vary too much by
+         category to model as fixed columns - same ProductId UNIQUE + FK
+         pattern.
+       - Applied both to the live dev DB (HeyDaniel2). Verified: a real insert
+         against product 1 worked and stored correctly (then removed); an
+         insert against a nonexistent ProductId correctly failed with a
+         foreign key constraint error, confirming the FK actually enforces.
+         No backend functions/endpoints built yet to read/write these -
+         wasn't asked for, this was schema only. Done 2026-07-30.
+
+[x] 21. Audit Tables/*.sql against the live dev DB (HeyDaniel2) and make sure
+       every table that actually exists has a matching .sql file - general
+       housekeeping, not a specific bug.
+       - Clean result: all 26 live tables have a matching .sql file (24 files
+         total - some define more than one table, e.g. filenames don't always
+         match table names: AllowedZip.sql -> ZipcodeAllowed, ItemHistory.sql
+         -> ItemBoughtHistory, OrderProcess.sql -> Process, PaymentMethod.sql
+         -> CustomerPaymentMethod, PaymentTokens.sql -> Tokens, SaveItem.sql
+         -> Saved). Also checked column-level drift (not just table
+         existence) - every table's live columns match its .sql file's
+         declared columns exactly, no live ALTERs that never got backported.
+       - One stale finding, NOT fixed: Tables/PERFORMANCE_INDEXES.sql defines
+         a ProductRatings table (+ triggers on ItemReviews to keep it in
+         sync) that was never actually applied - it doesn't exist in the live
+         DB. Confirmed the file is genuinely broken against the current
+         schema, not just unapplied: it references OrderSent.OrderDate (real
+         column is DateAdded), ProductCategories.Ext_Category (real column is
+         ExtCategory, no underscore), and TABLE_SCHEMA = 'heydaniel' (the old
+         database name per project memory, not HeyDaniel2) - running it as-is
+         would fail partway through. Left alone rather than guessing whether
+         to fix the column references or delete it outright - that's a call
+         for you, not something to decide unilaterally during an audit.
+         Done 2026-07-30.

@@ -6,9 +6,11 @@ include_once __DIR__ . "/../../Function/Components.php";
 $response = [
     'cart_items'                => [],
     'is_processing'             => false,
+    'order_id'                  => null,
     'order_status'              => null,
     'order_placed_at'           => null,
     'scheduled_delivery_window' => null,
+    'was_rescheduled'           => false,
     'message'                   => null,
     'error'                     => null
 ];
@@ -47,13 +49,19 @@ if ($activeOrderId !== null) {
     $orderStatus = getDisplayOrderStatus($pdo, $userId);
     $content = processContent($pdo, $userId, $activeOrderId, $taxRate, $orderStatus);
     $response['is_processing'] = true;
+    $response['order_id'] = $activeOrderId;
     $response['order_status'] = $orderStatus;
 
-    $stmt = $pdo->prepare("SELECT DateAdded, ScheduledDeliveryWindow FROM OrderSent WHERE Id = ?");
+    $stmt = $pdo->prepare("SELECT DateAdded, ScheduledDeliveryWindow, ScheduledDeliveryStart, ScheduledDeliveryEnd, WasRescheduled FROM OrderSent WHERE Id = ?");
     $stmt->execute([$activeOrderId]);
     $orderRow = $stmt->fetch();
     $response['order_placed_at'] = $orderRow['DateAdded'] ?? null;
-    $response['scheduled_delivery_window'] = $orderRow['ScheduledDeliveryWindow'] ?? null;
+    $response['scheduled_delivery_window'] = formatScheduledDeliveryWindow(
+        $orderRow['ScheduledDeliveryStart'] ?? null,
+        $orderRow['ScheduledDeliveryEnd'] ?? null,
+        $orderRow['ScheduledDeliveryWindow'] ?? null
+    );
+    $response['was_rescheduled'] = (bool)($orderRow['WasRescheduled'] ?? false);
 } else {
     $content = cartContent($pdo, $userId, $taxRate);
 }

@@ -31,6 +31,7 @@ if (!in_array($userDeviceType, $validDeviceTypes, true)) {
 $userId          = 0;
 $taxRate         = 0.00;
 $isSameDay       = false;
+$paidSameDay     = false;
 $tipAmount       = 0.00;
 $paymentMethodId = '';
 $address         = [];
@@ -39,6 +40,7 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
     $userId          = resolveMobileUserId($data);
     $taxRate         = (float)($data['tax_rate']        ?? 0.00);
     $isSameDay       = (bool)($data['is_same_day']      ?? false);
+    $paidSameDay     = (bool)($data['is_paid_same_day'] ?? false);
     $tipAmount       = (float)($data['tip_amount']      ?? 0.00);
     $paymentMethodId = trim($data['payment_method_id']  ?? '');
     $address         = $data['address']                 ?? [];
@@ -46,10 +48,13 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
     session_start();
     $userId          = (int)($_SESSION['user_id']            ?? 0);
     $taxRate         = (float)($_SESSION['tax_rate']          ?? 0.00);
-    // isSameDay reflects what the shopper actually picked on the delivery
-    // step, not just whether their zip happens to qualify — submitCheckout()
-    // separately re-verifies membership before honoring it.
-    $isSameDay       = ($data['delivery_method'] ?? '') === 'same-day' && (bool)($_SESSION['same_day_eligible'] ?? false);
+    // isSameDay/paidSameDay reflect what the shopper actually picked on the
+    // delivery step, not just whether their zip happens to qualify —
+    // submitCheckout() separately re-verifies membership (for the free,
+    // isSameDay path) before honoring either.
+    $deliveryMethod  = (string)($data['delivery_method'] ?? '');
+    $isSameDay       = $deliveryMethod === 'same-day' && (bool)($_SESSION['same_day_eligible'] ?? false);
+    $paidSameDay     = $deliveryMethod === 'same-day-paid' && (bool)($_SESSION['same_day_eligible'] ?? false);
     $tipAmount       = (float)($data['tip_amount']            ?? 0.00);
     $paymentMethodId = trim($data['payment_method_id']  ?? '');
     $address         = $data['address']                 ?? [];
@@ -95,7 +100,7 @@ if (RateLimiter::tooManyAttempts($pdo, "checkout:{$userId}", 10, 600)) {
     exit;
 }
 
-$checkout = submitCheckout($pdo, $userId, $isSameDay, $taxRate, $tipAmount, $paymentMethodId, $address);
+$checkout = submitCheckout($pdo, $userId, $isSameDay, $paidSameDay, $taxRate, $tipAmount, $paymentMethodId, $address);
 
 if (!empty($checkout['error'])) {
     http_response_code(500);

@@ -85,6 +85,16 @@ $metaDescription = "Browse our store and get same-day delivery with HeyDaniel.";
         <!-- ========== MAIN CONTENT ========== -->
         <div class="Store_Main">
 
+          <!-- Category drilldown: Main -> Sub -> Third, kept in sync with the
+               sidebar dropdowns (clicking a circle drives the matching select;
+               changing a select re-renders the circles for that level). -->
+          <div class="Store_Category_Circles" id="store-category-circles" style="display:none;">
+            <button type="button" class="Store_Circle_Back" id="store-circle-back" style="display:none;" aria-label="Back">
+              <i class="fas fa-chevron-left"></i>
+            </button>
+            <div class="Store_Circle_Row" id="store-circle-row"></div>
+          </div>
+
           <!-- Top bar -->
           <div class="Store_Topbar">
             <div class="Store_Topbar_Left">
@@ -177,6 +187,60 @@ $metaDescription = "Browse our store and get same-day delivery with HeyDaniel.";
                 $("#store-sidebar-overlay").removeClass("Open");
             });
 
+            // ---------- Category circles (drilldown, synced with the dropdowns) ----------
+            // The dropdowns are the source of truth; circles are just a visual
+            // reflection of whichever <select> is currently active, rebuilt from
+            // its <option>s every time that select's contents or value change.
+            // That's what keeps the two in sync in both directions: clicking a
+            // circle sets the matching <select>'s value (native change event,
+            // same code path as picking it manually), and picking a dropdown
+            // option re-renders the circle row for that level.
+            function renderCategoryCircles(level) {
+                const selectId = level === "main" ? "#store-filter-main-category"
+                    : level === "sub" ? "#store-filter-sub-category"
+                        : "#store-filter-third-category";
+
+                const $select = $(selectId);
+                const $options = $select.find("option:not(:first)");
+                const $wrap = $("#store-category-circles");
+                const $row = $("#store-circle-row").empty();
+
+                if (!$options.length) {
+                    $wrap.hide();
+                    return;
+                }
+
+                const selectedValue = $select.val();
+                $options.each(function () {
+                    const value = $(this).val();
+                    const icon = $(this).attr("data-icon");
+                    $('<button type="button" class="Store_Circle_Item"></button>')
+                        .toggleClass("Active", value === selectedValue)
+                        .append(
+                            $('<span class="Store_Circle_Item_Img"></span>').css("background-image", "url(/HeyDaniel/Assets/Categories/" + icon + ")"),
+                            $('<span class="Store_Circle_Item_Label"></span>').text(value)
+                        )
+                        .on("click", function () {
+                            $select.val(value).trigger("change");
+                            applyFilters();
+                        })
+                        .appendTo($row);
+                });
+
+                $("#store-circle-back").toggle(level !== "main");
+                $wrap.data("level", level).show();
+            }
+
+            $("#store-circle-back").on("click", function () {
+                const level = $("#store-category-circles").data("level");
+                if (level === "sub") {
+                    $("#store-filter-main-category").val("").trigger("change");
+                } else if (level === "third") {
+                    $("#store-filter-sub-category").val("").trigger("change");
+                }
+                applyFilters();
+            });
+
             // ---------- Category cascade ----------
             $("#store-filter-main-category").on("change", function () {
                 const main = $(this).val();
@@ -185,7 +249,11 @@ $metaDescription = "Browse our store and get same-day delivery with HeyDaniel.";
                 $("#store-filter-third-category").prop("disabled", true).find("option:not(:first)").remove();
 
                 if (main) {
-                    subCategories(main);
+                    subCategories(main, function () {
+                        renderCategoryCircles("sub");
+                    });
+                } else {
+                    renderCategoryCircles("main");
                 }
             });
 
@@ -195,8 +263,16 @@ $metaDescription = "Browse our store and get same-day delivery with HeyDaniel.";
                 $("#store-filter-third-category").prop("disabled", true).find("option:not(:first)").remove();
 
                 if (sub) {
-                    thirdCategories(sub);
+                    thirdCategories(sub, function () {
+                        renderCategoryCircles("third");
+                    });
+                } else {
+                    renderCategoryCircles("sub");
                 }
+            });
+
+            $("#store-filter-third-category").on("change", function () {
+                renderCategoryCircles("third");
             });
 
             // ---------- Filter chips ----------
@@ -251,11 +327,14 @@ $metaDescription = "Browse our store and get same-day delivery with HeyDaniel.";
                     $("#store-filter-main-category").val("");
                     $("#store-filter-sub-category").val("").prop("disabled", true).find("option:not(:first)").remove();
                     $("#store-filter-third-category").val("").prop("disabled", true).find("option:not(:first)").remove();
+                    renderCategoryCircles("main");
                 } else if (key === "SubCategory") {
                     $("#store-filter-sub-category").val("");
                     $("#store-filter-third-category").val("").prop("disabled", true).find("option:not(:first)").remove();
+                    renderCategoryCircles("sub");
                 } else if (key === "ThirdCategory") {
                     $("#store-filter-third-category").val("");
+                    renderCategoryCircles("third");
                 } else if (key === "Brand") {
                     $("#store-filter-brand").val("");
                 } else if (key === "isOnSale") {
@@ -288,6 +367,7 @@ $metaDescription = "Browse our store and get same-day delivery with HeyDaniel.";
                 $("#store-filter-min-price, #store-filter-max-price").val("");
                 $("#store-filter-sale, #store-filter-bogo").prop("checked", false);
                 $("#store-active-filters").hide().empty();
+                renderCategoryCircles("main");
                 store({}, 16);
             });
 
@@ -311,8 +391,40 @@ $metaDescription = "Browse our store and get same-day delivery with HeyDaniel.";
             };
 
             // ---------- Initial load ----------
-            mainCategories();
-            store({}, 16);
+            // Category links elsewhere (front page circles/CTAs) pass the
+            // category via ?category=, box-category "Shop more" links pass
+            // ?sale=1 / ?bogo=1 - all applied once the dropdown's options
+            // exist so .val() has something to match against. None of these
+            // present means the exact same unfiltered load as before.
+            const initialParams = new URLSearchParams(window.location.search);
+            const initialCategory = initialParams.get("category");
+            const initialSale = initialParams.get("sale") === "1";
+            const initialBogo = initialParams.get("bogo") === "1";
+            const hasInitialFilter = initialCategory || initialSale || initialBogo;
+
+            if (initialSale) {
+                $("#store-filter-sale").prop("checked", true);
+            }
+            if (initialBogo) {
+                $("#store-filter-bogo").prop("checked", true);
+            }
+
+            mainCategories(function () {
+                if (initialCategory) {
+                    $("#store-filter-main-category").val(initialCategory);
+                }
+                renderCategoryCircles("main");
+                if (hasInitialFilter) {
+                    if (initialCategory) {
+                        $("#store-filter-main-category").trigger("change");
+                    }
+                    applyFilters();
+                }
+            });
+
+            if (!hasInitialFilter) {
+                store({}, 16);
+            }
         });
     </script>
 

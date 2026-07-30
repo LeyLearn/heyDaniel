@@ -1,14 +1,17 @@
 <footer class="site-footer">
+    <?php if (!isset($userId) || $userId === 0) { ?>
     <div class="footer-newsletter">
         <div class="footer-newsletter-copy">
             <h2>Get the HeyDaniel newsletter</h2>
             <p>Same-day deals and new arrivals, once a week.</p>
         </div>
         <div class="footer-newsletter-form">
-            <input type="email" placeholder="name@email.com" />
-            <button type="button" aria-label="Subscribe to newsletter"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
+            <input type="email" id="footer-newsletter-email" placeholder="name@email.com" />
+            <button type="button" id="footer-newsletter-submit" aria-label="Subscribe to newsletter"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
         </div>
+        <p class="footer-newsletter-message" id="footer-newsletter-message" style="display:none;"></p>
     </div>
+    <?php } ?>
 
     <div class="footer-main">
         <div class="footer-brand">
@@ -24,11 +27,11 @@
 
         <div class="footer-links">
             <h3>Shop</h3>
-            <a href="/HeyDaniel/Interface/Sheets/Store.php">Groceries</a>
-            <a href="/HeyDaniel/Interface/Sheets/Store.php">Electronics</a>
-            <a href="/HeyDaniel/Interface/Sheets/Store.php">Kitchen</a>
-            <a href="/HeyDaniel/Interface/Sheets/Store.php">Beauty</a>
-            <a href="/HeyDaniel/Interface/Sheets/Store.php">All categories</a>
+            <a href="/HeyDaniel/Interface/Sheets/Store">Groceries</a>
+            <a href="/HeyDaniel/Interface/Sheets/Store">Electronics</a>
+            <a href="/HeyDaniel/Interface/Sheets/Store">Kitchen</a>
+            <a href="/HeyDaniel/Interface/Sheets/Store">Beauty</a>
+            <a href="/HeyDaniel/Interface/Sheets/Store">All categories</a>
         </div>
 
         <div class="footer-links">

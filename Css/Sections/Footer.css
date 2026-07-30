@@ -27,6 +27,21 @@
 
 /* .footer-newsletter-form (input + button) moved to Input.css */
 
+.footer-newsletter-message{
+    flex-basis: 100%;
+    font-size: var(--information);
+    font-weight: var(--font-weight);
+    margin: 0;
+}
+
+.footer-newsletter-message.Newsletter_Message_Success{
+    color: var(--status-success);
+}
+
+.footer-newsletter-message.Newsletter_Message_Error{
+    color: var(--primary);
+}
+
 .footer-main{
     display: flex;
     gap: 40px;

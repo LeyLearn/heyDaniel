@@ -223,15 +223,50 @@ $(function () {
     // ============================
 
     $(".nav-account").on("click", function () {
-        window.location.href = "/HeyDaniel/Interface/Sheets/Profile.php";
+        window.location.href = "/HeyDaniel/Interface/Sheets/Profile";
     });
 
     $(".nav-wishlist").on("click", function () {
-        window.location.href = "/HeyDaniel/Interface/Sheets/Saved.php";
+        window.location.href = "/HeyDaniel/Interface/Sheets/Saved";
     });
 
     $(".nav-cart").on("click", function () {
-        window.location.href = "/HeyDaniel/Interface/Sheets/Cart.php";
+        window.location.href = "/HeyDaniel/Interface/Sheets/Cart";
+    });
+
+    // Cart.php already internally serves Process.php's content instead when
+    // there's an active same-day order, so linking here to Cart is enough to
+    // cover both cases - no client-side branching needed.
+    $(".summary-order").on("click", function () {
+        window.location.href = "/HeyDaniel/Interface/Sheets/Cart";
+    });
+
+    // ============================
+    // Dark Mode Toggle
+    // ============================
+    // The actual theme is already applied before first paint by the inline
+    // script in Head.php (avoids a flash of the wrong theme) - this just
+    // syncs the button's icon/state to whatever that script decided, and
+    // handles switching it afterward.
+
+    function syncThemeToggleIcon() {
+        const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+        $("#theme-toggle-icon").toggleClass("fa-moon", !isDark).toggleClass("fa-sun", isDark);
+        $("#theme-toggle-btn").attr("aria-pressed", isDark ? "true" : "false");
+    }
+
+    syncThemeToggleIcon();
+
+    $("#theme-toggle-btn").on("click", function () {
+        const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+        if (isDark) {
+            document.documentElement.removeAttribute("data-theme");
+            localStorage.setItem("hd-theme", "light");
+        } else {
+            document.documentElement.setAttribute("data-theme", "dark");
+            localStorage.setItem("hd-theme", "dark");
+        }
+        syncThemeToggleIcon();
     });
 
     // ============================
@@ -523,4 +558,36 @@ $(function () {
             });
         });
     }
+
+    // ============================
+    // Footer Newsletter Signup
+    // ============================
+
+    function submitNewsletterSignup() {
+        const $email = $("#footer-newsletter-email");
+        const $message = $("#footer-newsletter-message");
+        const email = $email.val().trim();
+
+        $message.hide().removeClass("Newsletter_Message_Success Newsletter_Message_Error");
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            $message.addClass("Newsletter_Message_Error").text("Enter a valid email address.").show();
+            return;
+        }
+
+        newsletterSubscribe(email, function (message) {
+            $message.addClass("Newsletter_Message_Success").text(message).show();
+            $email.val("");
+        }, function (message) {
+            $message.addClass("Newsletter_Message_Error").text(message).show();
+        });
+    }
+
+    $("#footer-newsletter-submit").on("click", submitNewsletterSignup);
+
+    $("#footer-newsletter-email").on("keydown", function (e) {
+        if (e.key === "Enter") {
+            submitNewsletterSignup();
+        }
+    });
 });

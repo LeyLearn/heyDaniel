@@ -1,0 +1,16 @@
+RewriteEngine On
+
+# Hide the .php extension on UI pages served from Interface/Sheets.
+# Server/index.php (the API front controller) and Interface/Sections
+# (server-side includes, never requested directly) are untouched.
+
+# 1) Direct requests for the .php URL get a permanent redirect to the
+#    clean URL, so old links/bookmarks still work and there's only one
+#    canonical address per page.
+RewriteCond %{THE_REQUEST} \s/+HeyDaniel/Interface/Sheets/([^\s.?]+)\.php[\s?] [NC]
+RewriteRule ^ /HeyDaniel/Interface/Sheets/%1 [R=301,L]
+
+# 2) Serve the matching .php file for the clean URL, without changing
+#    what's shown in the address bar.
+RewriteCond %{REQUEST_FILENAME}.php -f
+RewriteRule ^Interface/Sheets/([^/.]+)/?$ Interface/Sheets/$1.php [L]

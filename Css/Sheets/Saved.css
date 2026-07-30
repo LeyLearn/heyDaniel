@@ -14,7 +14,7 @@
 
 .Wishlist_Section_Header {
   padding-bottom: 16px;
-  border-bottom: 1px solid rgba(2, 22, 60, 0.08);
+  border-bottom: 1px solid rgba(var(--secondary-rgb), 0.08);
 }
 
 /* Fixed 3-column grid so cards keep their regular size no matter how

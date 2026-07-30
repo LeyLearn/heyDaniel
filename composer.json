@@ -6,7 +6,8 @@
     },
     "require": {
         "stripe/stripe-php": "^20.2",
-        "google/apiclient": "^2.16"
+        "google/apiclient": "^2.16",
+        "cboden/ratchet": "^0.4.4"
     },
     "config": {
         "optimize-autoloader": true,

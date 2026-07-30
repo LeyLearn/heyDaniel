@@ -42,6 +42,7 @@ $routes = [
     'item_push'         => 'Secure/Engine/ItemPush.php',
     'recently_viewed'   => 'Secure/Engine/RecentlyViewed.php',
     'pulling_products'   => 'Secure/Products/ProductSlide.php',
+    'homepage_collections' => 'Secure/Products/HomepageCollections.php',
 
     // Checkout & Orders
     'checkout'          => 'Secure/Checkout/Checkout.php',
@@ -50,6 +51,7 @@ $routes = [
     'order_details'     => 'Secure/Order/OrderDetails.php',
     'cancel_order'      => 'Secure/Order/CancelOrder.php',
     'reschedule_delivery' => 'Secure/Order/RescheduleDelivery.php',
+    'reschedule_windows' => 'Secure/Order/RescheduleWindows.php',
 
     // Reviews
     'reviews_get'       => 'Secure/Reviews/GetReviews.php',
@@ -70,6 +72,9 @@ $routes = [
     'mark_notification_read' => 'Secure/User/MarkNotificationRead.php',
     'subscribe_membership' => 'Secure/User/SubscribeMembership.php',
     'cancel_membership' => 'Secure/User/CancelMembership.php',
+
+    // Newsletter
+    'newsletter_subscribe' => 'Secure/Newsletter/Subscribe.php',
 
     // Password Reset
     'collect_email'     => 'Secure/CollectEmail.php',

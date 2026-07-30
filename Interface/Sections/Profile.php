@@ -31,7 +31,7 @@
                 <div class="Stat_Text">
                     <span class="Stat_Number Stat_Number_Orders" id="stat-orders-count">0</span>
                     <span class="Stat_Label">Orders</span>
-                    <a href="/HeyDaniel/Interface/Sheets/Orders.php" class="Stat_Link">View all orders</a>
+                    <a href="/HeyDaniel/Interface/Sheets/Orders" class="Stat_Link">View all orders</a>
                 </div>
             </div>
             <div class="Stat_Divider"></div>
@@ -40,7 +40,7 @@
                 <div class="Stat_Text">
                     <span class="Stat_Number Stat_Number_Wishlist" id="stat-wishlist-count">0</span>
                     <span class="Stat_Label">Wishlist Items</span>
-                    <a href="/HeyDaniel/Interface/Sheets/Saved.php" class="Stat_Link">View wishlist</a>
+                    <a href="/HeyDaniel/Interface/Sheets/Saved" class="Stat_Link">View wishlist</a>
                 </div>
             </div>
             <div class="Stat_Divider"></div>
@@ -49,7 +49,7 @@
                 <div class="Stat_Text">
                     <span class="Stat_Number Stat_Number_Spent" id="stat-total-spent">$0.00</span>
                     <span class="Stat_Label">Total Spent</span>
-                    <a href="/HeyDaniel/Interface/Sheets/Orders.php" class="Stat_Link">View spending</a>
+                    <a href="/HeyDaniel/Interface/Sheets/Orders" class="Stat_Link">View spending</a>
                 </div>
             </div>
             <div class="Stat_Divider"></div>
@@ -123,14 +123,14 @@
             <div class="Profile_Section" id="profile-orders">
                 <div class="Order_History_Header">
                     <h3>Order History</h3>
-                    <a href="/HeyDaniel/Interface/Sheets/Orders.php" class="Order_History_View_All">View All Orders</a>
+                    <a href="/HeyDaniel/Interface/Sheets/Orders" class="Order_History_View_All">View All Orders</a>
                 </div>
                 <div id="order-history-empty" class="Order_Empty" style="display:none;">
                     <div class="Order_Empty_Icon_Wrap">
                         <img src="<?php echo $path ?>Assets/Icons/cart-empty.svg" alt="" class="Order_Empty_Icon" />
                     </div>
                     <p class="Order_Empty_Text">You haven't placed any orders yet.</p>
-                    <a href="/HeyDaniel/Interface/Sheets/Store.php" class="Order_Empty_Link">Start Browsing</a>
+                    <a href="/HeyDaniel/Interface/Sheets/Store" class="Order_Empty_Link">Start Browsing</a>
                 </div>
                 <div id="order-history-container">
                     <?php for ($i = 0; $i < 3; $i++) { ?>
@@ -144,7 +144,7 @@
                         </div>
                     <?php } ?>
                 </div>
-                <a href="/HeyDaniel/Interface/Sheets/Orders.php" id="order-history-view-all-btn" class="Secondary_Light_Btn Secondary_Light_Btn--full Order_History_Footer_Btn" style="display:none;">View All Orders</a>
+                <a href="/HeyDaniel/Interface/Sheets/Orders" id="order-history-view-all-btn" class="Secondary_Light_Btn Secondary_Light_Btn--full Order_History_Footer_Btn" style="display:none;">View All Orders</a>
             </div>
         </div>
 

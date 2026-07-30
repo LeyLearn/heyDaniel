@@ -24,11 +24,11 @@
   width: 100%;
   max-width: 350px;
   height: 450px;
-  background: #fff;
+  background: var(--surface);
   border-radius: 8px;
   overflow: hidden;
   transition: all 0.3s ease-in-out;
-  border: 1px solid rgba(2, 22, 60, 0.1);
+  border: 1px solid rgba(var(--secondary-rgb), 0.1);
 }
 
 .Product_Card:hover {
@@ -48,7 +48,7 @@
   background-position: center;
   background-repeat: no-repeat;
   background-origin: content-box;
-  background-color: rgba(2, 22, 60, 0.1);
+  background-color: rgba(var(--secondary-rgb), 0.1);
 }
 
 
@@ -244,8 +244,8 @@
   display: flex;
   align-items: center;
   gap: 20px;
-  background: rgba(2, 22, 60, 0.05);
-  border: 1px solid rgba(2, 22, 60, 0.1);
+  background: rgba(var(--secondary-rgb), 0.05);
+  border: 1px solid rgba(var(--secondary-rgb), 0.1);
   border-radius: 8px;
   padding: 5px 20px 5px 5px;
 }
@@ -261,7 +261,7 @@
   background-position: center;
   background-repeat: no-repeat;
   background-origin: content-box;
-  background-color: rgba(2, 22, 60, 0.1);
+  background-color: rgba(var(--secondary-rgb), 0.1);
   padding: 12px;
   box-sizing: border-box;
 }
@@ -564,7 +564,7 @@
   justify-content: center;
   border: 1px solid var(--border-light);
   border-radius: 6px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text-dark);
   font-size: var(--text-sm);
   font-weight: 550;
@@ -596,7 +596,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(2, 22, 60, 0.45);
+  background: rgba(var(--secondary-rgb), 0.45);
   z-index: 1000;
   align-items: center;
   justify-content: center;
@@ -607,9 +607,9 @@
 }
 
 .Modal_Content {
-  background: #fff;
+  background: var(--surface);
   border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(2, 22, 60, 0.25);
+  box-shadow: 0 10px 40px rgba(var(--secondary-rgb), 0.25);
   max-height: 90vh;
   width: 100%;
   max-width: 420px;
@@ -832,7 +832,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 2px 10px rgba(2, 22, 60, 0.2);
+  box-shadow: 0 2px 10px rgba(var(--secondary-rgb), 0.2);
   transition: background 0.2s ease-in-out;
 }
 
@@ -866,8 +866,8 @@
   border-radius: 12px;
   padding: 32px;
   padding-right: 220px;
-  background: #fff;
-  border: 1px solid rgba(2, 22, 60, 0.08);
+  background: var(--surface);
+  border: 1px solid rgba(var(--secondary-rgb), 0.08);
 }
 
 .auth-promo-guest {
@@ -1011,7 +1011,7 @@
 .plus-promo-divider {
   width: 1px;
   height: 36px;
-  background: rgba(2, 22, 60, 0.1);
+  background: rgba(var(--secondary-rgb), 0.1);
   flex-shrink: 0;
 }
 
@@ -1110,7 +1110,7 @@
   overflow: hidden;
   border-radius: 16px;
   background: linear-gradient(135deg, #faf3e9 0%, #f3e4d0 55%, #ecd8bb 100%);
-  border: 1px solid rgba(2, 22, 60, 0.08);
+  border: 1px solid rgba(var(--secondary-rgb), 0.08);
 }
 
 .member-promo-main {
@@ -1168,7 +1168,7 @@
 
 .member-promo-rule {
   height: 1px;
-  background: rgba(2, 22, 60, 0.12);
+  background: rgba(var(--secondary-rgb), 0.12);
   margin: 18px 0 20px;
   max-width: 420px;
 }
@@ -1214,7 +1214,7 @@
 .member-promo-divider {
   width: 1px;
   height: 60px;
-  background: rgba(2, 22, 60, 0.12);
+  background: rgba(var(--secondary-rgb), 0.12);
   flex-shrink: 0;
   margin-top: 6px;
 }
@@ -1289,7 +1289,7 @@
   align-items: flex-start;
   gap: 12px;
   background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(2, 22, 60, 0.08);
+  border: 1px solid rgba(var(--secondary-rgb), 0.08);
   border-radius: 10px;
   padding: 14px;
 }
@@ -1297,7 +1297,7 @@
 .member-promo-reward-icon {
   width: 36px;
   height: 36px;
-  background: #fff;
+  background: var(--surface);
   color: var(--primary);
   font-size: var(--regular-text);
 }
@@ -1317,7 +1317,7 @@
 .member-promo-reward-bar {
   height: 6px;
   border-radius: 999px;
-  background: rgba(2, 22, 60, 0.1);
+  background: rgba(var(--secondary-rgb), 0.1);
   overflow: hidden;
   margin-bottom: 8px;
 }
@@ -1363,7 +1363,7 @@
   align-items: center;
   gap: 14px;
   padding: 18px 40px;
-  border-top: 1px solid rgba(2, 22, 60, 0.1);
+  border-top: 1px solid rgba(var(--secondary-rgb), 0.1);
   background: rgba(255, 255, 255, 0.35);
 }
 
@@ -1617,9 +1617,9 @@
 ========================= */
 .Skeleton_Block {
   background: linear-gradient(90deg,
-      rgba(2, 22, 60, 0.06) 25%,
-      rgba(2, 22, 60, 0.12) 37%,
-      rgba(2, 22, 60, 0.06) 63%);
+      rgba(var(--secondary-rgb), 0.06) 25%,
+      rgba(var(--secondary-rgb), 0.12) 37%,
+      rgba(var(--secondary-rgb), 0.06) 63%);
   background-size: 400% 100%;
   animation: shimmer 1.2s infinite linear;
   border-radius: 6px;
@@ -1633,10 +1633,10 @@
   width: 100%;
   max-width: 350px;
   height: 450px;
-  background: #fff;
+  background: var(--surface);
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid rgba(2, 22, 60, 0.1);
+  border: 1px solid rgba(var(--secondary-rgb), 0.1);
 }
 
 .Skeleton_Product_Card_Image {
@@ -1664,8 +1664,8 @@
   display: flex;
   align-items: center;
   gap: 20px;
-  background: rgba(2, 22, 60, 0.05);
-  border: 1px solid rgba(2, 22, 60, 0.1);
+  background: rgba(var(--secondary-rgb), 0.05);
+  border: 1px solid rgba(var(--secondary-rgb), 0.1);
   border-radius: 8px;
   padding: 20px;
 }
@@ -1702,7 +1702,7 @@
   align-items: center;
   gap: 14px;
   padding: 16px;
-  border: 1px solid rgba(2, 22, 60, 0.08);
+  border: 1px solid rgba(var(--secondary-rgb), 0.08);
   border-radius: 8px;
   margin-bottom: 12px;
 }

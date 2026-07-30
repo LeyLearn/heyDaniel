@@ -58,7 +58,7 @@ $metaDescription = "View your order history on HeyDaniel.";
                             <p class="Order_Help_Banner_Title">Can't find your order?</p>
                             <p class="Order_Help_Banner_Subtitle">Try changing the filter or check another time period.</p>
                         </div>
-                        <a href="/HeyDaniel/Interface/Sheets/Store.php" class="Order_Help_Banner_Link">Start Browsing <i class="fas fa-chevron-right" aria-hidden="true"></i></a>
+                        <a href="/HeyDaniel/Interface/Sheets/Store" class="Order_Help_Banner_Link">Start Browsing <i class="fas fa-chevron-right" aria-hidden="true"></i></a>
                     </div>
 
                     <div id="orders-empty" class="Order_Empty" style="display:none;">

@@ -10,10 +10,12 @@ $response = [
     'state'                 => null,
     'same_day_eligible'     => false,
     'tax_rate'              => 0.00,
-    'requires_confirmation' => false,
-    'perishable_items'      => [],
-    'message'               => null,
-    'error'                 => null
+    'requires_confirmation'              => false,
+    'perishable_items'                   => [],
+    'requires_order_cancel_confirmation' => false,
+    'order_in_transit'                   => false,
+    'message'                            => null,
+    'error'                              => null
 ];
 
 
@@ -32,6 +34,7 @@ if (!isset($data['zipcode']) || empty($data['zipcode']) || strlen($data['zipcode
 $userDeviceType = $data['device_type'];
 $zipcode = $data['zipcode'];
 $confirmRemovePerishables = (bool)($data['confirm_remove_perishables'] ?? false);
+$confirmCancelOrder = (bool)($data['confirm_cancel_order'] ?? false);
 $validDeviceTypes = ['iOS', 'Android', 'Web'];
 $userId = 0;
 $userDeviceSignature = null;
@@ -68,7 +71,7 @@ if ($confirmRemovePerishables) {
     $response['same_day_eligible'] = false;
     $response['tax_rate']          = $confirm['tax_rate'];
 } else {
-    $update = updateDeviceZip($pdo, $userDeviceSignature, $userDeviceType, $zipcode, $userId);
+    $update = updateDeviceZip($pdo, $userDeviceSignature, $userDeviceType, $zipcode, $userId, $confirmCancelOrder);
 
     if (!empty($update['error'])) {
         http_response_code(500);
@@ -82,9 +85,16 @@ if ($confirmRemovePerishables) {
         exit;
     }
 
+    if ($update['requires_order_cancel_confirmation']) {
+        $response['requires_order_cancel_confirmation'] = true;
+        echo json_encode($response);
+        exit;
+    }
+
     if ($update['requires_confirmation']) {
         $response['requires_confirmation'] = true;
         $response['perishable_items'] = $update['perishable_items'];
+        $response['order_in_transit'] = $update['order_in_transit'];
         echo json_encode($response);
         exit;
     }
@@ -94,6 +104,7 @@ if ($confirmRemovePerishables) {
     $response['state']             = $update['state'];
     $response['same_day_eligible'] = $update['same_day_eligible'];
     $response['tax_rate']          = $update['tax_rate'];
+    $response['order_in_transit']  = $update['order_in_transit'];
 }
 
 $_SESSION['zipcode'] = $response['zipcode'];

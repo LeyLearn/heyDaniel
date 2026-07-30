@@ -24,7 +24,7 @@ $metaDescription = "View product details on HeyDaniel.";
         <p id="item-not-found" class="Store_Empty" style="display:none;">Product not found.</p>
 
         <div id="item-content" style="display:none;">
-            <a href="/HeyDaniel/Interface/Sheets/Store.php" class="Item_Back_Link">
+            <a href="/HeyDaniel/Interface/Sheets/Store" class="Item_Back_Link">
                 <img src="<?php echo $path ?>Assets/Icons/chevron-left.svg" alt="" /> Back to Store
             </a>
 
@@ -99,7 +99,7 @@ $metaDescription = "View product details on HeyDaniel.";
                     </form>
                 <?php } else { ?>
                     <p class="Item_Review_Prompt">
-                        <a href="/HeyDaniel/Interface/Sheets/Credential.php">Sign in</a> to write a review.
+                        <a href="/HeyDaniel/Interface/Sheets/Credential">Sign in</a> to write a review.
                     </p>
                 <?php } ?>
 

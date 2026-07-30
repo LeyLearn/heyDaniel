@@ -135,6 +135,74 @@
   min-width: 0;
 }
 
+/* ---------- Category drilldown circles ---------- */
+.Store_Category_Circles {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.Store_Circle_Back {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.Store_Circle_Back:hover {
+  background: var(--color-surface-2);
+}
+
+.Store_Circle_Row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.Store_Circle_Item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: var(--space-1) var(--space-4) var(--space-1) var(--space-1);
+  cursor: pointer;
+  transition: var(--duration) var(--ease);
+}
+
+.Store_Circle_Item:hover {
+  background: var(--color-surface-2);
+}
+
+.Store_Circle_Item.Active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.Store_Circle_Item_Img {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface-2);
+  background-size: cover;
+  background-position: center;
+}
+
 .Store_Topbar {
   display: flex;
   align-items: center;

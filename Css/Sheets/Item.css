@@ -40,7 +40,7 @@
   flex-shrink: 0;
   height: 420px;
   border-radius: 8px;
-  background-color: rgba(2, 22, 60, 0.1);
+  background-color: rgba(var(--secondary-rgb), 0.1);
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
@@ -144,7 +144,7 @@
 }
 
 .Item_Review_Form {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border-light);
   border-radius: 8px;
   padding: 20px;

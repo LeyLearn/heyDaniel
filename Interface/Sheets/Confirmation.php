@@ -54,8 +54,8 @@ $metaDescription = "Your order has been placed. Thank you for shopping with HeyD
 
             <div class="Confirmation_Actions">
                 <button type="button" class="Place_Order_Btn Primary_Btn" id="confirmation-track-btn">Track Your Order</button>
-                <a href="/HeyDaniel/Interface/Sheets/Store.php" class="Continue_Shopping_Btn">Continue shopping</a>
-                <a href="/HeyDaniel/Interface/Sheets/Profile.php" class="Text_Btn">View order history</a>
+                <a href="/HeyDaniel/Interface/Sheets/Store" class="Continue_Shopping_Btn">Continue shopping</a>
+                <a href="/HeyDaniel/Interface/Sheets/Profile" class="Text_Btn">View order history</a>
             </div>
         </div>
 
@@ -76,7 +76,7 @@ $metaDescription = "Your order has been placed. Thank you for shopping with HeyD
             <h1>We couldn't find that order</h1>
             <p>It may still be processing. Check your order history for the latest status.</p>
             <div class="Confirmation_Actions">
-                <a href="/HeyDaniel/Interface/Sheets/Profile.php" class="Continue_Shopping_Btn">View order history</a>
+                <a href="/HeyDaniel/Interface/Sheets/Profile" class="Continue_Shopping_Btn">View order history</a>
             </div>
         </div>
     </section>

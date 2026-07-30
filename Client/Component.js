@@ -160,7 +160,7 @@ function applyActiveOrderUI() {
 
 function requireLogin() {
     if (!getIsLoggedIn()) {
-        window.location.href = "/HeyDaniel/Interface/Sheets/Credential.php";
+        window.location.href = "/HeyDaniel/Interface/Sheets/Credential";
         return false;
     }
     return true;
@@ -268,7 +268,7 @@ function confirmZipChange() {
     hideZipConflictModal();
 }
 
-function DeviceLog(zipcode, clicked, confirmRemovePerishables) {
+function DeviceLog(zipcode, clicked, confirmRemovePerishables, confirmCancelOrder) {
     $.ajax({
         method: "POST",
         url: "/HeyDaniel/Server/index.php",
@@ -278,13 +278,36 @@ function DeviceLog(zipcode, clicked, confirmRemovePerishables) {
             action: "device_log",
             device_type: "Web",
             zipcode: zipcode,
-            confirm_remove_perishables: !!confirmRemovePerishables
+            confirm_remove_perishables: !!confirmRemovePerishables,
+            confirm_cancel_order: !!confirmCancelOrder
         }),
         success: function (data) {
             if (data.message) {
                 console.log(data.message)
+            } else if (data.requires_order_cancel_confirmation) {
+                // Same reason as showZipConflictModal(): the confirm modal
+                // needs to sit above the side-bar's native <dialog>, which
+                // always renders in the browser's top layer regardless of
+                // z-index — so the side-bar has to close first.
+                $("#side-bar").removeClass("Sidebar_Open");
+                $("html, body").removeClass("No_Scroll");
+
+                showAppConfirm(
+                    "This zip code can't support your active order, and it will be cancelled if you continue.",
+                    function () {
+                        DeviceLog(zipcode, clicked, false, true);
+                    },
+                    {
+                        title: "Cancel your order?",
+                        confirmLabel: "Yes, cancel order",
+                        cancelLabel: "No, go back"
+                    }
+                );
             } else if (data.requires_confirmation) {
                 showZipConflictModal(zipcode, clicked, data.perishable_items);
+                if (data.order_in_transit) {
+                    showAppAlert("You have an order on the way — it'll still be delivered to the address on file.", { title: "Order in transit" });
+                }
             } else {
                 function updateUI(data) {
 
@@ -327,9 +350,13 @@ function DeviceLog(zipcode, clicked, confirmRemovePerishables) {
 
                 updateUI(data);
                 refreshProductSliders();
+                refreshHomepageCollections();
                 summary();
                 cartIcon();
 
+                if (data.order_in_transit) {
+                    showAppAlert("You have an order on the way — it'll still be delivered to the address on file.", { title: "Order in transit" });
+                }
             }
         },
         error: function (xhr) {
@@ -440,7 +467,48 @@ const PICK_STATUS_SORT_RANK = { in_stock: 0, processing: 1, pending: 1, partial:
 // page that toggled between states client-side. Each page sets
 // cartIsProcessing once, up front, before calling cartItem(); this just
 // fetches/renders the right item list for whichever page is loaded.
-function cartItem(resetPage) {
+// Opens a connection to the order-status WebSocket daemon (Server/WebSocket/
+// run.php - a separate long-running process, not served through Apache) and
+// subscribes to push updates for one order. The server only ever sends a
+// bare {"type":"order_update"} signal, never order data itself - onUpdate is
+// expected to react by re-fetching through the normal REST calls (cartItem/
+// summary), so there's one source of truth for how order data is shaped.
+// Returns null immediately (caller should fall back to polling) if this
+// browser has no WebSocket support or the connection can't even be
+// attempted; onerror/onclose still need to be wired by the caller to catch
+// a connection that fails after the fact (e.g. the daemon isn't running).
+function connectOrderStatusSocket(orderId, onUpdate) {
+    if (!orderId || typeof WebSocket === "undefined") {
+        return null;
+    }
+
+    let socket;
+    try {
+        socket = new WebSocket("ws://" + window.location.hostname + ":8080");
+    } catch (e) {
+        return null;
+    }
+
+    socket.onopen = function () {
+        socket.send(JSON.stringify({ action: "subscribe", order_id: orderId }));
+    };
+
+    socket.onmessage = function (event) {
+        let data;
+        try {
+            data = JSON.parse(event.data);
+        } catch (e) {
+            return;
+        }
+        if (data.type === "order_update" && typeof onUpdate === "function") {
+            onUpdate();
+        }
+    };
+
+    return socket;
+}
+
+function cartItem(resetPage, onLoaded) {
     if (resetPage === undefined) {
         resetPage = true;
     }
@@ -456,14 +524,18 @@ function cartItem(resetPage) {
         }),
         success: function (data) {
             cartPageAllItems = data.cart_items || [];
+            window.currentOrderId = data.order_id || null;
             if (resetPage) {
                 cartPageCurrentPage = 1;
+            }
+            if (typeof onLoaded === "function") {
+                onLoaded();
             }
 
             if (cartIsProcessing && $("#cart-section-title").length) {
                 $("#cart-section-title").text("Order " + (data.order_status || "Processing"));
-                updateOrderProgressTracker(data.order_status, cartPageAllItems, data.order_placed_at, data.scheduled_delivery_window);
-                updateOrderStatusCards(data.order_status, cartPageAllItems, data.scheduled_delivery_window);
+                updateOrderProgressTracker(data.order_status, cartPageAllItems, data.order_placed_at, data.scheduled_delivery_window, data.was_rescheduled);
+                updateOrderStatusCards(data.order_status, cartPageAllItems, data.scheduled_delivery_window, data.was_rescheduled);
                 updateOrderActionControl(data.order_status);
             }
 
@@ -584,7 +656,7 @@ function getEtaWindow(scheduledWindow) {
 
 // Top-of-page tracker on Process.php: ETA header, mini status card, and the
 // 5-step row. No-op if it isn't on the page (Cart.php doesn't have it).
-function updateOrderProgressTracker(orderStatus, items, orderPlacedAt, scheduledWindow) {
+function updateOrderProgressTracker(orderStatus, items, orderPlacedAt, scheduledWindow, wasRescheduled) {
     const $tracker = $("#order-progress-tracker");
     if (!$tracker.length) {
         return;
@@ -593,13 +665,37 @@ function updateOrderProgressTracker(orderStatus, items, orderPlacedAt, scheduled
     const progress = computeOrderProgressStep(orderStatus, items);
     const step = progress.step;
     const eta = getEtaWindow(scheduledWindow);
+    // A same-day order placed too late to make same-day delivery gets a
+    // window auto-assigned at checkout (see submitCheckout()) — that's not
+    // a customer-initiated reschedule, so it must not read "Rescheduled."
+    // Only wasRescheduled (set by rescheduleDelivery()) means the customer
+    // actually changed it.
+    const isPending = !wasRescheduled && orderStatus === "Pending";
 
-    $("#order-progress-eta-window").text(eta.window);
-    $("#order-progress-eta-minutes").text(scheduledWindow ? "Rescheduled" : eta.minutesAway + " min away");
+    let etaMinutesText;
+    let etaNoteText;
+    if (wasRescheduled) {
+        etaMinutesText = "Rescheduled";
+        etaNoteText = "Updated";
+    } else if (isPending) {
+        // No shopper has started yet, so a "X min away" countdown would be
+        // misleading — nothing is actually en route. The delivery window
+        // itself is swapped for a plain "Pending" badge too, since there's
+        // no real window to show until the order moves off Pending.
+        etaMinutesText = "Order received";
+        etaNoteText = "";
+    } else {
+        etaMinutesText = eta.minutesAway + " min away";
+        etaNoteText = "Arriving soon";
+    }
+
+    $("#order-progress-eta-window").toggle(!isPending).text(eta.window);
+    $("#order-progress-eta-pending-badge").toggle(isPending);
+    $("#order-progress-eta-minutes").text(etaMinutesText);
     $("#order-progress-eta-note")
-        .text(scheduledWindow ? "Updated" : "Arriving soon")
-        .toggleClass("Order_Progress_Eta_Note_Badge", !!scheduledWindow);
-    $("#order-progress-eta-away-dot").toggle(!scheduledWindow);
+        .text(etaNoteText)
+        .toggleClass("Order_Progress_Eta_Note_Badge", !!wasRescheduled);
+    $("#order-progress-eta-away-dot").toggle(!wasRescheduled && !isPending);
 
     const copy = ORDER_PROGRESS_STEP_COPY[step] || ORDER_PROGRESS_STEP_COPY[2];
     $("#order-progress-mini-status-title").text(copy.title);
@@ -647,7 +743,7 @@ function formatTimeOfDay(mysqlDateTime) {
 let lastOrderStatusFetch = null;
 
 // Right-column "Current Status" + "Estimated Delivery" cards on Process.php.
-function updateOrderStatusCards(orderStatus, items, scheduledWindow) {
+function updateOrderStatusCards(orderStatus, items, scheduledWindow, wasRescheduled) {
     if (!$("#order-status-headline").length) {
         return;
     }
@@ -669,9 +765,11 @@ function updateOrderStatusCards(orderStatus, items, scheduledWindow) {
     $("#order-status-eta-window").text(eta.window);
     $("#order-status-eta-date").text(eta.dateLabel);
     $("#order-status-eta-pill").html(
-        scheduledWindow
+        wasRescheduled
             ? '<i class="fas fa-calendar-alt" aria-hidden="true"></i> Rescheduled'
-            : '<i class="fas fa-clock" aria-hidden="true"></i> ' + eta.minutesAway + " min away"
+            : orderStatus === "Pending"
+                ? '<i class="fas fa-hourglass-half" aria-hidden="true"></i> Pending'
+                : '<i class="fas fa-clock" aria-hidden="true"></i> ' + eta.minutesAway + " min away"
     );
 
     lastOrderStatusFetch = new Date();
@@ -777,7 +875,7 @@ const PICK_STATUS_META = {
 // which keeps the 3-dot loading indicator since there's no count yet.
 function buildProcessingItemCard(item) {
     const productId = item.product_id;
-    const itemUrl = "/HeyDaniel/Interface/Sheets/Item.php?id=" + productId;
+    const itemUrl = "/HeyDaniel/Interface/Sheets/Item?id=" + productId;
     const meta = PICK_STATUS_META[item.pick_status] || PICK_STATUS_META.processing;
     const isProcessingStatus = item.pick_status === "processing";
     const isPendingStatus = item.pick_status === "pending";
@@ -1125,7 +1223,33 @@ function logout() {
             if (data.message) {
                 $("p").text(data.message);
             } else {
-                location.reload();
+                // These pages either require login to mean anything (account
+                // settings/orders/addresses) or may be showing session-bound
+                // content (Cart doubles as the active-order/Process view,
+                // Checkout is mid-purchase) - reloading them logged-out would
+                // either break or silently swap what's on screen out from
+                // under the user. Anywhere else (Store, Item, HelpSupport,
+                // etc.) already renders fine logged-out, so a reload is enough.
+                const accountOnlyPaths = [
+                    "/Interface/Sheets/Profile",
+                    "/Interface/Sheets/Orders",
+                    "/Interface/Sheets/Saved",
+                    "/Interface/Sheets/Addresses",
+                    "/Interface/Sheets/PaymentMethods",
+                    "/Interface/Sheets/Notifications",
+                    "/Interface/Sheets/Settings",
+                    "/Interface/Sheets/Cart",
+                    "/Interface/Sheets/Checkout"
+                ];
+                const onAccountOnlyPage = accountOnlyPaths.some(function (path) {
+                    return window.location.pathname.indexOf(path) !== -1;
+                });
+
+                if (onAccountOnlyPage) {
+                    window.location.href = "/HeyDaniel/";
+                } else {
+                    location.reload();
+                }
             }
         },
         error: function (xhr) {
@@ -1560,7 +1684,7 @@ function filter(mainCategory, subCategory, thirdCategory, page, limit) {
     });
 }
 
-function mainCategories() {
+function mainCategories(onLoaded) {
     $.ajax({
         method: "POST",
         url: "/HeyDaniel/Server/index.php",
@@ -1576,8 +1700,11 @@ function mainCategories() {
             } else {
                 const $select = $("#store-filter-main-category");
                 data.categories.forEach(function (category) {
-                    $select.append($("<option></option>").val(category.name).text(category.name));
+                    $select.append($("<option></option>").val(category.name).text(category.name).attr("data-icon", category.icon));
                 });
+            }
+            if (typeof onLoaded === "function") {
+                onLoaded();
             }
         },
         error: function (xhr) {
@@ -1587,7 +1714,7 @@ function mainCategories() {
     });
 }
 
-function subCategories(mainCategory) {
+function subCategories(mainCategory, onLoaded) {
     $.ajax({
         method: "POST",
         url: "/HeyDaniel/Server/index.php",
@@ -1605,8 +1732,11 @@ function subCategories(mainCategory) {
                 const $select = $("#store-filter-sub-category");
                 $select.prop("disabled", false).find("option:not(:first)").remove();
                 data.sub_categories.forEach(function (category) {
-                    $select.append($("<option></option>").val(category.name).text(category.name));
+                    $select.append($("<option></option>").val(category.name).text(category.name).attr("data-icon", category.icon));
                 });
+            }
+            if (typeof onLoaded === "function") {
+                onLoaded();
             }
         },
         error: function (xhr) {
@@ -1616,7 +1746,7 @@ function subCategories(mainCategory) {
     });
 }
 
-function thirdCategories(subCategory) {
+function thirdCategories(subCategory, onLoaded) {
     $.ajax({
         method: "POST",
         url: "/HeyDaniel/Server/index.php",
@@ -1634,8 +1764,11 @@ function thirdCategories(subCategory) {
                 const $select = $("#store-filter-third-category");
                 $select.prop("disabled", false).find("option:not(:first)").remove();
                 data.third_categories.forEach(function (category) {
-                    $select.append($("<option></option>").val(category.name).text(category.name));
+                    $select.append($("<option></option>").val(category.name).text(category.name).attr("data-icon", category.icon));
                 });
+            }
+            if (typeof onLoaded === "function") {
+                onLoaded();
             }
         },
         error: function (xhr) {
@@ -1693,7 +1826,7 @@ function search(searchTerm) {
                             $('<p></p>').text('Browse our categories')
                         )
                     ),
-                    $('<a class="Primary_Btn Primary_Btn--auto Search_Result_Empty_Btn"></a>').attr('href', '/HeyDaniel/Interface/Sheets/Store.php').text('Browse All Categories')
+                    $('<a class="Primary_Btn Primary_Btn--auto Search_Result_Empty_Btn"></a>').attr('href', '/HeyDaniel/Interface/Sheets/Store').text('Browse All Categories')
                 );
 
                 $results.append($empty);
@@ -1733,7 +1866,13 @@ function search(searchTerm) {
                     $tag = $('<span class="Search_Result_Size"></span>').text(size);
                 }
 
-                const itemUrl = "/HeyDaniel/Interface/Sheets/Item.php?id=" + productId;
+                // Clicking a search result goes to Store filtered to similar
+                // items (same category) rather than that one product's detail
+                // page - falls back to an unfiltered Store if the product has
+                // no category on file.
+                const similarItemsUrl = product.category
+                    ? "/HeyDaniel/Interface/Sheets/Store?category=" + encodeURIComponent(product.category)
+                    : "/HeyDaniel/Interface/Sheets/Store";
 
                 const $item = $('<div class="Search_Result_Item"></div>').append(
                     $('<div class="Search_Result_Image"></div>')
@@ -1750,7 +1889,7 @@ function search(searchTerm) {
                     ),
                     buildSearchResultCartControl(productId, product.in_cart || product.in_process, product.quantity)
                 ).on('click', function () {
-                    window.location.href = itemUrl;
+                    window.location.href = similarItemsUrl;
                 });
 
                 $results.append($item);
@@ -1813,6 +1952,35 @@ function subscribeMembership(paymentMethodId, onSuccess, onError) {
             if (data.success) {
                 if (typeof onSuccess === "function") {
                     onSuccess();
+                }
+            } else if (typeof onError === "function") {
+                onError(data.message || data.error || "Subscription failed. Please try again.");
+            }
+        },
+        error: function (xhr) {
+            const res = JSON.parse(xhr.responseText);
+            if (typeof onError === "function") {
+                onError(res.message || res.error || "Subscription failed. Please try again.");
+            }
+        }
+    });
+}
+
+function newsletterSubscribe(email, onSuccess, onError) {
+    $.ajax({
+        method: "POST",
+        url: "/HeyDaniel/Server/index.php",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify({
+            action: "newsletter_subscribe",
+            device_type: "Web",
+            email: email
+        }),
+        success: function (data) {
+            if (data.success) {
+                if (typeof onSuccess === "function") {
+                    onSuccess(data.message || "You're subscribed!");
                 }
             } else if (typeof onError === "function") {
                 onError(data.message || data.error || "Subscription failed. Please try again.");
@@ -2109,6 +2277,19 @@ function rescheduleDelivery(windowLabel) {
             action: "reschedule_delivery",
             device_type: "Web",
             window: windowLabel
+        })
+    });
+}
+
+function getRescheduleWindows() {
+    return $.ajax({
+        method: "POST",
+        url: "/HeyDaniel/Server/index.php",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify({
+            action: "reschedule_windows",
+            device_type: "Web"
         })
     });
 }
@@ -3007,7 +3188,7 @@ function buildProductCard(product, sameDayEligible, options) {
 
     const lineTotal = typeof product.total_price === "number" ? product.total_price : (nowPrice * (quantity || 1));
 
-    const itemUrl = "/HeyDaniel/Interface/Sheets/Item.php?id=" + productId;
+    const itemUrl = "/HeyDaniel/Interface/Sheets/Item?id=" + productId;
 
     if (options.layout === "row") {
         $card = $('<div class="Row_Card"></div>').attr('data-product-id', productId).append(
@@ -3074,6 +3255,81 @@ function buildProductCard(product, sameDayEligible, options) {
     );
 
     return $card;
+}
+
+// Box categories (On Sale/BOGO/What's New/Featured) are eligibility-aware
+// server-side (homepageCollections() excludes Grocery/Frozen/Produce/Dairy
+// when not same-day eligible), but were only ever rendered once at page
+// load - a zip change to a non-eligible zip left stale, now-ineligible
+// items showing until a full reload. This re-fetches and re-renders them,
+// called from DeviceLog()'s success handler alongside the other
+// zip-dependent refreshes (refreshProductSliders()/summary()/cartIcon()).
+function refreshHomepageCollections() {
+    if (!$(".main-sale-cat-container").length) {
+        return;
+    }
+
+    $.ajax({
+        method: "POST",
+        url: "/HeyDaniel/Server/index.php",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify({
+            action: "homepage_collections",
+            device_type: "Web"
+        }),
+        success: function (data) {
+            if (data.message) {
+                console.log(data.message);
+            } else {
+                renderHomepageCollections(data.collections || []);
+            }
+        },
+        error: function (xhr) {
+            const res = JSON.parse(xhr.responseText);
+            console.log("refreshHomepageCollections failed:", res.error);
+        }
+    });
+}
+
+// Mirrors renderSaleCollections() in Interface/Sections/Main.php exactly
+// (same classes/markup shape), so this re-render looks identical to what
+// PHP produced at page load - just with fresh data.
+function renderHomepageCollections(collections) {
+    const $container = $(".main-sale-cat-container");
+    if (!$container.length) {
+        return;
+    }
+
+    $container.empty();
+
+    collections.forEach(function (collection) {
+        const shopMoreUrl = collection.filter
+            ? "/HeyDaniel/Interface/Sheets/Store?" + collection.filter
+            : "/HeyDaniel/Interface/Sheets/Store";
+
+        const $grid = $('<div class="main-sale-cat-grid"></div>').attr("data-count", collection.items.length);
+
+        collection.items.forEach(function (item) {
+            const tileUrl = item.category
+                ? "/HeyDaniel/Interface/Sheets/Store?category=" + encodeURIComponent(item.category)
+                : "/HeyDaniel/Interface/Sheets/Store";
+
+            $('<a class="main-sale-cat-tile"></a>')
+                .attr("href", tileUrl)
+                .css("background-color", collection.bg)
+                .append($('<img loading="lazy">').attr("src", item.image).attr("alt", item.alt))
+                .appendTo($grid);
+        });
+
+        $('<div class="main-sale-cat"></div>')
+            .append(
+                $('<h2 class="main-sale-cat-title"></h2>').text(collection.title),
+                $grid,
+                $('<a class="main-sale-cat-link"></a>').attr("href", shopMoreUrl).text("Shop more")
+            )
+            .appendTo($container);
+    });
 }
 
 function refreshProductSliders() {

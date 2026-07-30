@@ -28,7 +28,7 @@ $metaDescription = "Get help with your HeyDaniel account and orders.";
 
                     <p class="Help_Topics_Heading">Popular Topics</p>
                     <div class="Help_Topics_Grid">
-                        <a href="/HeyDaniel/Interface/Sheets/Orders.php" class="Help_Topic_Card">
+                        <a href="/HeyDaniel/Interface/Sheets/Orders" class="Help_Topic_Card">
                             <p class="Help_Topic_Title">Track My Order</p>
                             <p class="Help_Topic_Desc">Check the status of your order.</p>
                         </a>
@@ -40,7 +40,7 @@ $metaDescription = "Get help with your HeyDaniel account and orders.";
                             <p class="Help_Topic_Title">Shipping Info</p>
                             <p class="Help_Topic_Desc">Delivery times and options.</p>
                         </button>
-                        <a href="/HeyDaniel/Interface/Sheets/PaymentMethods.php" class="Help_Topic_Card">
+                        <a href="/HeyDaniel/Interface/Sheets/PaymentMethods" class="Help_Topic_Card">
                             <p class="Help_Topic_Title">Payment Methods</p>
                             <p class="Help_Topic_Desc">Accepted payment options.</p>
                         </a>
