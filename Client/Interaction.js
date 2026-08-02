@@ -1,6 +1,15 @@
 
 $(function () {
 
+    // Footer.php skips rendering .Bottom_Nav on pages that have their own
+    // fixed bottom bar (Item's sticky buy-bar) or no need for one
+    // (Credential) — the reserved body padding for it (Header.css) is a
+    // plain CSS media query with no way to know that per-page, so this
+    // flags it off here instead of leaving unnecessary empty space.
+    if (!$(".Bottom_Nav").length) {
+        $("body").addClass("No_Bottom_Nav");
+    }
+
     // ============================
     // Cached Elements
     // ============================

@@ -136,12 +136,13 @@ function applyActiveOrderUI() {
     const iconAriaLabel = isDisplayActive ? ("Order " + orderStatus.toLowerCase()) : "Shopping cart";
     const statusClass = isDisplayActive ? "Status_" + orderStatus : null;
 
-    $("#nav-cart-icon, #nav-cart-label, #account-nav-cart-icon, #account-nav-cart-label")
+    $("#nav-cart-icon, #nav-cart-label, #account-nav-cart-icon, #account-nav-cart-label, #bottomnav-cart-icon, #bottomnav-cart-label")
         .removeClass(ORDER_STATUS_CLASSES)
         .addClass(statusClass);
 
     $("#nav-cart-icon").html(iconMarkup).attr("aria-label", iconAriaLabel);
     $("#account-nav-cart-icon").html(iconMarkup);
+    $("#bottomnav-cart-icon").html(iconMarkup);
 
     if (statusRotationTimer) {
         clearInterval(statusRotationTimer);
@@ -153,17 +154,17 @@ function applyActiveOrderUI() {
         // .html(), not .text() — Pending's entry carries the animated-dots
         // markup (see PENDING_DOTS_HTML). Every entry here is a hardcoded
         // developer string, never user input, so this is safe.
-        $("#nav-cart-label, #account-nav-cart-label").html(words[0]);
+        $("#nav-cart-label, #account-nav-cart-label, #bottomnav-cart-label").html(words[0]);
 
         if (words.length > 1) {
             let wordIndex = 1 % words.length;
             statusRotationTimer = setInterval(function () {
-                $("#nav-cart-label, #account-nav-cart-label").html(words[wordIndex]);
+                $("#nav-cart-label, #account-nav-cart-label, #bottomnav-cart-label").html(words[wordIndex]);
                 wordIndex = (wordIndex + 1) % words.length;
             }, STATUS_ROTATION_INTERVAL_MS);
         }
     } else {
-        $("#nav-cart-label, #account-nav-cart-label").text("Cart");
+        $("#nav-cart-label, #account-nav-cart-label, #bottomnav-cart-label").text("Cart");
     }
 
     $(".Add_To_Cart_Btn").text(hasActiveOrder ? "Add to order" : "Add to cart");
@@ -430,6 +431,11 @@ function cartIcon() {
                 const totalCount = data.total_count;
                 $(".nav-cart .Nav_Icon_Badge").text(totalCount).toggle(totalCount > 0);
                 $("#account-nav-cart-badge").text(totalCount).toggle(totalCount > 0);
+                $("#bottomnav-cart-badge").text(totalCount).toggle(totalCount > 0);
+
+                // Persistent mini cart bar (Home/Store only — see Footer.php)
+                $("#mini-cart-bar-count").text(totalCount + (totalCount === 1 ? " item" : " items"));
+                $("#mini-cart-bar").toggleClass("Visible", totalCount > 0);
 
                 window.hasActiveOrder = !!data.has_active_order;
                 window.orderStatus = capitalizeOrderStatus(data.order_status) || null;
@@ -1420,6 +1426,7 @@ function savedCount() {
                 $(".nav-wishlist .Nav_Icon_Badge").text(data.saved_count).toggle(data.saved_count > 0);
                 $("#stat-wishlist-count").text(data.saved_count || 0);
                 $("#account-nav-wishlist-badge").text(data.saved_count).toggle(data.saved_count > 0);
+                $("#bottomnav-wishlist-badge").text(data.saved_count).toggle(data.saved_count > 0);
             }
         },
         error: function (xhr) {
@@ -1626,6 +1633,7 @@ function summary() {
                 const total = subtotal + deliveryFee;
 
                 $(".summary-order .order-info p").text('$' + subtotal.toFixed(2));
+                $("#mini-cart-bar-price").text('$' + subtotal.toFixed(2));
                 $(".cart-summary-subtotal").text('$' + subtotal.toFixed(2));
                 $(".cart-summary-delivery").text('$' + deliveryFee.toFixed(2));
                 $(".cart-summary-total").text('$' + total.toFixed(2));

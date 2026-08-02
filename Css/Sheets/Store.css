@@ -431,10 +431,10 @@
 }
 
 @media (max-width: 520px) {
-  .Store_Grid,
-  .Store_Similar_Grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  /* Grid stays 2 columns down to the smallest phone widths — Instacart and
+     Walmart both keep a 2-up product grid on mobile rather than dropping to
+     a single column, which wastes horizontal space and reads as a plain
+     list instead of a shoppable grid. */
   .Store_Topbar {
     flex-direction: column;
     align-items: stretch;

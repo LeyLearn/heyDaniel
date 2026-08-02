@@ -222,4 +222,36 @@
   .Item_Image_Wrap {
     width: 100%;
   }
+
+  /* STICKY BUY BAR — the add-to-cart control (button or qty stepper,
+     built client-side by buildCartControl() in Component.js) is otherwise
+     buried mid-scroll on a phone; pinning it to the bottom keeps the
+     primary action reachable at all times, the same "buy-bar" convention
+     used by every major shopping app's product detail page. The global
+     bottom tab bar is suppressed on this page (see Footer.php) so this is
+     the only fixed bar at the bottom, not stacked on top of another one. */
+  .Item_Actions {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 90;
+    margin: 0;
+    background: var(--surface);
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Both the Add_To_Cart_Btn state and the Product_Card_Qty state need to
+     fill the bar's width — the button already does by default, but the qty
+     stepper (a bare div, sized to content) doesn't without this. */
+  .Item_Actions > * {
+    flex: 1;
+  }
+
+  /* Reserves room so the fixed bar above doesn't cover the last bit of
+     scrollable content (reviews, trust badges). */
+  .Item_Info {
+    padding-bottom: 80px;
+  }
 }

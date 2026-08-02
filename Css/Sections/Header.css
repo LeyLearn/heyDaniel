@@ -985,3 +985,129 @@ span {
     font-size: 1.1rem;
   }
 }
+
+/* =========================
+   BOTTOM TAB BAR + MINI CART BAR
+   (mobile only — markup lives in Footer.php since it's included on every
+   page; see the "big companies" pattern this follows: Instacart, DoorDash,
+   Walmart, and Amazon all anchor Home/Store/Cart/Account in a fixed bar at
+   the bottom of the screen instead of relying only on a scrolling header)
+========================= */
+
+.Bottom_Nav {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 90;
+  background: var(--surface);
+  border-top: 1px solid rgba(var(--secondary-rgb), 0.08);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+}
+
+.Bottom_Nav_Link {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 2px;
+  text-decoration: none;
+  color: var(--text-muted);
+  font-size: var(--fine-print);
+  font-weight: var(--font-weight);
+}
+
+.Bottom_Nav_Link i,
+.Bottom_Nav_Link .Nav_Icon_Svg {
+  font-size: 1.15rem;
+  color: inherit;
+}
+
+.Bottom_Nav_Link.Active {
+  color: var(--primary);
+}
+
+/* Nav_Icon_Wrap/Nav_Icon_Badge geometry already comes from Header.css above
+   and Card.css (Icon_Circle family) — this just anchors the wrap inline
+   with the tab's icon instead of the header's row layout. */
+.Bottom_Nav_Link .Nav_Icon_Wrap {
+  display: inline-flex;
+}
+
+.Mini_Cart_Bar {
+  display: none;
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(68px + env(safe-area-inset-bottom));
+  z-index: 89;
+  align-items: center;
+  gap: 12px;
+  background: var(--secondary);
+  border-radius: 12px;
+  padding: 12px 16px;
+  text-decoration: none;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.Mini_Cart_Bar_Icon {
+  flex-shrink: 0;
+  color: var(--text-light);
+  font-size: 1.1rem;
+}
+
+.Mini_Cart_Bar_Text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.Mini_Cart_Bar_Count {
+  font-size: var(--fine-print);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.Mini_Cart_Bar_Price {
+  font-size: var(--regular-text);
+  font-weight: var(--font-weight);
+  color: var(--text-light);
+}
+
+.Mini_Cart_Bar_Cta {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--information);
+  font-weight: var(--font-weight);
+  color: var(--text-light);
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .Bottom_Nav {
+    display: flex;
+  }
+
+  .Mini_Cart_Bar.Visible {
+    display: flex;
+  }
+
+  /* Reserves room for the fixed tab bar so page content (and the site
+     footer's own links) don't end up hidden underneath it. The Mini Cart
+     Bar floats in the space just above that reserved strip and is allowed
+     to transiently overlap whatever's last on the page, same as the
+     equivalent bar on Instacart/DoorDash. */
+  body {
+    padding-bottom: calc(60px + env(safe-area-inset-bottom));
+  }
+
+  body.No_Bottom_Nav {
+    padding-bottom: 0;
+  }
+}
