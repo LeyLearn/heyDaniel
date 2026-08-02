@@ -18,6 +18,11 @@ CREATE TABLE Products (
   INDEX idx_name (Name)
 );
 
+-- One row per product, enforced by unique_product - every listing query
+-- LEFT JOINs this table, so a second row for the same product would
+-- duplicate that product in store/search/slider results. The same-day-only
+-- category list (which MainCategory values are hidden from non-eligible
+-- zips) lives in SAME_DAY_ONLY_CATEGORIES in Components.php, one place.
 CREATE TABLE ProductCategories (
   Id INT(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
   ProductId INT(11) NOT NULL,
@@ -25,6 +30,7 @@ CREATE TABLE ProductCategories (
   SubCategory VARCHAR(255) NOT NULL,
   ThirdCategory VARCHAR(255) NOT NULL,
   ExtCategory VARCHAR(255) NOT NULL,
+  UNIQUE KEY unique_product (ProductId),
   FOREIGN KEY (ProductId) REFERENCES Products(Id) ON DELETE CASCADE,
   INDEX idx_main_category (MainCategory),
   INDEX idx_sub_category (SubCategory),

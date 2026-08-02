@@ -138,7 +138,10 @@ $(function () {
     cartIcon();
     savedCount();
     showSearchIcon();
-    if ($("#account-nav-notifications-badge").length) {
+    // Every page, not just account pages (where the badge element lives) -
+    // the unread check also drives the notification ding, and jQuery just
+    // no-ops the badge update on pages without the element.
+    if (window.isLoggedIn) {
         notificationsBadge();
     }
 

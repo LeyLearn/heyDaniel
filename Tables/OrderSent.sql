@@ -50,12 +50,16 @@
 -- regardless of isSameDay - OrderTracking used to hold standard orders'
 -- items separately but was dropped in favor of one shared items table.
 -- IsMembershipCharge: marks a row as a HeyDaniel+ subscription charge
--- (MEMBERSHIP_MONTHLY_FEE) rather than a real product order - ItemQuantity
--- is always 0 and there are no Process rows for these. Written directly by
--- subscribeMembership() (first charge) and the monthly sweep
+-- (fee from MembershipSettings) rather than a real product order -
+-- ItemQuantity is always 0 and there are no Process rows for these. Written
+-- directly by subscribeMembership() (first charge) and the monthly sweep
 -- (Server/Cron/LogMembershipRevenue.php, logs the next month for every
 -- still-active member) - deliberately not Stripe-webhook-driven, this is
 -- our own DB-only revenue trail independent of Stripe delivering anything.
+-- These rows use OrderStatus 'billed', a third status word deliberately
+-- outside both order vocabularies above - a membership charge is never
+-- fulfillable, so it must not match any status filter meant for real
+-- orders.
 CREATE TABLE OrderSent (
   Id INT(11) AUTO_INCREMENT PRIMARY KEY NOT NULL,
   UserId INT(11) NOT NULL,

@@ -443,6 +443,51 @@ function cartIcon() {
     });
 }
 
+// Short two-tone chime, synthesized with the Web Audio API rather than
+// shipping an audio file - nothing to load, nothing external. Browsers
+// suspend audio until the user has interacted with the page at least once
+// (autoplay policy), so the context is primed on the first gesture and a
+// ding that fires before then is skipped silently instead of erroring.
+let notificationAudioCtx = null;
+
+function primeNotificationAudio() {
+    if (!window.AudioContext && !window.webkitAudioContext) {
+        return;
+    }
+    if (!notificationAudioCtx) {
+        notificationAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (notificationAudioCtx.state === "suspended") {
+        notificationAudioCtx.resume();
+    }
+}
+
+$(document).on("pointerdown.notifAudio keydown.notifAudio", function () {
+    primeNotificationAudio();
+    $(document).off(".notifAudio");
+});
+
+function playNotificationDing() {
+    primeNotificationAudio();
+    if (!notificationAudioCtx || notificationAudioCtx.state !== "running") {
+        return;
+    }
+
+    const now = notificationAudioCtx.currentTime;
+    [{ freq: 987.77, at: 0 }, { freq: 1318.51, at: 0.09 }].forEach(function (tone) {
+        const osc = notificationAudioCtx.createOscillator();
+        const gain = notificationAudioCtx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = tone.freq;
+        gain.gain.setValueAtTime(0.0001, now + tone.at);
+        gain.gain.exponentialRampToValueAtTime(0.08, now + tone.at + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + tone.at + 0.35);
+        osc.connect(gain).connect(notificationAudioCtx.destination);
+        osc.start(now + tone.at);
+        osc.stop(now + tone.at + 0.4);
+    });
+}
+
 function notificationsBadge() {
     $.ajax({
         method: "POST",
@@ -457,6 +502,17 @@ function notificationsBadge() {
             const notifications = data.notifications || [];
             const unreadCount = notifications.filter(function (n) { return !n.is_read; }).length;
             $("#account-nav-notifications-badge").text(unreadCount).toggle(unreadCount > 0);
+
+            // Ding only when the unread count went UP since this browser
+            // last checked - reading notifications (count drops) and simply
+            // reloading a page (count unchanged) stay silent. No stored
+            // baseline yet (first visit on this browser) also stays silent,
+            // it just records the starting point.
+            const stored = localStorage.getItem("hd_unread_notif_seen");
+            if (stored !== null && unreadCount > parseInt(stored, 10)) {
+                playNotificationDing();
+            }
+            localStorage.setItem("hd_unread_notif_seen", String(unreadCount));
         },
         error: function (xhr) {
             const res = JSON.parse(xhr.responseText);
@@ -2273,12 +2329,13 @@ function orderSubstatusText(order, statusSuffix) {
     return '';
 }
 
-const ORDER_ITEM_CLAIM_LABELS = { 1: 'Missing', 2: 'Expired', 3: 'Bad Quality' };
+const ORDER_ITEM_CLAIM_LABELS = { missing: 'Missing', expired: 'Expired', bad_quality: 'Bad Quality' };
 
 // Before delivery the badge just mirrors the order's own status. Once
 // delivered, Process's own per-item columns take over: isStocked flags an
-// out-of-stock substitution, and isMissing becomes a claim code (1 missing /
-// 2 expired / 3 bad quality) if the customer reports an issue.
+// out-of-stock substitution, and ClaimStatus carries a customer's claim
+// ('missing' / 'expired' / 'bad_quality', 'none' when there isn't one) if
+// they report an issue.
 function orderItemStatusBadge(order, item, statusSuffix) {
     if (statusSuffix !== 'Delivered') {
         return { text: statusSuffix || order.status, className: statusSuffix ? 'Order_Row_Status_' + statusSuffix : '' };
@@ -2288,7 +2345,7 @@ function orderItemStatusBadge(order, item, statusSuffix) {
         return { text: 'Out of Stock', className: 'Order_Row_Status_Issue' };
     }
 
-    const claimLabel = ORDER_ITEM_CLAIM_LABELS[item.is_missing];
+    const claimLabel = ORDER_ITEM_CLAIM_LABELS[item.claim_status];
     if (claimLabel) {
         return { text: claimLabel, className: 'Order_Row_Status_Issue' };
     }
@@ -3339,8 +3396,9 @@ function buildProductCard(product, sameDayEligible, options) {
 }
 
 // Box categories (On Sale/BOGO/What's New/Featured) are eligibility-aware
-// server-side (homepageCollections() excludes Grocery/Frozen/Produce/Dairy
-// when not same-day eligible), but were only ever rendered once at page
+// server-side (homepageCollections() excludes the same-day-only categories,
+// SAME_DAY_ONLY_CATEGORIES in Components.php, when not same-day eligible),
+// but were only ever rendered once at page
 // load - a zip change to a non-eligible zip left stale, now-ineligible
 // items showing until a full reload. This re-fetches and re-renders them,
 // called from DeviceLog()'s success handler alongside the other

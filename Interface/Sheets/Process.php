@@ -394,6 +394,11 @@ $metaDescription = "Track your order as it's being picked and packed by HeyDanie
                 if ($("#chat-modal").hasClass("Sidebar_Open")) {
                     loadChatMessages();
                 }
+                // Order events can create notification rows server-side -
+                // re-check here so the unread badge updates and the ding
+                // (notificationsBadge()'s count-increase check) fires live,
+                // not just on the next page load.
+                notificationsBadge();
             }
             function startPollingFallback() {
                 if (liveUpdateFallbackTimer) {

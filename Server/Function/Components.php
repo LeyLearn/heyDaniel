@@ -2,6 +2,19 @@
 
 include_once __DIR__ . '/Cache.php';
 
+// Categories only sold via same-day delivery (perishables - they can't
+// survive standard shipping). Non-eligible zips have these products hidden
+// from every product surface (store, search, sliders, homepage tiles), and
+// the list also drives each cart item's same_day_eligible flag. ONE list -
+// every query that used to hardcode it now builds from here, so adding a
+// category (like Bakery) is a one-line change.
+const SAME_DAY_ONLY_CATEGORIES = ['Grocery', 'Frozen', 'Produce', 'Dairy', 'Bakery'];
+
+// The same list as a ready-to-embed SQL fragment ("'Grocery', 'Frozen', ...")
+// for the IN (...) / NOT IN (...) clauses below. Safe to concatenate: the
+// values are our own literals from the constant above, never user input.
+define('SAME_DAY_ONLY_CATEGORIES_SQL', "'" . implode("', '", SAME_DAY_ONLY_CATEGORIES) . "'");
+
 // Verifies the HS256 JWT issued by Login.php / GoogleLogin.php (hand-rolled
 // there, not through a library, so this has to match their exact encoding —
 // header/payload are plain base64, only the signature is base64url with
@@ -371,7 +384,7 @@ function updateDeviceZip(\PDO $db, string $deviceSignature, string $deviceType, 
                 FROM Cart c
                 INNER JOIN Products p ON p.Id = c.ProductId
                 INNER JOIN ProductCategories pc ON pc.ProductId = c.ProductId
-                WHERE c.UserId = ? AND pc.MainCategory IN ('Grocery', 'Frozen', 'Produce', 'Dairy')
+                WHERE c.UserId = ? AND pc.MainCategory IN (" . SAME_DAY_ONLY_CATEGORIES_SQL . ")
             ");
             $stmt->execute([$userId]);
             $perishables = $stmt->fetchAll(\PDO::FETCH_ASSOC);
@@ -502,7 +515,7 @@ function cartContent(\PDO $db, int $userId, float $taxRate): array
             }
         }
 
-        $sameDayCategories = ['Grocery', 'Frozen', 'Produce', 'Dairy'];
+        $sameDayCategories = SAME_DAY_ONLY_CATEGORIES;
 
         foreach ($results as $row) {
             $rating = $row['review_count'] > 0
@@ -596,7 +609,7 @@ function processContent(\PDO $db, int $userId, int $orderId, float $taxRate, ?st
             }
         }
 
-        $sameDayCategories = ['Grocery', 'Frozen', 'Produce', 'Dairy'];
+        $sameDayCategories = SAME_DAY_ONLY_CATEGORIES;
 
         foreach ($results as $row) {
             $rating = $row['review_count'] > 0
@@ -696,7 +709,7 @@ function removePerishablesFromCart(\PDO $db, int $userId, string $deviceSignatur
         $stmt = $db->prepare("
             DELETE c FROM Cart c
             INNER JOIN ProductCategories pc ON pc.ProductId = c.ProductId
-            WHERE c.UserId = ? AND pc.MainCategory IN ('Grocery', 'Frozen', 'Produce', 'Dairy')
+            WHERE c.UserId = ? AND pc.MainCategory IN (" . SAME_DAY_ONLY_CATEGORIES_SQL . ")
         ");
         $stmt->execute([$userId]);
         $response['removed_count'] = $stmt->rowCount();
@@ -1190,7 +1203,7 @@ function pullingProducts(\PDO $db, bool $isSameDayEligible, string $table, int $
                 GROUP BY ProductId
             ) rv ON rv.ProductId = r.ProductId
             LEFT JOIN ProductCategories pc ON pc.ProductId = r.ProductId
-            WHERE (? = 1 OR pc.MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy'))
+            WHERE (? = 1 OR pc.MainCategory NOT IN (" . SAME_DAY_ONLY_CATEGORIES_SQL . "))
             ORDER BY r.LastId DESC
             LIMIT 16
         ";
@@ -1283,7 +1296,7 @@ function recentlyViewed(\PDO $db, int $userId, string $deviceSignature, bool $is
                 GROUP BY ProductId
             ) r ON r.ProductId = rv.ProductId
             LEFT JOIN ProductCategories pc ON pc.ProductId = rv.ProductId
-            WHERE (? = 1 OR pc.MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy'))
+            WHERE (? = 1 OR pc.MainCategory NOT IN (" . SAME_DAY_ONLY_CATEGORIES_SQL . "))
             ORDER BY rv.LastViewed DESC
             LIMIT 16
         ");
@@ -1340,7 +1353,7 @@ function searchEngine(\PDO $db, string $searchTerm, bool $isSameDayEligible, flo
 
         $eligibilityFilter = $isSameDayEligible
             ? ""
-            : "AND pc.MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy')";
+            : "AND pc.MainCategory NOT IN (" . SAME_DAY_ONLY_CATEGORIES_SQL . ")";
 
         $query = "
             SELECT p.*, pc.MainCategory, COALESCE(cart.Quantity, 0) AS CartQuantity, COALESCE(proc.Quantity, 0) AS ProcessQuantity FROM Products p
@@ -1419,7 +1432,7 @@ function store(\PDO $db, int $userId, bool $hasActiveOrder, bool $isSameDayEligi
     }
 
     if (!$isSameDayEligible) {
-        $whereClauses[] = "pc.MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy')";
+        $whereClauses[] = "pc.MainCategory NOT IN (" . SAME_DAY_ONLY_CATEGORIES_SQL . ")";
     }
 
     $whereSQL = 'WHERE ' . implode(' AND ', $whereClauses);
@@ -1525,7 +1538,7 @@ function store(\PDO $db, int $userId, bool $hasActiveOrder, bool $isSameDayEligi
         $placeholders = implode(',', array_fill(0, count($simExclude), '?'));
 
         $simEligibility = !$isSameDayEligible
-            ? "AND pc.MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy')"
+            ? "AND pc.MainCategory NOT IN (" . SAME_DAY_ONLY_CATEGORIES_SQL . ")"
             : "";
 
         $simParams = [$userId, $userId, $userId, $activeOrderId, $anchor['MainCategory'], $anchor['Brand']];
@@ -1613,7 +1626,7 @@ function productDetails(\PDO $db, int $productId, int $userId, bool $hasActiveOr
 
     $eligibilityFilter = $isSameDayEligible
         ? ""
-        : "AND pc.MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy')";
+        : "AND pc.MainCategory NOT IN (" . SAME_DAY_ONLY_CATEGORIES_SQL . ")";
 
     try {
         $stmt = $db->prepare("
@@ -2050,7 +2063,7 @@ function homepageCollections(\PDO $db, bool $isSameDayEligible): array
 {
     $eligibilityFilter = $isSameDayEligible
         ? ""
-        : "AND pc.MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy')";
+        : "AND pc.MainCategory NOT IN (" . SAME_DAY_ONLY_CATEGORIES_SQL . ")";
 
     // 'filter' is a ready-to-use query string fragment Store.php's URL reader
     // understands (see item 13) - e.g. "sale=1" makes the "Shop more" link
@@ -2118,7 +2131,7 @@ function homepageCategoryCollections(\PDO $db, bool $isSameDayEligible): array
 {
     $eligibilityFilter = $isSameDayEligible
         ? ""
-        : "AND pc.MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy')";
+        : "AND pc.MainCategory NOT IN (" . SAME_DAY_ONLY_CATEGORIES_SQL . ")";
 
     $sections = [
         ['title' => 'Pet food',  'bg' => '#FBEAE3', 'category' => 'Pets'],
@@ -2184,7 +2197,7 @@ function mainCategories(\PDO $db, bool $isSameDayEligible): array
 
     try {
         if (!$isSameDayEligible) {
-            $stmt = $db->query("SELECT DISTINCT MainCategory FROM ProductCategories WHERE MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy') ORDER BY MainCategory ASC");
+            $stmt = $db->query("SELECT DISTINCT MainCategory FROM ProductCategories WHERE MainCategory NOT IN (" . SAME_DAY_ONLY_CATEGORIES_SQL . ") ORDER BY MainCategory ASC");
         } else {
             $stmt = $db->query("SELECT DISTINCT MainCategory FROM ProductCategories ORDER BY MainCategory ASC");
         }
@@ -2215,7 +2228,7 @@ function subCategories(\PDO $db, string $mainCategory, bool $isSameDayEligible):
 
     try {
         if (!$isSameDayEligible) {
-            $stmt = $db->prepare("SELECT DISTINCT SubCategory FROM ProductCategories WHERE MainCategory = ? AND MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy') ORDER BY SubCategory ASC");
+            $stmt = $db->prepare("SELECT DISTINCT SubCategory FROM ProductCategories WHERE MainCategory = ? AND MainCategory NOT IN (" . SAME_DAY_ONLY_CATEGORIES_SQL . ") ORDER BY SubCategory ASC");
         } else {
             $stmt = $db->prepare("SELECT DISTINCT SubCategory FROM ProductCategories WHERE MainCategory = ? ORDER BY SubCategory ASC");
         }
@@ -2247,7 +2260,7 @@ function thirdCategories(\PDO $db, string $subCategory, bool $isSameDayEligible)
 
     try {
         if (!$isSameDayEligible) {
-            $stmt = $db->prepare("SELECT DISTINCT ThirdCategory FROM ProductCategories WHERE SubCategory = ? AND MainCategory NOT IN ('Grocery', 'Frozen', 'Produce', 'Dairy') ORDER BY ThirdCategory ASC");
+            $stmt = $db->prepare("SELECT DISTINCT ThirdCategory FROM ProductCategories WHERE SubCategory = ? AND MainCategory NOT IN (" . SAME_DAY_ONLY_CATEGORIES_SQL . ") ORDER BY ThirdCategory ASC");
         } else {
             $stmt = $db->prepare("SELECT DISTINCT ThirdCategory FROM ProductCategories WHERE SubCategory = ? ORDER BY ThirdCategory ASC");
         }
@@ -2796,14 +2809,17 @@ function subscribeMembership(\PDO $db, int $userId, string $paymentMethodId, boo
         // Revenue trail for this first charge - not Stripe-webhook-driven,
         // see getMembershipMonthlyFee(). OrderLiability is explicitly 0.00
         // (zero cost to the company), no Process rows (no items), settled
-        // immediately since there's nothing to fulfill or ship.
+        // immediately since there's nothing to fulfill or ship. 'billed' is
+        // deliberately its own status word, outside both order vocabularies
+        // (see OrderSent.sql) - a membership charge is never fulfillable, so
+        // it must not match any status filter meant for real orders.
         $monthlyFee = getMembershipMonthlyFee($db);
         $stmt = $db->prepare("
             INSERT INTO OrderSent (
                 UserId, ItemQuantity, OrderRevenue, FinalOrderRevenue, TaxAmount,
                 OrderLiability, TipAmount, DeliveryFee, Saved, isSameDay,
                 IsMembershipCharge, OrderStatus, isClosed, TimeDelivered
-            ) VALUES (?, 0, ?, ?, 0.00, 0.00, 0.00, 0.00, 0.00, 0, 1, 'delivered', 1, NOW())
+            ) VALUES (?, 0, ?, ?, 0.00, 0.00, 0.00, 0.00, 0.00, 0, 1, 'billed', 1, NOW())
         ");
         $stmt->execute([$userId, $monthlyFee, $monthlyFee]);
 
@@ -2838,7 +2854,22 @@ function cancelMembership(\PDO $db, int $userId): array
         $stmt->execute([$userId]);
         $subscriptionId = $stmt->fetchColumn();
 
-        $periodEndText = 'the end of your billing period';
+        // Compute the paid-through date ourselves from our own revenue log
+        // rather than trusting Stripe's response - current_period_end moved
+        // off the top-level Subscription object in newer Stripe API
+        // versions (now lives per subscription item instead), so reading it
+        // here came back null and rendered as "January 1, 1970". The most
+        // recent IsMembershipCharge row's DateAdded is when this billing
+        // cycle actually started; +1 month is when it ends.
+        $stmt = $db->prepare("
+            SELECT DateAdded FROM OrderSent
+            WHERE UserId = ? AND IsMembershipCharge = 1
+            ORDER BY DateAdded DESC LIMIT 1
+        ");
+        $stmt->execute([$userId]);
+        $lastChargeDate = $stmt->fetchColumn();
+        $periodEndTimestamp = strtotime('+1 month', $lastChargeDate !== false ? strtotime($lastChargeDate) : time());
+        $periodEndText = date('F j, Y', $periodEndTimestamp);
 
         if ($subscriptionId) {
             \Stripe\Stripe::setApiKey($_ENV['STRIPE_SECRET_KEY'] ?? '');
@@ -2851,10 +2882,9 @@ function cancelMembership(\PDO $db, int $userId): array
                 // revokeMembershipBySubscriptionId() (StripeWebhook.php)
                 // already handles - this function deliberately doesn't
                 // touch IsMember or StripeSubscriptionId itself.
-                $subscription = \Stripe\Subscription::update($subscriptionId, [
+                \Stripe\Subscription::update($subscriptionId, [
                     'cancel_at_period_end' => true,
                 ]);
-                $periodEndText = date('F j, Y', $subscription->current_period_end);
             } catch (\Stripe\Exception\InvalidRequestException $e) {
                 // Already cancelled/gone on Stripe's side (e.g. a prior
                 // webhook already processed this) - nothing left to do.
@@ -2913,7 +2943,7 @@ function logMonthlyMembershipRevenue(\PDO $db): array
             UserId, ItemQuantity, OrderRevenue, FinalOrderRevenue, TaxAmount,
             OrderLiability, TipAmount, DeliveryFee, Saved, isSameDay,
             IsMembershipCharge, OrderStatus, isClosed, TimeDelivered
-        ) VALUES (?, 0, ?, ?, 0.00, 0.00, 0.00, 0.00, 0.00, 0, 1, 'delivered', 1, NOW())
+        ) VALUES (?, 0, ?, ?, 0.00, 0.00, 0.00, 0.00, 0.00, 0, 1, 'billed', 1, NOW())
     ");
 
     foreach ($userIds as $userId) {
@@ -2927,6 +2957,96 @@ function logMonthlyMembershipRevenue(\PDO $db): array
     }
 
     return $result;
+}
+
+// QuantityFound -> customer-facing pick status, one shared definition for
+// the transition check below (mirrors processContent()'s display mapping).
+// NULL = not yet picked, 0 = out of stock, full = found, between = partial.
+function derivePickStatus(?int $quantityFound, int $quantity): ?string
+{
+    if ($quantityFound === null) {
+        return null;
+    }
+    if ($quantityFound === 0) {
+        return 'out_of_stock';
+    }
+    return $quantityFound >= $quantity ? 'found' : 'partial';
+}
+
+// THE write path for a shopper's pick result on one item - the dashboard
+// should call this rather than updating Process.QuantityFound directly, so
+// the customer notification and the instant WebSocket push can never get
+// skipped. Notifies only when the item's derived status actually changes
+// (found / partial / out_of_stock) - a shopper re-entering the same count
+// stays silent. Not exposed as an HTTP route yet: only employees may set
+// pick results and employee auth doesn't exist (Employees is a stub), so a
+// customer-reachable endpoint would be wrong.
+function setItemPickStatus(\PDO $db, int $orderId, int $productId, int $quantityFound, int $handlerId = 0): array
+{
+    $response = [
+        'success' => false,
+        'error'   => null
+    ];
+
+    if ($orderId <= 0 || $productId <= 0 || $quantityFound < 0) {
+        $response['error'] = "Invalid request.";
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            SELECT pr.UserId, pr.Quantity, pr.QuantityFound, p.Brand, p.Name
+            FROM Process pr
+            INNER JOIN Products p ON p.Id = pr.ProductId
+            WHERE pr.OrderId = ? AND pr.ProductId = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$orderId, $productId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            $response['error'] = "Item not found on this order.";
+            return $response;
+        }
+
+        $quantity      = (int)$row['Quantity'];
+        $quantityFound = min($quantityFound, $quantity);
+        $oldStatus     = derivePickStatus($row['QuantityFound'] === null ? null : (int)$row['QuantityFound'], $quantity);
+        $newStatus     = derivePickStatus($quantityFound, $quantity);
+
+        // isStocked tracks along so the post-delivery "Out of Stock" badge
+        // (orderDetails()/orderItemStatusBadge()) agrees with the pick
+        // result instead of sitting at its insert-time default.
+        $stmt = $db->prepare("
+            UPDATE Process
+            SET QuantityFound = ?, isStocked = ?, HandlerId = IF(? > 0, ?, HandlerId)
+            WHERE OrderId = ? AND ProductId = ?
+        ");
+        $stmt->execute([$quantityFound, (int)($quantityFound > 0), $handlerId, $handlerId, $orderId, $productId]);
+
+        if ($newStatus !== $oldStatus) {
+            $productLabel = trim($row['Brand'] . ' ' . $row['Name']);
+            if ($newStatus === 'found') {
+                createNotification($db, (int)$row['UserId'], 'order', 'Item found', "Your shopper found {$productLabel}.");
+            } elseif ($newStatus === 'partial') {
+                createNotification($db, (int)$row['UserId'], 'order', 'Item partially found', "Your shopper found {$quantityFound} of {$quantity} {$productLabel}.");
+            } elseif ($newStatus === 'out_of_stock') {
+                createNotification($db, (int)$row['UserId'], 'order', 'Item out of stock', "{$productLabel} is out of stock.");
+            }
+        }
+
+        // Instant push to the watching tab (item state + the notification
+        // above are both in the daemon's fingerprint) instead of waiting on
+        // its periodic catch-all tick.
+        notifyOrderStatusServer($orderId);
+
+        $response['success'] = true;
+    } catch (\PDOException $e) {
+        error_log("DB Error in setItemPickStatus: " . $e->getMessage());
+        $response['error'] = "Internal server error while updating item status.";
+    }
+
+    return $response;
 }
 
 function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): array
@@ -3791,7 +3911,7 @@ function orderDetails(\PDO $db, int $userId, int $orderId): array
 
         // Every order's items live in Process now, same-day or not.
         $stmt = $db->prepare("
-            SELECT t.ProductId, t.Quantity, t.isMissing, t.isStocked,
+            SELECT t.ProductId, t.Quantity, t.ClaimStatus, t.isStocked,
                    p.Name, p.Brand, p.Picture, p.Price
             FROM Process t
             JOIN Products p ON p.Id = t.ProductId
@@ -3803,14 +3923,14 @@ function orderDetails(\PDO $db, int $userId, int $orderId): array
         $items = [];
         foreach ($itemRows as $row) {
             $items[] = [
-                'product_id' => (int)$row['ProductId'],
-                'name'       => $row['Name'],
-                'brand'      => $row['Brand'],
-                'picture'    => $row['Picture'],
-                'price'      => (float)$row['Price'],
-                'quantity'   => (int)$row['Quantity'],
-                'is_missing' => (int)$row['isMissing'],
-                'in_stock'   => (bool)$row['isStocked']
+                'product_id'   => (int)$row['ProductId'],
+                'name'         => $row['Name'],
+                'brand'        => $row['Brand'],
+                'picture'      => $row['Picture'],
+                'price'        => (float)$row['Price'],
+                'quantity'     => (int)$row['Quantity'],
+                'claim_status' => $row['ClaimStatus'],
+                'in_stock'     => (bool)$row['isStocked']
             ];
         }
 

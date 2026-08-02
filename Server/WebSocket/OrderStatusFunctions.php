@@ -92,7 +92,7 @@ function wsFingerprintForOrder(\PDO $db, int $orderId): ?string
 {
     try {
         $stmt = $db->prepare("
-            SELECT OrderStatus, WasRescheduled, ScheduledDeliveryWindow
+            SELECT UserId, OrderStatus, WasRescheduled, ScheduledDeliveryWindow
             FROM OrderSent
             WHERE Id = ?
         ");
@@ -102,9 +102,14 @@ function wsFingerprintForOrder(\PDO $db, int $orderId): ?string
             return null;
         }
 
+        // QuantityFound needs the COALESCE: CONCAT() returns NULL if any
+        // argument is NULL, and GROUP_CONCAT skips NULL rows entirely - so
+        // without it, every not-yet-picked item (QuantityFound NULL) was
+        // invisible to the fingerprint and changes to its other columns
+        // went undetected.
         $stmt = $db->prepare("
             SELECT MD5(COALESCE(GROUP_CONCAT(
-                CONCAT(ProductId, ':', QuantityFound, ':', isStocked, ':', isMissing)
+                CONCAT(ProductId, ':', COALESCE(QuantityFound, '-'), ':', isStocked, ':', ClaimStatus)
                 ORDER BY ProductId
             ), '')) AS items_fp
             FROM Process
@@ -121,12 +126,28 @@ function wsFingerprintForOrder(\PDO $db, int $orderId): ?string
         $stmt->execute([$orderId]);
         $messagesFingerprint = implode(':', $stmt->fetch(\PDO::FETCH_NUM));
 
+        // Notifications are per-user, not per-order, but the order knows
+        // its owner - folding the owner's notification state in means a new
+        // notification pushes to the watching tab instantly, where
+        // refreshOrder() re-runs notificationsBadge() (badge + ding). Same
+        // COUNT/MAX shape as Messages for new-row detection, plus the
+        // unread count so marking-as-read in another tab also syncs the
+        // badge here.
+        $stmt = $db->prepare("
+            SELECT COUNT(*), COALESCE(MAX(Id), 0), COALESCE(SUM(IsRead = 0), 0)
+            FROM Notifications
+            WHERE UserId = ?
+        ");
+        $stmt->execute([(int)$order['UserId']]);
+        $notificationsFingerprint = implode(':', $stmt->fetch(\PDO::FETCH_NUM));
+
         return implode('|', [
             $order['OrderStatus'],
             $order['WasRescheduled'],
             $order['ScheduledDeliveryWindow'],
             $itemsFingerprint,
             $messagesFingerprint,
+            $notificationsFingerprint,
         ]);
     } catch (\PDOException $e) {
         error_log("WebSocket fingerprint error: " . $e->getMessage());
