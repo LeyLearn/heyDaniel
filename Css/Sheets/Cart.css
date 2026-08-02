@@ -432,8 +432,21 @@
 }
 
 @media (max-width: 768px) {
+  /* Same bug as .Profile_Layout (Profile.css): align-items: flex-start
+     above is for the desktop side-by-side columns and sizes each column to
+     its own content's width instead of stretching to fill it once stacked
+     to a single column here — normally invisible since nothing inside
+     forces extra width, but a single unbreakable run of text anywhere
+     inside .Cart_Items (an unstyled product-name link with no truncation
+     class, an unusually long name) is then free to size the whole column
+     — and everything nested inside it, including this ancestor chain — to
+     fit that text instead of the viewport, which is what actually blows
+     the page's layout viewport wider than the device on a real mobile
+     browser (caught via Playwright's isMobile/hasTouch device emulation;
+     a plain resized-viewport screenshot never triggers this).  */
   .Cart_Layout {
     flex-direction: column;
+    align-items: stretch;
   }
 
   .Cart_Summary {

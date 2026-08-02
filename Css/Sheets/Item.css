@@ -247,6 +247,7 @@
      stepper (a bare div, sized to content) doesn't without this. */
   .Item_Actions > * {
     flex: 1;
+    min-width: 0;
   }
 
   /* Reserves room so the fixed bar above doesn't cover the last bit of

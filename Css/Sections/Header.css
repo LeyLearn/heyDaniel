@@ -1007,7 +1007,20 @@ span {
 }
 
 .Bottom_Nav_Link {
+  /* min-width: 0 is load-bearing, not decorative — a flex item's default
+     min-width is auto (i.e. never narrower than its content), so without
+     this override 5 tabs' worth of label text refuses to shrink below its
+     natural ~143px each (715px total) even though the bar itself is
+     width:100%. On a REAL mobile browser (Playwright's isMobile:true/
+     hasTouch:true device emulation, not just a resized desktop viewport)
+     that forces the page's layout viewport itself to widen to 722px to
+     avoid clipping the fixed bar's overflowing content, breaking
+     <meta name="viewport" content="width=device-width"> for the entire
+     page, not just this bar — every element on the page renders "zoomed
+     out" as a result. Caught by tapping through the real device emulation
+     profile; a plain resized-viewport screenshot never surfaces this. */
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1018,6 +1031,9 @@ span {
   color: var(--text-muted);
   font-size: var(--fine-print);
   font-weight: var(--font-weight);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .Bottom_Nav_Link i,

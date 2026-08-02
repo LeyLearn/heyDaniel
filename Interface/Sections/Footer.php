@@ -157,7 +157,7 @@ $__showMiniCartBar = $__navHome || $__currentPage === 'Store';
          a whole cart summary. Hidden until cartIcon()'s AJAX response (see
          Interaction.js's document-ready call) reports at least one item. -->
     <a href="/HeyDaniel/Interface/Sheets/Cart" class="Mini_Cart_Bar" id="mini-cart-bar">
-        <span class="Mini_Cart_Bar_Icon"><i class="fas fa-cart-shopping" aria-hidden="true"></i></span>
+        <span class="Mini_Cart_Bar_Icon"><i class="fas fa-shopping-cart" aria-hidden="true"></i></span>
         <span class="Mini_Cart_Bar_Text">
             <span class="Mini_Cart_Bar_Count" id="mini-cart-bar-count">0 items</span>
             <span class="Mini_Cart_Bar_Price" id="mini-cart-bar-price">$0.00</span>
@@ -173,21 +173,21 @@ $__showMiniCartBar = $__navHome || $__currentPage === 'Store';
          header for navigation. -->
     <nav class="Bottom_Nav" aria-label="Primary">
         <a href="/HeyDaniel" class="Bottom_Nav_Link<?php echo $__navHome ? ' Active' : '' ?>">
-            <i class="fas fa-house" aria-hidden="true"></i>
+            <i class="fas fa-home" aria-hidden="true"></i>
             <span>Home</span>
         </a>
         <a href="/HeyDaniel/Interface/Sheets/Store" class="Bottom_Nav_Link<?php echo $__navStore ? ' Active' : '' ?>">
-            <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+            <i class="fas fa-search" aria-hidden="true"></i>
             <span>Store</span>
         </a>
-        <a href="/HeyDaniel/Interface/Sheets/Saved" class="Bottom_Nav_Link nav-wishlist<?php echo $__navWishlist ? ' Active' : '' ?>">
+        <a href="/HeyDaniel/Interface/Sheets/Saved" class="Bottom_Nav_Link<?php echo $__navWishlist ? ' Active' : '' ?>">
             <span class="Nav_Icon_Wrap">
                 <i class="fas fa-heart" aria-hidden="true"></i>
                 <span class="Nav_Icon_Badge" id="bottomnav-wishlist-badge" style="display:none;">0</span>
             </span>
             <span>Wishlist</span>
         </a>
-        <a href="/HeyDaniel/Interface/Sheets/Cart" class="Bottom_Nav_Link nav-cart<?php echo $__navCart ? ' Active' : '' ?>">
+        <a href="/HeyDaniel/Interface/Sheets/Cart" class="Bottom_Nav_Link<?php echo $__navCart ? ' Active' : '' ?>">
             <span class="Nav_Icon_Wrap">
                 <span id="bottomnav-cart-icon" class="Nav_Icon_Svg" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="24" height="24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" /></svg></span>
                 <span class="Nav_Icon_Badge" id="bottomnav-cart-badge" style="display:none;">0</span>
