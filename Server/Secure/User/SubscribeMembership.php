@@ -37,6 +37,7 @@ if ($isWeb) {
 }
 
 $paymentMethodId = trim($data['payment_method_id'] ?? '');
+$saveCard         = (bool)($data['save_card'] ?? true);
 
 if (session_status() === PHP_SESSION_ACTIVE) {
     session_write_close();
@@ -63,7 +64,7 @@ if (RateLimiter::tooManyAttempts($pdo, "subscribe_membership:{$userId}", 5, 600)
     exit;
 }
 
-$result = subscribeMembership($pdo, $userId, $paymentMethodId);
+$result = subscribeMembership($pdo, $userId, $paymentMethodId, $saveCard);
 
 if (!empty($result['error'])) {
     http_response_code(400);

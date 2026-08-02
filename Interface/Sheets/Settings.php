@@ -53,6 +53,16 @@ $metaDescription = "Manage your account settings on HeyDaniel.";
                             <button type="button" class="Profile_Info_Save_Btn" id="settings-security-save">Update Password</button>
                         </div>
 
+                        <div class="Settings_Row Btn_Nav_Row">
+                            <div class="Settings_Row_Text">
+                                <p class="Settings_Row_Title">Dark Mode</p>
+                                <p class="Settings_Row_Desc">Switch between light and dark appearance.</p>
+                            </div>
+                            <button type="button" class="Toggle_Switch" id="settings-theme-toggle" aria-label="Toggle dark mode" aria-pressed="false">
+                                <span class="Toggle_Knob"></span>
+                            </button>
+                        </div>
+
                         <button type="button" class="Settings_Row Btn_Nav_Row" data-coming-soon="Privacy settings">
                             <div class="Settings_Row_Text">
                                 <p class="Settings_Row_Title">Privacy</p>

@@ -8,6 +8,7 @@ CREATE TABLE Users (
   TimeRegister DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   TimeMembership DATETIME NULL,
   IsActive TINYINT(1) NOT NULL DEFAULT 1,
+  Theme ENUM('light', 'dark') NOT NULL DEFAULT 'light',
   INDEX idx_email (Email),
   INDEX idx_is_active (IsActive)
 );

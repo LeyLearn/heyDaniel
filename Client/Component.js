@@ -92,6 +92,17 @@ const STATUS_ICON_SVG = {
 const ORDER_STATUS_CLASSES = "Status_Pending Status_Processing Status_Shipped";
 const DISPLAY_ORDER_STATUSES = ["Pending", "Processing", "Shipped"];
 
+// The backend stores/sends OrderStatus lowercase ("pending", "processing", ...)
+// - every status comparison and lookup table in this file expects the
+// capitalized form ("Pending"), so any order_status value coming from the
+// API gets capitalized here, once, right at the boundary.
+function capitalizeOrderStatus(status) {
+    if (!status) {
+        return status;
+    }
+    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+}
+
 // Words the label rotates through every 5s while a status is active (a
 // single-item list just displays statically — Pending/Shipped read better
 // fixed, only Processing rotates through its list). The icon's aria-label
@@ -183,7 +194,7 @@ function DeviceCheck() {
             }
             else {
                 window.hasActiveOrder = !!data.has_active_order;
-                window.orderStatus = data.order_status || null;
+                window.orderStatus = capitalizeOrderStatus(data.order_status) || null;
                 applyActiveOrderUI();
 
                 if (data.is_device_known === false) {
@@ -421,7 +432,7 @@ function cartIcon() {
                 $("#account-nav-cart-badge").text(totalCount).toggle(totalCount > 0);
 
                 window.hasActiveOrder = !!data.has_active_order;
-                window.orderStatus = data.order_status || null;
+                window.orderStatus = capitalizeOrderStatus(data.order_status) || null;
                 applyActiveOrderUI();
             }
         },
@@ -508,6 +519,61 @@ function connectOrderStatusSocket(orderId, onUpdate) {
     return socket;
 }
 
+function fetchOrderMessages(orderId, onSuccess, onError) {
+    $.ajax({
+        method: "POST",
+        url: "/HeyDaniel/Server/index.php",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify({
+            action: "get_messages",
+            device_type: "Web",
+            order_id: orderId
+        }),
+        success: function (data) {
+            if (typeof onSuccess === "function") {
+                onSuccess(data.messages || []);
+            }
+        },
+        error: function (xhr) {
+            const res = JSON.parse(xhr.responseText);
+            if (typeof onError === "function") {
+                onError(res.error || "Couldn't load messages.");
+            }
+        }
+    });
+}
+
+function sendOrderMessage(orderId, message, onSuccess, onError) {
+    $.ajax({
+        method: "POST",
+        url: "/HeyDaniel/Server/index.php",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify({
+            action: "send_message",
+            device_type: "Web",
+            order_id: orderId,
+            message: message
+        }),
+        success: function (data) {
+            if (data.success) {
+                if (typeof onSuccess === "function") {
+                    onSuccess();
+                }
+            } else if (typeof onError === "function") {
+                onError(data.error || "Couldn't send message.");
+            }
+        },
+        error: function (xhr) {
+            const res = JSON.parse(xhr.responseText);
+            if (typeof onError === "function") {
+                onError(res.error || "Couldn't send message.");
+            }
+        }
+    });
+}
+
 function cartItem(resetPage, onLoaded) {
     if (resetPage === undefined) {
         resetPage = true;
@@ -533,10 +599,11 @@ function cartItem(resetPage, onLoaded) {
             }
 
             if (cartIsProcessing && $("#cart-section-title").length) {
-                $("#cart-section-title").text("Order " + (data.order_status || "Processing"));
-                updateOrderProgressTracker(data.order_status, cartPageAllItems, data.order_placed_at, data.scheduled_delivery_window, data.was_rescheduled);
-                updateOrderStatusCards(data.order_status, cartPageAllItems, data.scheduled_delivery_window, data.was_rescheduled);
-                updateOrderActionControl(data.order_status);
+                const orderStatus = capitalizeOrderStatus(data.order_status);
+                $("#cart-section-title").text("Order " + (orderStatus || "Processing"));
+                updateOrderProgressTracker(orderStatus, cartPageAllItems, data.order_placed_at, data.scheduled_delivery_window, data.was_rescheduled);
+                updateOrderStatusCards(orderStatus, cartPageAllItems, data.scheduled_delivery_window, data.was_rescheduled);
+                updateOrderActionControl(orderStatus);
             }
 
             if (data.message || !cartPageAllItems.length) {
@@ -684,6 +751,16 @@ function updateOrderProgressTracker(orderStatus, items, orderPlacedAt, scheduled
         // no real window to show until the order moves off Pending.
         etaMinutesText = "Order received";
         etaNoteText = "";
+    } else if (eta.minutesAway === null) {
+        // A real, specific delivery window was already assigned (e.g. a
+        // same-day order placed too late for same-day gets pinned to
+        // tomorrow's opening window at checkout — see submitCheckout()) -
+        // the window itself is the ETA, so there's no "X min away" countdown
+        // to show. getEtaWindow() returns minutesAway: null for exactly this
+        // case; previously nothing checked for it and this rendered the
+        // literal string "null min away".
+        etaMinutesText = "Scheduled";
+        etaNoteText = "";
     } else {
         etaMinutesText = eta.minutesAway + " min away";
         etaNoteText = "Arriving soon";
@@ -695,7 +772,7 @@ function updateOrderProgressTracker(orderStatus, items, orderPlacedAt, scheduled
     $("#order-progress-eta-note")
         .text(etaNoteText)
         .toggleClass("Order_Progress_Eta_Note_Badge", !!wasRescheduled);
-    $("#order-progress-eta-away-dot").toggle(!wasRescheduled && !isPending);
+    $("#order-progress-eta-away-dot").toggle(!wasRescheduled && !isPending && eta.minutesAway !== null);
 
     const copy = ORDER_PROGRESS_STEP_COPY[step] || ORDER_PROGRESS_STEP_COPY[2];
     $("#order-progress-mini-status-title").text(copy.title);
@@ -769,7 +846,9 @@ function updateOrderStatusCards(orderStatus, items, scheduledWindow, wasReschedu
             ? '<i class="fas fa-calendar-alt" aria-hidden="true"></i> Rescheduled'
             : orderStatus === "Pending"
                 ? '<i class="fas fa-hourglass-half" aria-hidden="true"></i> Pending'
-                : '<i class="fas fa-clock" aria-hidden="true"></i> ' + eta.minutesAway + " min away"
+                : eta.minutesAway === null
+                    ? '<i class="fas fa-calendar-alt" aria-hidden="true"></i> Scheduled'
+                    : '<i class="fas fa-clock" aria-hidden="true"></i> ' + eta.minutesAway + " min away"
     );
 
     lastOrderStatusFetch = new Date();
@@ -1905,7 +1984,7 @@ function search(searchTerm) {
 }
 
 // checkout
-function checkout(address, paymentMethodId, tipAmount, deliveryMethod, onSuccess, onError) {
+function checkout(address, paymentMethodId, tipAmount, deliveryMethod, saveCard, onSuccess, onError) {
     $.ajax({
         method: "POST",
         url: "/HeyDaniel/Server/index.php",
@@ -1917,7 +1996,8 @@ function checkout(address, paymentMethodId, tipAmount, deliveryMethod, onSuccess
             address: address,
             payment_method_id: paymentMethodId,
             tip_amount: tipAmount || 0,
-            delivery_method: deliveryMethod
+            delivery_method: deliveryMethod,
+            save_card: saveCard !== false
         }),
         success: function (data) {
             if (data.success) {
@@ -1937,7 +2017,7 @@ function checkout(address, paymentMethodId, tipAmount, deliveryMethod, onSuccess
     });
 }
 
-function subscribeMembership(paymentMethodId, onSuccess, onError) {
+function subscribeMembership(paymentMethodId, saveCard, onSuccess, onError) {
     $.ajax({
         method: "POST",
         url: "/HeyDaniel/Server/index.php",
@@ -1946,7 +2026,8 @@ function subscribeMembership(paymentMethodId, onSuccess, onError) {
         data: JSON.stringify({
             action: "subscribe_membership",
             device_type: "Web",
-            payment_method_id: paymentMethodId
+            payment_method_id: paymentMethodId,
+            save_card: saveCard !== false
         }),
         success: function (data) {
             if (data.success) {
@@ -2195,12 +2276,12 @@ function orderSubstatusText(order, statusSuffix) {
 const ORDER_ITEM_CLAIM_LABELS = { 1: 'Missing', 2: 'Expired', 3: 'Bad Quality' };
 
 // Before delivery the badge just mirrors the order's own status. Once
-// delivered, Process/OrderTracking take over: isStocked (Process only)
-// flags an out-of-stock substitution, and isMissing becomes a claim code
-// (1 missing / 2 expired / 3 bad quality) if the customer reports an issue.
+// delivered, Process's own per-item columns take over: isStocked flags an
+// out-of-stock substitution, and isMissing becomes a claim code (1 missing /
+// 2 expired / 3 bad quality) if the customer reports an issue.
 function orderItemStatusBadge(order, item, statusSuffix) {
     if (statusSuffix !== 'Delivered') {
-        return { text: order.status, className: statusSuffix ? 'Order_Row_Status_' + statusSuffix : '' };
+        return { text: statusSuffix || order.status, className: statusSuffix ? 'Order_Row_Status_' + statusSuffix : '' };
     }
 
     if (!item.in_stock) {
@@ -2486,7 +2567,7 @@ function buildOrderRow(order, options) {
                 $('<p class="Order_Row_Number"></p>').text(orderCode),
                 $('<p class="Order_Row_Meta"></p>').text(formattedDate + ' · ' + order.item_count + ' item(s)')
             ),
-            $('<span class="Order_Row_Status"></span>').addClass(statusSuffix ? 'Order_Row_Status_' + statusSuffix : '').text(order.status),
+            $('<span class="Order_Row_Status"></span>').addClass(statusSuffix ? 'Order_Row_Status_' + statusSuffix : '').text(statusSuffix || order.status),
             $('<p class="Order_Row_Total"></p>').text('$' + order.total.toFixed(2)),
             options.showViewDetailsBtn
                 ? $('<button type="button" class="Secondary_Light_Btn Order_Row_View_Details"></button>').text('View Details')
@@ -2524,7 +2605,7 @@ function buildOrdersPageRow(order) {
                 $('<span class="Order_Row_Status"></span>')
                     .addClass(statusSuffix ? 'Order_Row_Status_' + statusSuffix : '')
                     .append($('<i aria-hidden="true"></i>').addClass('fas ' + orderStatusIcon(statusSuffix)))
-                    .append(' ' + order.status),
+                    .append(' ' + (statusSuffix || order.status)),
                 $('<p class="Order_Row_Substatus"></p>').text(orderSubstatusText(order, statusSuffix))
             ),
             $('<div class="Order_Row_Right"></div>').append(

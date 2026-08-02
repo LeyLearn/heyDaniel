@@ -261,7 +261,14 @@
 
         $("#profile-premium-toggle").on("click", function () {
             if ($(this).hasClass("Toggle_On")) {
-                showAppConfirm("Cancel your HeyDaniel+ membership? You'll lose access to same-day delivery.", function () {
+                // Same-day is a membership perk, but only for addresses that
+                // actually qualify for it — a member outside the same-day
+                // zone is really losing free-shipping instead, so the
+                // warning should reflect whichever perk they'd actually lose.
+                const cancelMembershipMessage = <?php echo json_encode((bool)($_SESSION['same_day_eligible'] ?? false)); ?>
+                    ? "Cancel your HeyDaniel+ membership? You'll lose access to same-day delivery."
+                    : "Cancel your HeyDaniel+ membership? You'll lose access to free delivery.";
+                showAppConfirm(cancelMembershipMessage, function () {
                     cancelMembership(function () {
                         window.location.reload();
                     }, function (message) {

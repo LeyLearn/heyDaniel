@@ -480,3 +480,160 @@ Running list of issues to fix. Add new ones as we find them, check off when done
          to fix the column references or delete it outright - that's a call
          for you, not something to decide unilaterally during an audit.
          Done 2026-07-30.
+
+[ ] 22. Move the second box-category row (Pet food/Car tools/Gardening/Gym,
+       item 15) to sit under the "Popular Products" section instead of where
+       it is now.
+       - Current order in Interface/Sections/Main.php: hero -> first box row
+         -> second box row (line ~308) -> circle categories -> Recently
+         Viewed -> auth promo -> Popular Products slider (line ~345) ->
+         Discover Great Deals slider. Needs the second box row moved to
+         right after the Popular Products slider call.
+
+[x] 23. Light/dark mode needs a control in Settings too (not just the header
+       icon), and the choice needs to persist server-side via a new column
+       on the Users table - not just localStorage.
+       - Done: added Users.Theme ENUM('light','dark') NOT NULL DEFAULT
+         'light' (Tables/Users.sql + applied live to HeyDaniel2). loginUser()/
+         googleLoginUser() (Server/Function/Components.php) now select+return
+         it; Login.php/GoogleLogin.php set $_SESSION['user_theme'] on login.
+         New setUserTheme() function + Secure/User/SetTheme.php endpoint
+         (route: set_theme) persist it on toggle.
+       - Interface/Sheets/Settings.php has a new "Dark Mode" row reusing the
+         .Toggle_Switch/.Toggle_On component (same one Process.php's
+         "Get real-time updates" toggle uses), id="settings-theme-toggle".
+       - Client/Interaction.js refactored: the old header-only
+         syncThemeToggleIcon()/click-handler became a shared
+         syncThemeControls() + setTheme(theme) pair, so the header icon
+         button and the Settings row toggle drive the exact same apply/
+         persist logic and always stay in sync regardless of which one the
+         user clicks. setTheme() posts to set_theme (device_type: "Web")
+         when window.isLoggedIn, guests just get localStorage as before.
+       - Head.php's no-flash-of-wrong-theme inline script now reads
+         $_SESSION['user_theme'] (available immediately post session_start,
+         before Status.php even runs) and prefers it over localStorage for
+         logged-in users; guests still fall back to localStorage, then OS
+         prefers-color-scheme.
+       - Verified live via a disposable throwaway test account (created,
+         tested, deleted after - not a real user): logged in, toggled the
+         Settings row -> page went dark instantly, header icon flipped to
+         sun, DB confirmed Theme='dark' via direct query. Cleared
+         localStorage and reloaded -> page still rendered dark on first
+         paint, proving the session/DB value (not localStorage) is now the
+         source of truth for logged-in users. Toggled back to light,
+         confirmed DB updated to 'light' again.
+       - On the checkout page, the "Checkout" h1 needed some padding-bottom.
+         Fixed: Css/Sheets/Checkout.css .Checkout_Page_Header h1 now has
+         padding-bottom: 6px (was margin: 0 with zero space of its own).
+         Unrelated to the dark-mode work above, just mentioned in the same
+         message - CSS-only, verified by reading the rule; didn't stage cart
+         data just to screenshot a 6px padding tweak.
+
+[ ] 24. Add an "often rebuy" (frequently repurchased) items section under the
+       Profile, Cart, Wishlist, and Orders pages.
+       - New feature, nothing currently renders this anywhere.
+       - Found relevant existing infrastructure while looking: "RecentlyBought"
+         is already a valid table option in pullingProducts()/ProductSlide.php
+         (backed by ItemBoughtHistory), but nothing on the frontend actually
+         renders a RecentlyBought slider anywhere, AND nothing ever writes to
+         ItemBoughtHistory either (confirmed empty, zero INSERT statements
+         anywhere in Components.php) - it's dead, wired-up-but-unused
+         infrastructure.
+       - The Process table is explicitly designed to double as permanent
+         buy-again history across every past order (see
+         project_process_orderid_scoping memory / earlier session decision -
+         Process rows are never deleted specifically for this purpose).
+         Standard (non-same-day) orders' line items live in OrderTracking
+         instead. A real "often rebuy" ranking would need to query purchase
+         frequency across both tables, scoped to the logged-in user - not
+         clear yet whether to also resurrect ItemBoughtHistory or build
+         straight off Process/OrderTracking. Worth deciding before building.
+
+[x] 25. "null minute away" showing under estimated delivery time - needs fixing.
+       - Root cause: getEtaWindow() (Client/Component.js) deliberately returns
+         minutesAway: null whenever there's a real scheduledWindow (e.g. a
+         same-day order placed too late for same-day gets auto-pinned to
+         tomorrow's opening window at checkout - the window itself is the
+         ETA, no fake countdown needed for that case) - but both places that
+         render it (updateOrderProgressTracker()'s main ETA line and
+         updateOrderStatusCards()'s pill) blindly did
+         `eta.minutesAway + " min away"` with no null check, producing the
+         literal string "null min away".
+       - Fixed: both now show "Scheduled" (with a calendar icon on the pill,
+         matching the existing "Rescheduled" icon convention) when
+         minutesAway is null, instead of falling through to the broken
+         concatenation. Also fixed the away-dot separator next to it, which
+         had the same blind-spot (was showing next to "null min away").
+       - Verified by calling both render functions directly with a
+         scheduledWindow argument (no live order needed): confirmed "Scheduled"
+         now renders in both places, confirmed the away-dot correctly hides,
+         and confirmed the normal no-scheduled-window case still renders
+         "45 min away" exactly as before - no regression. Done 2026-07-30.
+
+[x] 26. Make the "Message your shopper" chat box on Process.php actually work,
+       reusing the existing order-status WebSocket for real-time delivery.
+       New Employees table (seeded with one employee, linked to an existing
+       Users row) + Messages table (scoped by OrderId). Modal styled exactly
+       like the zip-eligibility modal.
+       - Fixed: new Employees.sql (UserId FK -> Users, Title, seeded with 1
+         row) and Messages.sql (OrderId FK -> OrderSent, SenderType enum
+         customer/employee, SenderId, MessageText, DateSent) - both applied
+         to the live dev DB.
+       - Backend: getOrderMessages()/sendOrderMessage() in Components.php
+         (ownership check is a plain "does this order belong to this user"
+         query, not getActiveSameDayOrderId() - a closed/delivered order's
+         chat history should still be readable, unlike the "active order"
+         gating everywhere else). New get_messages/send_message routes ->
+         Secure/Messages/{GetMessages,SendMessage}.php, same
+         requireAuthenticatedUser() pattern as every other endpoint.
+       - You were right that the WebSocket infra could be reused, but it
+         wasn't already wired for chat specifically - extended it: the
+         daemon's per-order fingerprint (Server/WebSocket/
+         OrderStatusFunctions.php) now also hashes COUNT+MAX(Id) from
+         Messages, so a new message registers as "this order changed" and
+         triggers the exact same push path order-status updates already use
+         (sendOrderMessage() calls the same notifyOrderStatusServer() for
+         instant delivery, not the slower 3s catch-all). The push is still
+         just a bare signal - the client re-fetches the thread via
+         get_messages when it arrives, same "dumb signal, smart refetch"
+         pattern as order-status.
+       - Modal (Interface/Sheets/Process.php): CORRECTED after first pass -
+         you meant #side-bar (Header.php's zip-code-entry slide-in drawer),
+         not the centered .Zip_Conflict_Header popup I used initially. Rebuilt
+         to match: a native <dialog>, same showModal()/requestAnimationFrame/
+         Sidebar_Open-class/transitionend/close-event lifecycle as
+         openSidebar()/closeSidebar() in Interaction.js, same fixed
+         full-height right-anchored slide-in CSS, same ::backdrop, and reuses
+         .box-title/.box-title h1/.close-icon-location as-is (already global
+         rules) for the header instead of a new one. Only the message-bubble
+         body/footer are new CSS, in Css/Sheets/Orders.css. Both the
+         shopper-row message icon button and the "Open chat" button on the
+         Messages card open it (the call button still shows a "coming soon"
+         alert - calling wasn't part of this ask).
+       - Found and fixed a real bug while visually checking the modal: customer
+         message bubbles rendered with invisible text (navy on navy) -
+         Header.css has a bare "span { color: var(--secondary) }" rule that
+         overrides inherited color on any nested span (same class of gotcha
+         as the documented font-size one). Added an explicit
+         ".Chat_Message span { color: inherit; font-size: inherit; }" fix.
+       - Scope boundary, not built: there's no employee-facing app/login
+         anywhere in this codebase, so there's no UI for "Trevor" to actually
+         type a reply back - the data model and backend fully support
+         employee-sent messages (seeded one employee, tested an employee
+         reply via direct insert, it displays correctly with the right name),
+         but an actual employee reply UI would be a separate, much bigger
+         piece of work this wasn't asked to include.
+       - Verified thoroughly: PHP session-file auth testing hit a real OS
+         permission wall (Apache runs as a different system user than this
+         shell, and PHP verifies session file ownership, not just permission
+         bits - didn't use sudo to force it), so tested the actual new logic
+         directly instead - getOrderMessages()/sendOrderMessage() called
+         directly: empty history, send + retrieve, a simulated employee
+         reply (correct sender name via the Employees/Users join), wrong-user
+         rejection on both read and send, empty-message rejection. Confirmed
+         the WebSocket push fires on a new message via the same live daemon
+         test pattern used earlier this session. Confirmed Process.php still
+         renders with no PHP errors/warnings. Visually verified the modal
+         (via a temporary standalone preview page, since Process.php itself
+         needs a real login to reach) - which is what caught the invisible-text
+         bug above. All test data/files cleaned up after. Done 2026-07-30.

@@ -47,11 +47,16 @@ $routes = [
     // Checkout & Orders
     'checkout'          => 'Secure/Checkout/Checkout.php',
     'finalize_order'    => 'Secure/Checkout/FinalizeOrder.php',
+    'adjust_tip'        => 'Secure/Checkout/AdjustTip.php',
     'order_history'     => 'Secure/Order/OrderHistory.php',
     'order_details'     => 'Secure/Order/OrderDetails.php',
     'cancel_order'      => 'Secure/Order/CancelOrder.php',
     'reschedule_delivery' => 'Secure/Order/RescheduleDelivery.php',
     'reschedule_windows' => 'Secure/Order/RescheduleWindows.php',
+
+    // Messages
+    'get_messages'      => 'Secure/Messages/GetMessages.php',
+    'send_message'      => 'Secure/Messages/SendMessage.php',
 
     // Reviews
     'reviews_get'       => 'Secure/Reviews/GetReviews.php',
@@ -68,6 +73,7 @@ $routes = [
     'list_addresses'    => 'Secure/User/ListAddresses.php',
     'payment_methods'   => 'Secure/User/PaymentMethods.php',
     'change_account_password' => 'Secure/User/ChangeAccountPassword.php',
+    'set_theme'          => 'Secure/User/SetTheme.php',
     'notifications'     => 'Secure/User/Notifications.php',
     'mark_notification_read' => 'Secure/User/MarkNotificationRead.php',
     'subscribe_membership' => 'Secure/User/SubscribeMembership.php',

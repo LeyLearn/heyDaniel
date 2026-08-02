@@ -32,18 +32,22 @@ $userId          = 0;
 $taxRate         = 0.00;
 $isSameDay       = false;
 $paidSameDay     = false;
+$deliveryMethod  = '';
 $tipAmount       = 0.00;
 $paymentMethodId = '';
 $address         = [];
+$saveCard        = true;
 
 if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
     $userId          = resolveMobileUserId($data);
     $taxRate         = (float)($data['tax_rate']        ?? 0.00);
     $isSameDay       = (bool)($data['is_same_day']      ?? false);
     $paidSameDay     = (bool)($data['is_paid_same_day'] ?? false);
+    $deliveryMethod  = (string)($data['delivery_method'] ?? 'standard');
     $tipAmount       = (float)($data['tip_amount']      ?? 0.00);
     $paymentMethodId = trim($data['payment_method_id']  ?? '');
     $address         = $data['address']                 ?? [];
+    $saveCard        = (bool)($data['save_card']         ?? true);
 } else {
     session_start();
     $userId          = (int)($_SESSION['user_id']            ?? 0);
@@ -51,13 +55,19 @@ if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
     // isSameDay/paidSameDay reflect what the shopper actually picked on the
     // delivery step, not just whether their zip happens to qualify —
     // submitCheckout() separately re-verifies membership (for the free,
-    // isSameDay path) before honoring either.
+    // isSameDay path) before honoring either. deliveryMethod is passed
+    // through as-is too, for the standard/express fee (submitCheckout()
+    // only actually uses it when neither same-day flag ends up true).
     $deliveryMethod  = (string)($data['delivery_method'] ?? '');
     $isSameDay       = $deliveryMethod === 'same-day' && (bool)($_SESSION['same_day_eligible'] ?? false);
     $paidSameDay     = $deliveryMethod === 'same-day-paid' && (bool)($_SESSION['same_day_eligible'] ?? false);
     $tipAmount       = (float)($data['tip_amount']            ?? 0.00);
     $paymentMethodId = trim($data['payment_method_id']  ?? '');
     $address         = $data['address']                 ?? [];
+    // Only meaningful when a fresh card was just entered - moot when
+    // reusing an already-saved card (savedCardId path in Checkout.php JS),
+    // so the client just leaves it at the true default in that case.
+    $saveCard        = (bool)($data['save_card']         ?? true);
 }
 
 // Every session value needed has been read at this point — release the
@@ -100,7 +110,7 @@ if (RateLimiter::tooManyAttempts($pdo, "checkout:{$userId}", 10, 600)) {
     exit;
 }
 
-$checkout = submitCheckout($pdo, $userId, $isSameDay, $paidSameDay, $taxRate, $tipAmount, $paymentMethodId, $address);
+$checkout = submitCheckout($pdo, $userId, $isSameDay, $paidSameDay, $deliveryMethod, $taxRate, $tipAmount, $paymentMethodId, $address, $saveCard);
 
 if (!empty($checkout['error'])) {
     http_response_code(500);

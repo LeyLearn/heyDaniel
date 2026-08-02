@@ -27,6 +27,7 @@
 
 .Checkout_Page_Header h1 {
   margin: 0;
+  padding-bottom: 6px;
   font-size: var(--page-title);
   font-weight: var(--font-weight);
   color: var(--text-dark);

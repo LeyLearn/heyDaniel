@@ -153,16 +153,16 @@ $metaDescription = "Complete your order with HeyDaniel.";
                         <h2>Delivery method</h2>
                     </div>
                     <div class="Delivery_Method_Options" id="checkout-delivery-methods">
-                        <label class="Delivery_Method_Card Selected" data-method="standard">
-                            <span class="Delivery_Method_Recommended">Recommended</span>
-                            <input type="radio" name="delivery-method" value="standard" checked />
+                        <label class="Delivery_Method_Card<?php echo !$isMember ? ' Selected' : '' ?>" data-method="standard">
+                            <?php if (!$isMember) { ?><span class="Delivery_Method_Recommended">Recommended</span><?php } ?>
+                            <input type="radio" name="delivery-method" value="standard"<?php echo !$isMember ? ' checked' : '' ?> />
                             <img src="<?php echo $path ?>Assets/Icons/truck.svg" alt="" />
                             <div class="Delivery_Method_Info">
                                 <span class="Delivery_Method_Name">Standard Delivery</span>
                                 <span class="Delivery_Method_Desc">3-5 business days</span>
-                                <span class="Checkout_Selected_Badge">Selected</span>
+                                <span class="Checkout_Selected_Badge"<?php echo $isMember ? ' style="display:none;"' : '' ?>>Selected</span>
                             </div>
-                            <span class="Delivery_Method_Price">$3.99</span>
+                            <span class="Delivery_Method_Price">$6.99</span>
                         </label>
                         <label class="Delivery_Method_Card" data-method="express">
                             <input type="radio" name="delivery-method" value="express" />
@@ -172,8 +172,31 @@ $metaDescription = "Complete your order with HeyDaniel.";
                                 <span class="Delivery_Method_Desc">1-2 business days</span>
                                 <span class="Checkout_Selected_Badge" style="display:none;">Selected</span>
                             </div>
-                            <span class="Delivery_Method_Price">$5.99</span>
+                            <span class="Delivery_Method_Price">$9.99</span>
                         </label>
+                        <?php if ($isMember) { ?>
+                            <label class="Delivery_Method_Card Selected" id="checkout-delivery-free-shipping" data-method="free-shipping">
+                                <span class="Delivery_Method_Recommended">Recommended</span>
+                                <input type="radio" name="delivery-method" value="free-shipping" checked />
+                                <img src="<?php echo $path ?>Assets/Icons/truck.svg" alt="" />
+                                <div class="Delivery_Method_Info">
+                                    <span class="Delivery_Method_Name">Free Delivery</span>
+                                    <span class="Delivery_Method_Desc">1-5 business days &mdash; HeyDaniel+ perk</span>
+                                    <span class="Checkout_Selected_Badge">Selected</span>
+                                </div>
+                                <span class="Delivery_Method_Price">Free</span>
+                            </label>
+                        <?php } else { ?>
+                            <div class="Delivery_Method_Card Delivery_Method_Locked" id="checkout-delivery-free-shipping" data-method="free-shipping">
+                                <img src="<?php echo $path ?>Assets/Icons/truck.svg" alt="" />
+                                <div class="Delivery_Method_Info">
+                                    <span class="Delivery_Method_Name"><i class="fas fa-lock" aria-hidden="true"></i> Free Delivery</span>
+                                    <span class="Delivery_Method_Desc">1-5 business days &mdash; HeyDaniel+ members only</span>
+                                    <span class="Delivery_Method_Free_Badge">Free Delivery</span>
+                                </div>
+                                <button type="button" class="Delivery_Method_Join_Btn" data-open-membership-modal>Join for $9.99/mo</button>
+                            </div>
+                        <?php } ?>
                         <?php if ($isMember) { ?>
                             <label class="Delivery_Method_Card" id="checkout-delivery-same-day" data-method="same-day" style="display:none;">
                                 <input type="radio" name="delivery-method" value="same-day" />
@@ -374,6 +397,8 @@ $metaDescription = "Complete your order with HeyDaniel.";
             const addressSameDayEligible = <?php echo json_encode($addressSameDayEligible); ?>;
             const checkoutTaxRate = <?php echo json_encode((float)($_SESSION['tax_rate'] ?? 0)); ?>;
             const SAME_DAY_PAID_FEE = 7.99;
+            const STANDARD_DELIVERY_FEE = 6.99;
+            const EXPRESS_DELIVERY_FEE = 9.99;
 
             $(document).ready(function () {
                 // ============================
@@ -422,12 +447,13 @@ $metaDescription = "Complete your order with HeyDaniel.";
                 $("#checkout-delivery-same-day-paid").toggle(isSameDayEligible);
 
                 if (isSameDayEligible) {
-                    // Standard/Express shipping don't make sense once same-day is
-                    // on the table — hide them rather than just deprioritizing,
+                    // Standard/Express/Free shipping don't make sense once same-day
+                    // is on the table — hide them rather than just deprioritizing,
                     // so the real choice is membership vs. pay-per-order (or just
                     // the free perk for existing members).
                     $("#checkout-delivery-methods label[data-method='standard']").hide();
                     $("#checkout-delivery-methods label[data-method='express']").hide();
+                    $("#checkout-delivery-free-shipping").hide();
 
                     if (isMember) {
                         $("#checkout-delivery-same-day")
@@ -581,10 +607,17 @@ $metaDescription = "Complete your order with HeyDaniel.";
                     return isSameDayEligible && (selectedMethod === "same-day" || selectedMethod === "same-day-paid");
                 }
 
+                function deliveryFeeForMethod(method) {
+                    if (method === "same-day-paid") return SAME_DAY_PAID_FEE;
+                    if (method === "express") return EXPRESS_DELIVERY_FEE;
+                    if (method === "same-day" || method === "free-shipping") return 0;
+                    return STANDARD_DELIVERY_FEE;
+                }
+
                 function updateTotal() {
                     const subtotal = parseFloat($("#checkout-subtotal").text().replace('$', '')) || 0;
                     const tax = parseFloat($("#checkout-tax").text().replace('$', '')) || 0;
-                    const deliveryFee = $("input[name='delivery-method']:checked").val() === "same-day-paid" ? SAME_DAY_PAID_FEE : 0;
+                    const deliveryFee = deliveryFeeForMethod($("input[name='delivery-method']:checked").val());
                     const tip = isSameDaySelected() ? (parseFloat($("#checkout-tip").val()) || 0) : 0;
 
                     $("#checkout-delivery-fee-row").toggle(deliveryFee > 0);
@@ -671,7 +704,7 @@ $metaDescription = "Complete your order with HeyDaniel.";
                     $btn.prop("disabled", true);
                     $btnLabel.text("Placing order...");
 
-                    function submitOrder(paymentMethodId) {
+                    function submitOrder(paymentMethodId, saveCard) {
                         const address = {
                             Address: $("#checkout-address").val().trim(),
                             Apt: $("#checkout-apt").val().trim(),
@@ -686,7 +719,7 @@ $metaDescription = "Complete your order with HeyDaniel.";
                         const tipAmount = isSameDaySelected() ? (parseFloat($("#checkout-tip").val()) || 0) : 0;
                         const deliveryMethod = $("input[name='delivery-method']:checked").val() || "standard";
 
-                        checkout(address, paymentMethodId, tipAmount, deliveryMethod, function (orderId) {
+                        checkout(address, paymentMethodId, tipAmount, deliveryMethod, saveCard, function (orderId) {
                             window.location.href = "/HeyDaniel/Interface/Sheets/Confirmation?order_id=" + orderId;
                         }, function (message) {
                             $error.text(message).show();
@@ -698,7 +731,9 @@ $metaDescription = "Complete your order with HeyDaniel.";
                     const usingSavedCard = savedCardId && $("#checkout-card-suggestion").hasClass("Selected");
 
                     if (usingSavedCard) {
-                        submitOrder(savedCardId);
+                        // Already saved - the checkbox only applies to a
+                        // freshly-entered card below.
+                        submitOrder(savedCardId, true);
                         return;
                     }
 
@@ -717,7 +752,7 @@ $metaDescription = "Complete your order with HeyDaniel.";
                             return;
                         }
 
-                        submitOrder(result.paymentMethod.id);
+                        submitOrder(result.paymentMethod.id, $("#checkout-save-card").is(":checked"));
                     });
                 });
             });

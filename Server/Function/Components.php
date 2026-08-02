@@ -95,7 +95,11 @@ function getActiveSameDayOrderId(\PDO $db, int $userId): ?int
         return null;
     }
 
-    $stmt = $db->prepare("SELECT Id FROM OrderSent WHERE UserId = ? AND OrderStatus IN ('Pending', 'Processing', 'Shipped') ORDER BY DateAdded DESC LIMIT 1");
+    // isSameDay = 1 is required, not just the status list - standard orders
+    // have their own received/packaging/shipped/location/delivered flow and
+    // share the word 'shipped' with this one, so status alone can't tell
+    // them apart once a standard order reaches that stage.
+    $stmt = $db->prepare("SELECT Id FROM OrderSent WHERE UserId = ? AND isSameDay = 1 AND OrderStatus IN ('pending', 'processing', 'shipped') ORDER BY DateAdded DESC LIMIT 1");
     $stmt->execute([$userId]);
     $orderId = $stmt->fetchColumn();
 
@@ -112,12 +116,12 @@ function getDisplayOrderStatus(\PDO $db, int $userId): ?string
         return null;
     }
 
-    // Case-insensitive match (matches the column's ci collation) — but the
-    // raw stored value's casing is inconsistent in practice (seen both
-    // 'pending' and 'Processing' in the data), so the returned value is
-    // normalized to Title Case rather than passed through as-is. The
-    // frontend's status-to-color/label mapping depends on that consistency.
-    $stmt = $db->prepare("SELECT OrderStatus FROM OrderSent WHERE UserId = ? AND OrderStatus IN ('Pending', 'Processing', 'Shipped') ORDER BY DateAdded DESC LIMIT 1");
+    // OrderStatus is always stored lowercase, but the frontend's status-to-
+    // color/label mapping expects Title Case, so it's normalized here rather
+    // than passed through as-is. isSameDay = 1 required for the same reason
+    // as getActiveSameDayOrderId() - 'shipped' is ambiguous between the two
+    // status vocabularies otherwise.
+    $stmt = $db->prepare("SELECT OrderStatus FROM OrderSent WHERE UserId = ? AND isSameDay = 1 AND OrderStatus IN ('pending', 'processing', 'shipped') ORDER BY DateAdded DESC LIMIT 1");
     $stmt->execute([$userId]);
     $status = $stmt->fetchColumn();
 
@@ -354,7 +358,7 @@ function updateDeviceZip(\PDO $db, string $deviceSignature, string $deviceType, 
                 $response['requires_order_cancel_confirmation'] = true;
                 return $response; // hold off — caller must not commit yet
             }
-            cancelOrder($db, $userId, ['Pending', 'Processing']);
+            cancelOrder($db, $userId, ['pending', 'processing']);
         }
     }
 
@@ -766,6 +770,13 @@ function addProduct(\PDO $db, int $productId, int $userId, bool $hasActiveOrder,
             $stmt = $db->prepare("INSERT INTO Process (UserId, ProductId, OrderId, Quantity) VALUES (?, ?, ?, 1) ON DUPLICATE KEY UPDATE Quantity = Quantity + 1");
             $stmt->execute([$userId, $productId, $activeOrderId]);
 
+            $stmt = $db->prepare("
+                UPDATE OrderSent
+                SET ItemQuantity = (SELECT COALESCE(SUM(Quantity), 0) FROM Process WHERE OrderId = ?)
+                WHERE Id = ?
+            ");
+            $stmt->execute([$activeOrderId, $activeOrderId]);
+
             $stmt = $db->prepare("SELECT Quantity FROM Process WHERE UserId = ? AND ProductId = ? AND OrderId = ?");
             $stmt->execute([$userId, $productId, $activeOrderId]);
         } else {
@@ -842,6 +853,13 @@ function decrementProduct(\PDO $db, int $productId, int $userId, bool $hasActive
 
             $stmt = $db->prepare("DELETE FROM Process WHERE UserId = ? AND ProductId = ? AND OrderId = ? AND Quantity = 0");
             $stmt->execute([$userId, $productId, $activeOrderId]);
+
+            $stmt = $db->prepare("
+                UPDATE OrderSent
+                SET ItemQuantity = (SELECT COALESCE(SUM(Quantity), 0) FROM Process WHERE OrderId = ?)
+                WHERE Id = ?
+            ");
+            $stmt->execute([$activeOrderId, $activeOrderId]);
 
             $stmt = $db->prepare("SELECT Quantity FROM Process WHERE UserId = ? AND ProductId = ? AND OrderId = ?");
             $stmt->execute([$userId, $productId, $activeOrderId]);
@@ -1117,14 +1135,14 @@ function pullingProducts(\PDO $db, bool $isSameDayEligible, string $table, int $
 
     // "Popular" (RecentlyViewed) is intentionally site-wide trending, not
     // personal to the caller. "Discover Great Deals" (SearchHistory) and
-    // "RecentlyBought" (ItemBoughtHistory) are personal history, so those two
+    // "RecentlyBought" (Process) are personal history, so those two
     // get scoped to the caller's own UserId - without this they were pulling
     // every user's search/purchase history mixed together.
     $scopeToUser = true;
     if ($table === "Recommendations") {
         $table = "SearchHistory";
     } else if ($table === "RecentlyBought") {
-        $table = "ItemBoughtHistory";
+        $table = "Process";
     } else {
         $table = "RecentlyViewed";
         $scopeToUser = false;
@@ -1809,7 +1827,7 @@ function registerUser(\PDO $db, string $userName, string $email, string $passwor
         }
 
         $stmt = $db->prepare("
-            INSERT INTO Users (Name, Email, Password, Credits, isMember, isActive, TimeRegister) 
+            INSERT INTO Users (Name, Email, Password, Credits, isMember, isActive, TimeRegister)
             VALUES (?, ?, ?, ?, ?, ?, NOW())
         ");
         $stmt->execute([
@@ -1820,6 +1838,13 @@ function registerUser(\PDO $db, string $userName, string $email, string $passwor
             0,
             1
         ]);
+
+        $stmt = $db->prepare("
+            INSERT INTO NewsletterSubscribers (Email)
+            VALUES (?)
+            ON DUPLICATE KEY UPDATE DateAdded = DateAdded
+        ");
+        $stmt->execute([$email]);
 
         $db->commit();
         $response['success'] = true;
@@ -1841,7 +1866,7 @@ function loginUser(\PDO $db, string $email, string $password): array
     ];
 
     try {
-        $stmt = $db->prepare("SELECT Id, Name, Email, Password, Credits, isMember, isActive, TimeRegister FROM Users WHERE Email = ? LIMIT 1");
+        $stmt = $db->prepare("SELECT Id, Name, Email, Password, Credits, isMember, isActive, TimeRegister, Theme FROM Users WHERE Email = ? LIMIT 1");
         $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -1880,6 +1905,7 @@ function loginUser(\PDO $db, string $email, string $password): array
             'credits'       => (float)$user['Credits'],
             'is_member'     => (bool)$user['isMember'],
             'time_register' => $user['TimeRegister'],
+            'theme'         => $user['Theme'],
         ];
     } catch (\PDOException $e) {
         error_log("DB Error in loginUser: " . $e->getMessage());
@@ -1899,7 +1925,7 @@ function googleLoginUser(\PDO $db, string $email, string $name): array
     try {
         $db->beginTransaction();
 
-        $stmt = $db->prepare("SELECT Id, Name, Email, Password, Credits, isMember, isActive, TimeRegister FROM Users WHERE Email = ? LIMIT 1");
+        $stmt = $db->prepare("SELECT Id, Name, Email, Password, Credits, isMember, isActive, TimeRegister, Theme FROM Users WHERE Email = ? LIMIT 1");
         $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -1930,7 +1956,14 @@ function googleLoginUser(\PDO $db, string $email, string $name): array
                 (int) true
             ]);
 
-            $stmt = $db->prepare("SELECT Id, Name, Email, Password, Credits, isMember, isActive, TimeRegister FROM Users WHERE Id = ? LIMIT 1");
+            $stmt = $db->prepare("
+                INSERT INTO NewsletterSubscribers (Email)
+                VALUES (?)
+                ON DUPLICATE KEY UPDATE DateAdded = DateAdded
+            ");
+            $stmt->execute([$email]);
+
+            $stmt = $db->prepare("SELECT Id, Name, Email, Password, Credits, isMember, isActive, TimeRegister, Theme FROM Users WHERE Id = ? LIMIT 1");
             $stmt->execute([(int)$db->lastInsertId()]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -1949,6 +1982,7 @@ function googleLoginUser(\PDO $db, string $email, string $name): array
             'credits'       => (float)$user['Credits'],
             'is_member'     => (bool)$user['isMember'],
             'time_register' => $user['TimeRegister'],
+            'theme'         => $user['Theme'],
         ];
     } catch (\PDOException $e) {
         $db->rollBack();
@@ -1972,6 +2006,27 @@ function logoutUser(\PDO $db, int $userId, string $token): array
     } catch (\PDOException $e) {
         error_log("DB Error in logoutUser: " . $e->getMessage());
         $response['error'] = "Internal server error during logout.";
+    }
+
+    return $response;
+}
+
+function setUserTheme(\PDO $db, int $userId, string $theme): array
+{
+    $response = ['success' => false, 'error' => null];
+
+    if (!in_array($theme, ['light', 'dark'], true)) {
+        $response['error'] = "Invalid theme.";
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("UPDATE Users SET Theme = ? WHERE Id = ?");
+        $stmt->execute([$theme, $userId]);
+        $response['success'] = true;
+    } catch (\PDOException $e) {
+        error_log("DB Error in setUserTheme: " . $e->getMessage());
+        $response['error'] = "Internal server error while saving theme.";
     }
 
     return $response;
@@ -2225,7 +2280,13 @@ function filterStore(\PDO $db, int $userId, bool $hasActiveOrder, bool $isSameDa
 // same-day, this is the pay-per-order alternative for everyone else.
 const SAME_DAY_PAID_FEE = 7.99;
 
-function submitCheckout(\PDO $db, int $userId, bool $isSameDay, bool $paidSameDay, float $taxRate, float $tipAmount, string $paymentMethodId, array $address): array
+// Standard-shipping delivery method fees (Checkout.php's "Delivery method"
+// cards) — unrelated to same-day, these apply to every standard order
+// regardless of membership.
+const STANDARD_DELIVERY_FEE = 6.99;
+const EXPRESS_DELIVERY_FEE  = 9.99;
+
+function submitCheckout(\PDO $db, int $userId, bool $isSameDay, bool $paidSameDay, string $deliveryMethod, float $taxRate, float $tipAmount, string $paymentMethodId, array $address, bool $saveCard = true): array
 {
     $response = [
         'order_id' => null,
@@ -2242,11 +2303,12 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, bool $paidSameDa
         return $response;
     }
 
-    // A negative tip would otherwise reduce $total below (and the amount
-    // actually charged via Stripe) — clamp before it ever reaches the math.
+    // A negative tip would otherwise reduce TipAmount below zero — clamp
+    // before it ever reaches the math (tip itself is charged separately
+    // later, see finalizeOrder()/adjustTip()).
     $tipAmount = max(0.0, $tipAmount);
 
-    $sameDayFee = 0.00;
+    $deliveryFee = 0.00;
 
     // Membership-gated free same-day is a HeyDaniel+ perk — the client
     // already gates this in the UI, but a stale page or a direct API call
@@ -2261,12 +2323,28 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, bool $paidSameDa
     } elseif ($paidSameDay) {
         // Pay-per-order same-day — no membership required, but it isn't
         // free: SAME_DAY_PAID_FEE gets added to the total and charged below.
-        $isSameDay  = true;
-        $sameDayFee = SAME_DAY_PAID_FEE;
+        $isSameDay   = true;
+        $deliveryFee = SAME_DAY_PAID_FEE;
     }
 
     if (!$isSameDay) {
         $tipAmount = 0.0;
+
+        // Standard-shipping fee, driven by whichever delivery method the
+        // customer actually picked on the checkout page - defaults to
+        // standard's fee for anything unrecognized rather than silently
+        // charging nothing. free-shipping is a HeyDaniel+ perk - re-verify
+        // membership server-side rather than trusting the flag, same as
+        // same-day above; a non-member sending it just pays standard's fee.
+        if ($deliveryMethod === 'express') {
+            $deliveryFee = EXPRESS_DELIVERY_FEE;
+        } elseif ($deliveryMethod === 'free-shipping') {
+            $stmt = $db->prepare("SELECT IsMember FROM Users WHERE Id = ? LIMIT 1");
+            $stmt->execute([$userId]);
+            $deliveryFee = (bool)$stmt->fetchColumn() ? 0.00 : STANDARD_DELIVERY_FEE;
+        } else {
+            $deliveryFee = STANDARD_DELIVERY_FEE;
+        }
     }
 
     // Validate address
@@ -2279,17 +2357,19 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, bool $paidSameDa
     }
 
     try {
-        // Fetch cart items
+        // Fetch cart items - Brand/Size/isBogo/isOnSale/Price/SalePrice come
+        // raw so the BOGO pairing math below can work per-unit rather than
+        // a single flat per-row price.
         $stmt = $db->prepare("
             SELECT
                 CI.ProductId,
                 CI.Quantity,
-                COALESCE(
-                    CASE
-                        WHEN P.isOnSale = 1 THEN P.SalePrice
-                        ELSE P.Price
-                    END, P.Price
-                ) AS UnitPrice
+                P.Brand,
+                P.Size,
+                P.isOnSale,
+                P.isBogo,
+                P.Price,
+                P.SalePrice
             FROM Cart CI
             INNER JOIN Products P ON CI.ProductId = P.Id
             WHERE CI.UserId = ?
@@ -2302,12 +2382,84 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, bool $paidSameDa
             return $response;
         }
 
-        // Calculate totals
-        $subtotal  = array_sum(array_map(fn($item) => $item['UnitPrice'] * $item['Quantity'], $cartItems));
-        $taxAmount = round($subtotal * $taxRate, 2);
-        $tip       = $isSameDay ? round($tipAmount, 2) : 0.00;
-        $total     = round($subtotal + $taxAmount + $tip + $sameDayFee, 2);
-        $itemCount = array_sum(array_column($cartItems, 'Quantity'));
+        // BOGO pairing: group by (Brand, Size) - any 2 units within a group
+        // pair up regardless of flavor (Name), so 2 units of the exact same
+        // product is just the trivial case of a group with only one flavor
+        // in it. Each unit that lands in a completed pair has its own price
+        // cut in half; a leftover unpaired unit (odd count in its group)
+        // stays full price. Tracked per cart row so the discount can be
+        // attributed back to each row's own line total below.
+        $bogoPools = [];
+        foreach ($cartItems as $idx => $item) {
+            if (!(bool)$item['isBogo']) {
+                continue;
+            }
+            $groupKey = $item['Brand'] . '|' . $item['Size'];
+            for ($i = 0; $i < (int)$item['Quantity']; $i++) {
+                $bogoPools[$groupKey][] = $idx;
+            }
+        }
+
+        $pairedUnitsByRow = [];
+        foreach ($bogoPools as $rowIndexes) {
+            $pairCount = intdiv(count($rowIndexes), 2);
+            for ($p = 0; $p < $pairCount; $p++) {
+                $i1 = array_pop($rowIndexes);
+                $i2 = array_pop($rowIndexes);
+                $pairedUnitsByRow[$i1] = ($pairedUnitsByRow[$i1] ?? 0) + 1;
+                $pairedUnitsByRow[$i2] = ($pairedUnitsByRow[$i2] ?? 0) + 1;
+            }
+            // Whatever's left in $rowIndexes (0 or 1 entries) is an
+            // unpaired leftover - full price, nothing to record.
+        }
+
+        // Calculate totals. Tip is deliberately excluded from $orderRevenue -
+        // it's never part of what Stripe holds, it's charged as its own
+        // separate transaction later (see finalizeOrder()/adjustTip()).
+        $saleSaved = 0.00;
+        $bogoSaved = 0.00;
+        foreach ($cartItems as $idx => &$item) {
+            $quantity  = (int)$item['Quantity'];
+            $unitPrice = (bool)$item['isOnSale'] ? (float)$item['SalePrice'] : (float)$item['Price'];
+
+            if ((bool)$item['isOnSale']) {
+                $saleSaved += ((float)$item['Price'] - (float)$item['SalePrice']) * $quantity;
+            }
+
+            $pairedUnits    = $pairedUnitsByRow[$idx] ?? 0;
+            $fullPriceUnits = $quantity - $pairedUnits;
+            $bogoSaved     += $pairedUnits * $unitPrice / 2;
+
+            // Line total feeds the order subtotal below.
+            $item['LineTotal'] = ($pairedUnits * $unitPrice / 2) + ($fullPriceUnits * $unitPrice);
+        }
+        unset($item);
+
+        // Only counts when same-day ended up free via membership
+        // (deliveryFee stays 0.00 in that path; the paid path sets it to
+        // SAME_DAY_PAID_FEE, which isn't a saving since they paid it. Never
+        // triggers for standard/express - those aren't same-day at all).
+        $sameDayFeeSaved = ($isSameDay && $deliveryFee == 0.00) ? SAME_DAY_PAID_FEE : 0.00;
+
+        // Same idea for a member choosing free-shipping instead of standard -
+        // what they'd have paid for standard's speed is the real saving.
+        $freeShippingSaved = (!$isSameDay && $deliveryMethod === 'free-shipping' && $deliveryFee == 0.00) ? STANDARD_DELIVERY_FEE : 0.00;
+
+        $saved = round($saleSaved + $bogoSaved + $sameDayFeeSaved + $freeShippingSaved, 2);
+
+        $subtotal     = array_sum(array_column($cartItems, 'LineTotal'));
+        $taxAmount    = round($subtotal * $taxRate, 2);
+        $tip          = $isSameDay ? round($tipAmount, 2) : 0.00;
+        $orderRevenue = round($subtotal + $taxAmount + $deliveryFee, 2);
+        $itemCount    = array_sum(array_column($cartItems, 'Quantity'));
+
+        // Same-day orders hold payment (captured later in finalizeOrder());
+        // standard orders don't - there's no shopper run and no missing-item
+        // adjustment to wait for, so they're just charged now. OrderStatus
+        // starts at each type's first stage: same-day's pending/processing/
+        // shipped/delivered flow, or standard's own received/packaging/
+        // shipped/location/delivered flow.
+        $initialOrderStatus = $isSameDay ? 'pending' : 'received';
 
         // Check for existing Stripe Customer
         \Stripe\Stripe::setApiKey($_ENV['STRIPE_SECRET_KEY'] ?? '');
@@ -2319,11 +2471,26 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, bool $paidSameDa
         if ($paymentRow) {
             $stripeCustomerId = $paymentRow['StripeCustomerId'];
 
-            // Attach new payment method to existing customer
+            // Attach new payment method to existing customer - always
+            // attached regardless of $saveCard (finalizeOrder()/adjustTip()
+            // need reliable off-session reuse within this order's own
+            // lifecycle, which is a Stripe requirement, not a preference).
             $paymentMethod = \Stripe\PaymentMethod::retrieve($paymentMethodId);
             $paymentMethod->attach([
                 'customer' => $stripeCustomerId,
             ]);
+
+            // Keep the stored card + "show as saved" preference current -
+            // this used to only attach in Stripe without updating our own
+            // row, so a returning customer using a different card each time
+            // would leave PaymentMethod pointing at a stale, no-longer-used
+            // card here.
+            $stmt = $db->prepare("
+                UPDATE CustomerPaymentMethod
+                SET PaymentMethod = ?, ShowSavedCard = ?
+                WHERE UserId = ?
+            ");
+            $stmt->execute([$paymentMethodId, (int)$saveCard, $userId]);
         } else {
             // Fetch user info for Stripe Customer creation
             $stmt = $db->prepare("SELECT Name, Email FROM Users WHERE Id = ? LIMIT 1");
@@ -2341,23 +2508,32 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, bool $paidSameDa
 
             // Save to CustomerPaymentMethod
             $stmt = $db->prepare("
-                INSERT INTO CustomerPaymentMethod (UserId, PaymentMethod, StripeCustomerId)
-                VALUES (?, ?, ?)
+                INSERT INTO CustomerPaymentMethod (UserId, PaymentMethod, StripeCustomerId, ShowSavedCard)
+                VALUES (?, ?, ?, ?)
             ");
-            $stmt->execute([$userId, $paymentMethodId, $stripeCustomerId]);
+            $stmt->execute([$userId, $paymentMethodId, $stripeCustomerId, (int)$saveCard]);
         }
 
-        // Create Payment Intent with manual capture
-        $paymentIntent = \Stripe\PaymentIntent::create([
-            'amount'               => (int)round($total * 100),
+        // Same-day holds the charge (manual capture, settled later in
+        // finalizeOrder()); standard orders are charged immediately
+        // (automatic capture - Stripe's default when capture_method is
+        // omitted) since there's no later step waiting to adjust the total.
+        // Amount is orderRevenue only either way - tip never inflates this,
+        // it's charged separately later for same-day, and doesn't apply to
+        // standard orders at all.
+        $paymentIntentParams = [
+            'amount'               => (int)round($orderRevenue * 100),
             'currency'             => 'usd',
             'customer'             => $stripeCustomerId,
             'payment_method'       => $paymentMethodId,
             'payment_method_types' => ['card'],
-            'capture_method'       => 'manual',
             'confirm'              => true,
             'description'          => "HeyDaniel, LLC order - UserId: {$userId}",
-        ]);
+        ];
+        if ($isSameDay) {
+            $paymentIntentParams['capture_method'] = 'manual';
+        }
+        $paymentIntent = \Stripe\PaymentIntent::create($paymentIntentParams);
     } catch (\Stripe\Exception\ApiErrorException $e) {
         error_log("Stripe Error in submitCheckout: " . $e->getMessage());
         $response['error'] = "Payment processing failed.";
@@ -2424,23 +2600,27 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, bool $paidSameDa
 
         // Insert into OrderSent first so its Id is available to tag each
         // line item below with the OrderId it belongs to.
+        // OrderLiability isn't set here - it's the shopper's real receipt
+        // total, entered later by whoever fulfills the order, not known at
+        // checkout. Left NULL (its default) until then.
         $stmt = $db->prepare("
             INSERT INTO OrderSent (
-                UserId, ItemQuantity, OrderRevenue, FinalOrderRevenue, OrderLiability,
-                TipAmount, SameDayFee, isSameDay, isTipped, OrderStatus,
+                UserId, ItemQuantity, OrderRevenue, FinalOrderRevenue, TaxAmount,
+                TipAmount, DeliveryFee, Saved, isSameDay, OrderStatus,
                 ScheduledDeliveryWindow, ScheduledDeliveryStart, ScheduledDeliveryEnd
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $userId,
             $itemCount,
-            $subtotal,
-            $total,
+            $orderRevenue,
+            $orderRevenue,
             $taxAmount,
             $tip,
-            $sameDayFee,
+            $deliveryFee,
+            $saved,
             (int)$isSameDay,
-            (int)($tip > 0),
+            $initialOrderStatus,
             $scheduledWindow,
             $scheduledStart,
             $scheduledEnd
@@ -2448,35 +2628,15 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, bool $paidSameDa
 
         $orderId = (int)$db->lastInsertId();
 
-        // Move cart items to Process (same-day) or OrderTracking (standard
-        // shipping) — the two tables track different things per item, so
-        // they need different column lists rather than one shared insert.
-        if ($isSameDay) {
-            $insertStmt = $db->prepare("
-                INSERT INTO Process (UserId, ProductId, OrderId, Quantity, isStocked)
-                VALUES (?, ?, ?, ?, 1)
-            ");
+        // Every order's items go into Process now, same-day or not - there's
+        // no more separate OrderTracking table for standard shipping.
+        $insertStmt = $db->prepare("
+            INSERT INTO Process (UserId, ProductId, OrderId, Quantity, isStocked)
+            VALUES (?, ?, ?, ?, 1)
+        ");
 
-            foreach ($cartItems as $item) {
-                $insertStmt->execute([$userId, $item['ProductId'], $orderId, $item['Quantity']]);
-            }
-        } else {
-            $insertStmt = $db->prepare("
-                INSERT INTO OrderTracking (UserId, ProductId, OrderId, ItemQuantity, OrderRevenue, OrderLiability)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ");
-
-            foreach ($cartItems as $item) {
-                $itemRevenue = round($item['UnitPrice'] * $item['Quantity'], 2);
-                $insertStmt->execute([
-                    $userId,
-                    $item['ProductId'],
-                    $orderId,
-                    $item['Quantity'],
-                    $itemRevenue,
-                    round($itemRevenue * $taxRate, 2)
-                ]);
-            }
+        foreach ($cartItems as $item) {
+            $insertStmt->execute([$userId, $item['ProductId'], $orderId, $item['Quantity']]);
         }
 
         // Clear cart
@@ -2492,7 +2652,7 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, bool $paidSameDa
             $userId,
             'order',
             'Order placed',
-            "Your order #{$orderId} has been placed for \$" . number_format($total, 2) . "."
+            "Your order #{$orderId} has been placed for \$" . number_format($orderRevenue, 2) . "."
         );
     } catch (\PDOException $e) {
         $db->rollBack();
@@ -2503,7 +2663,23 @@ function submitCheckout(\PDO $db, int $userId, bool $isSameDay, bool $paidSameDa
     return $response;
 }
 
-function subscribeMembership(\PDO $db, int $userId, string $paymentMethodId): array
+// Revenue-log amount for a HeyDaniel+ charge (OrderSent.IsMembershipCharge
+// rows, written by subscribeMembership() and the monthly sweep in
+// Server/Cron/LogMembershipRevenue.php) - read from MembershipSettings
+// rather than hardcoded, so it can be changed without a code deploy. Falls
+// back to 9.99 only if that table is somehow empty. NOTE: this only
+// controls the revenue log - it does NOT change what Stripe actually
+// charges (that's STRIPE_MEMBERSHIP_PRICE_ID, a Stripe Price configured on
+// Stripe's side - see MembershipSettings.sql).
+function getMembershipMonthlyFee(\PDO $db): float
+{
+    $stmt = $db->query("SELECT MonthlyFee FROM MembershipSettings ORDER BY Id LIMIT 1");
+    $fee  = $stmt->fetchColumn();
+
+    return $fee !== false ? (float)$fee : 9.99;
+}
+
+function subscribeMembership(\PDO $db, int $userId, string $paymentMethodId, bool $saveCard = true): array
 {
     $response = [
         'success' => false,
@@ -2551,6 +2727,23 @@ function subscribeMembership(\PDO $db, int $userId, string $paymentMethodId): ar
             \Stripe\Customer::update($stripeCustomerId, [
                 'invoice_settings' => ['default_payment_method' => $paymentMethodId],
             ]);
+
+            // The attach() above (unconditional) is what makes recurring
+            // billing work - Stripe bills the subscription's attached card
+            // regardless of ShowSavedCard. That flag only controls whether
+            // *our own* checkout page offers this card as a quick-pick on a
+            // future one-time purchase, so it has to honor $saveCard here
+            // exactly like submitCheckout() does - silently forcing it back
+            // to "on" would override a customer's earlier "don't save my
+            // card" choice without them ever agreeing to that, which is
+            // exactly the kind of thing that gets a business sued. Also
+            // keeps PaymentMethod current, same fix as submitCheckout().
+            $stmt = $db->prepare("
+                UPDATE CustomerPaymentMethod
+                SET PaymentMethod = ?, ShowSavedCard = ?
+                WHERE UserId = ?
+            ");
+            $stmt->execute([$paymentMethodId, (int)$saveCard, $userId]);
         } else {
             $stmt = $db->prepare("SELECT Name, Email FROM Users WHERE Id = ? LIMIT 1");
             $stmt->execute([$userId]);
@@ -2566,10 +2759,10 @@ function subscribeMembership(\PDO $db, int $userId, string $paymentMethodId): ar
             $stripeCustomerId = $customer->id;
 
             $stmt = $db->prepare("
-                INSERT INTO CustomerPaymentMethod (UserId, PaymentMethod, StripeCustomerId)
-                VALUES (?, ?, ?)
+                INSERT INTO CustomerPaymentMethod (UserId, PaymentMethod, StripeCustomerId, ShowSavedCard)
+                VALUES (?, ?, ?, ?)
             ");
-            $stmt->execute([$userId, $paymentMethodId, $stripeCustomerId]);
+            $stmt->execute([$userId, $paymentMethodId, $stripeCustomerId, (int)$saveCard]);
         }
 
         $subscription = \Stripe\Subscription::create([
@@ -2599,6 +2792,20 @@ function subscribeMembership(\PDO $db, int $userId, string $paymentMethodId): ar
 
         $stmt = $db->prepare("UPDATE CustomerPaymentMethod SET StripeSubscriptionId = ? WHERE UserId = ?");
         $stmt->execute([$subscription->id, $userId]);
+
+        // Revenue trail for this first charge - not Stripe-webhook-driven,
+        // see getMembershipMonthlyFee(). OrderLiability is explicitly 0.00
+        // (zero cost to the company), no Process rows (no items), settled
+        // immediately since there's nothing to fulfill or ship.
+        $monthlyFee = getMembershipMonthlyFee($db);
+        $stmt = $db->prepare("
+            INSERT INTO OrderSent (
+                UserId, ItemQuantity, OrderRevenue, FinalOrderRevenue, TaxAmount,
+                OrderLiability, TipAmount, DeliveryFee, Saved, isSameDay,
+                IsMembershipCharge, OrderStatus, isClosed, TimeDelivered
+            ) VALUES (?, 0, ?, ?, 0.00, 0.00, 0.00, 0.00, 0.00, 0, 1, 'delivered', 1, NOW())
+        ");
+        $stmt->execute([$userId, $monthlyFee, $monthlyFee]);
 
         $response['success'] = true;
 
@@ -2631,24 +2838,38 @@ function cancelMembership(\PDO $db, int $userId): array
         $stmt->execute([$userId]);
         $subscriptionId = $stmt->fetchColumn();
 
+        $periodEndText = 'the end of your billing period';
+
         if ($subscriptionId) {
             \Stripe\Stripe::setApiKey($_ENV['STRIPE_SECRET_KEY'] ?? '');
             try {
-                \Stripe\Subscription::retrieve($subscriptionId)->cancel();
+                // They already paid for this period, so don't cancel
+                // outright - cancel_at_period_end keeps the subscription
+                // (and Users.IsMember/StripeSubscriptionId) active until it
+                // actually ends. Stripe auto-cancels at that point and fires
+                // customer.subscription.deleted, which
+                // revokeMembershipBySubscriptionId() (StripeWebhook.php)
+                // already handles - this function deliberately doesn't
+                // touch IsMember or StripeSubscriptionId itself.
+                $subscription = \Stripe\Subscription::update($subscriptionId, [
+                    'cancel_at_period_end' => true,
+                ]);
+                $periodEndText = date('F j, Y', $subscription->current_period_end);
             } catch (\Stripe\Exception\InvalidRequestException $e) {
-                // Already cancelled on Stripe's side (e.g. via a prior webhook) — treat as success.
+                // Already cancelled/gone on Stripe's side (e.g. a prior
+                // webhook already processed this) - nothing left to do.
             }
-
-            $stmt = $db->prepare("UPDATE CustomerPaymentMethod SET StripeSubscriptionId = NULL WHERE UserId = ?");
-            $stmt->execute([$userId]);
         }
-
-        $stmt = $db->prepare("UPDATE Users SET IsMember = 0 WHERE Id = ?");
-        $stmt->execute([$userId]);
 
         $response['success'] = true;
 
-        createNotification($db, $userId, 'membership', 'Membership cancelled', 'Your HeyDaniel+ membership has been cancelled.');
+        createNotification(
+            $db,
+            $userId,
+            'membership',
+            'Membership set to cancel',
+            "Your HeyDaniel+ membership won't renew, but you'll keep your perks through {$periodEndText}."
+        );
     } catch (\Stripe\Exception\ApiErrorException $e) {
         error_log("Stripe Error in cancelMembership: " . $e->getMessage());
         $response['error'] = "Unable to cancel membership.";
@@ -2658,6 +2879,54 @@ function cancelMembership(\PDO $db, int $userId): array
     }
 
     return $response;
+}
+
+// Called by the scheduled sweep (Server/Cron/LogMembershipRevenue.php), not
+// by any user-facing endpoint. Finds every still-active member whose most
+// recent IsMembershipCharge row is over a month old (or who has none at
+// all, though that shouldn't happen - subscribeMembership() logs the first
+// one directly) and logs another month's charge for them. Meant to run
+// daily - the NOT EXISTS/1-month-old check means it's a no-op for anyone
+// not actually due yet, so running it more often than necessary is
+// harmless. Deliberately not Stripe-driven - see getMembershipMonthlyFee().
+function logMonthlyMembershipRevenue(\PDO $db): array
+{
+    $result = ['logged' => 0, 'failed' => 0];
+
+    $stmt = $db->prepare("
+        SELECT u.Id
+        FROM Users u
+        WHERE u.IsMember = 1
+        AND NOT EXISTS (
+            SELECT 1 FROM OrderSent o
+            WHERE o.UserId = u.Id
+            AND o.IsMembershipCharge = 1
+            AND o.DateAdded > DATE_SUB(NOW(), INTERVAL 1 MONTH)
+        )
+    ");
+    $stmt->execute();
+    $userIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+    $monthlyFee = getMembershipMonthlyFee($db);
+    $insertStmt = $db->prepare("
+        INSERT INTO OrderSent (
+            UserId, ItemQuantity, OrderRevenue, FinalOrderRevenue, TaxAmount,
+            OrderLiability, TipAmount, DeliveryFee, Saved, isSameDay,
+            IsMembershipCharge, OrderStatus, isClosed, TimeDelivered
+        ) VALUES (?, 0, ?, ?, 0.00, 0.00, 0.00, 0.00, 0.00, 0, 1, 'delivered', 1, NOW())
+    ");
+
+    foreach ($userIds as $userId) {
+        try {
+            $insertStmt->execute([(int)$userId, $monthlyFee, $monthlyFee]);
+            $result['logged']++;
+        } catch (\PDOException $e) {
+            error_log("DB Error in logMonthlyMembershipRevenue for UserId {$userId}: " . $e->getMessage());
+            $result['failed']++;
+        }
+    }
+
+    return $result;
 }
 
 function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): array
@@ -2689,22 +2958,25 @@ function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): a
             return $response;
         }
 
-        // HeyDaniel+ members earn cash back on every completed order: a flat
-        // $9.99 (the value of the same-day delivery fee they don't pay) plus
-        // $0.05 for every full $50 of the order subtotal (OrderRevenue, i.e.
-        // before tax/tip). Non-members earn nothing.
-        $stmt = $db->prepare("SELECT IsMember FROM Users WHERE Id = ? LIMIT 1");
-        $stmt->execute([$userId]);
-        $isMember = (bool)$stmt->fetchColumn();
-
-        $creditsEarned = 0.00;
-        if ($isMember) {
-            $creditsEarned = round(9.99 + floor($order['OrderRevenue'] / 50) * 0.05, 2);
+        // Standard orders are charged in full at checkout (submitCheckout())
+        // - there's no held payment here to capture, so this function simply
+        // doesn't apply to them.
+        if (!$order['isSameDay']) {
+            $response['error'] = "This order does not require finalization.";
+            return $response;
         }
+
+        // Recover the tax rate actually applied to this order from its own
+        // stored numbers (OrderRevenue = rawSubtotal + TaxAmount +
+        // DeliveryFee) rather than trusting whatever the zip's rate is *now* -
+        // rates can change between checkout and fulfillment. Note: TaxAmount,
+        // not OrderLiability - that column is the company's cost, not tax.
+        $rawSubtotal  = (float)$order['OrderRevenue'] - (float)$order['DeliveryFee'] - (float)$order['TaxAmount'];
+        $orderTaxRate = $rawSubtotal > 0 ? (float)$order['TaxAmount'] / $rawSubtotal : 0.0;
 
         // Fetch Payment Intent ID
         $stmt = $db->prepare("
-            SELECT StripeCustomerId, PaymentMethod, StripePaymentIntentId 
+            SELECT StripeCustomerId, PaymentMethod, StripePaymentIntentId
             FROM CustomerPaymentMethod WHERE UserId = ? LIMIT 1
         ");
         $stmt->execute([$userId]);
@@ -2715,41 +2987,90 @@ function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): a
             return $response;
         }
 
-        // Charge tip separately if same-day and tipped
-        if ($order['isSameDay'] && $tipAmount > 0) {
+        // FinalOrderRevenue = OrderRevenue minus whatever didn't get
+        // fulfilled. QuantityFound is the real fulfillment signal (see
+        // processContent()) - NULL shouldn't happen by finalization, but
+        // COALESCEs to "fully found" defensively rather than over-subtracting.
+        $missingAmount = 0.00;
+        $stmt = $db->prepare("
+            SELECT
+                GREATEST(pr.Quantity - COALESCE(pr.QuantityFound, pr.Quantity), 0) AS MissingQty,
+                CASE WHEN p.isOnSale = 1 THEN p.SalePrice ELSE p.Price END AS UnitPrice
+            FROM Process pr
+            INNER JOIN Products p ON p.Id = pr.ProductId
+            WHERE pr.OrderId = ? AND pr.UserId = ?
+        ");
+        $stmt->execute([$orderId, $userId]);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $missingAmount += (int)$row['MissingQty'] * (float)$row['UnitPrice'] * (1 + $orderTaxRate);
+        }
+        $missingAmount = round($missingAmount, 2);
+        $finalOrderRevenue = round((float)$order['OrderRevenue'] - $missingAmount, 2);
+
+        // Stripe can only capture up to what was authorized - never more.
+        // Capture whichever is smaller; if fulfillment somehow came in over
+        // OrderRevenue (e.g. a future substitution/exchange feature), the
+        // excess has to be its own separate charge instead.
+        $captureAmount = min($finalOrderRevenue, (float)$order['OrderRevenue']);
+        $paymentIntent = \Stripe\PaymentIntent::retrieve($paymentRow['StripePaymentIntentId']);
+        $paymentIntent->capture([
+            'amount_to_capture' => (int)round($captureAmount * 100),
+        ]);
+
+        if ($finalOrderRevenue > (float)$order['OrderRevenue']) {
+            $difference = round($finalOrderRevenue - (float)$order['OrderRevenue'], 2);
             \Stripe\PaymentIntent::create([
-                'amount'               => (int)round($tipAmount * 100),
+                'amount'               => (int)round($difference * 100),
                 'currency'             => 'usd',
                 'customer'             => $paymentRow['StripeCustomerId'],
                 'payment_method'       => $paymentRow['PaymentMethod'],
                 'payment_method_types' => ['card'],
                 'off_session'          => true,
                 'confirm'              => true,
-                'description'          => "HeyDaniel, LLC tip - OrderId: {$orderId}",
+                'description'          => "HeyDaniel, LLC order balance - OrderId: {$orderId}",
             ]);
         }
 
-        // Capture main Payment Intent at FinalOrderRevenue
-        $paymentIntent = \Stripe\PaymentIntent::retrieve($paymentRow['StripePaymentIntentId']);
-        $paymentIntent->capture([
-            'amount_to_capture' => (int)round($order['FinalOrderRevenue'] * 100),
-        ]);
+        // Tip is never captured through the main hold. It's authorized as
+        // its own manual-capture PaymentIntent and left held for 3 days so
+        // the customer can still change it (adjustTip()) - the scheduled
+        // sweep (Server/Cron/CaptureHeldTips.php) auto-captures it as-is if
+        // the deadline passes untouched.
+        $tipPaymentIntentId  = null;
+        $tipDecisionDeadline = null;
+        if ($tipAmount > 0) {
+            $tipIntent = \Stripe\PaymentIntent::create([
+                'amount'               => (int)round($tipAmount * 100),
+                'currency'             => 'usd',
+                'customer'             => $paymentRow['StripeCustomerId'],
+                'payment_method'       => $paymentRow['PaymentMethod'],
+                'payment_method_types' => ['card'],
+                'capture_method'       => 'manual',
+                'off_session'          => true,
+                'confirm'              => true,
+                'description'          => "HeyDaniel, LLC tip hold - OrderId: {$orderId}",
+            ]);
+            $tipPaymentIntentId  = $tipIntent->id;
+            $tipDecisionDeadline = date('Y-m-d H:i:s', strtotime('+3 days'));
+        }
 
         // Update OrderSent
         $stmt = $db->prepare("
             UPDATE OrderSent
             SET isClosed = 1,
-                isTipped = ?,
+                FinalOrderRevenue = ?,
                 TipAmount = ?,
-                CreditsEarned = ?,
+                TipPaymentIntentId = ?,
+                TipDecisionDeadline = ?,
                 OrderStatus = 'delivered',
                 TimeDelivered = NOW()
             WHERE Id = ? AND UserId = ?
         ");
         $stmt->execute([
-            (int)($tipAmount > 0),
+            $finalOrderRevenue,
             $tipAmount,
-            $creditsEarned,
+            $tipPaymentIntentId,
+            $tipDecisionDeadline,
             $orderId,
             $userId
         ]);
@@ -2762,10 +3083,8 @@ function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): a
         ");
         $stmt->execute([$userId]);
 
-        if ($creditsEarned > 0) {
-            $stmt = $db->prepare("UPDATE Users SET Credits = Credits + ? WHERE Id = ?");
-            $stmt->execute([$creditsEarned, $userId]);
-        }
+        // Users.Credits accumulation is being redesigned separately - not
+        // tied to per-order data here anymore (see Saved above instead).
 
         $response['success'] = true;
     } catch (\Stripe\Exception\ApiErrorException $e) {
@@ -2779,6 +3098,164 @@ function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): a
     return $response;
 }
 
+// Lets the customer change a tip still sitting in its 3-day hold
+// (finalizeOrder() sets TipPaymentIntentId/TipDecisionDeadline). Settles
+// immediately either way - a decrease captures the hold at the lower amount
+// (Stripe releases the rest), an increase captures the full hold plus a
+// separate immediate charge for the delta, since an existing hold can only
+// be lowered, never raised. Either path clears TipPaymentIntentId/
+// TipDecisionDeadline, so a second adjustment after this one has nothing
+// left to act on - once settled, it's settled.
+function adjustTip(\PDO $db, int $userId, int $orderId, float $newTipAmount): array
+{
+    $response = [
+        'success' => false,
+        'error'   => null
+    ];
+
+    if ($userId <= 0 || $orderId <= 0) {
+        $response['error'] = "Invalid request.";
+        return $response;
+    }
+
+    $newTipAmount = max(0.0, $newTipAmount);
+
+    try {
+        \Stripe\Stripe::setApiKey($_ENV['STRIPE_SECRET_KEY'] ?? '');
+
+        $stmt = $db->prepare("
+            SELECT TipAmount, TipPaymentIntentId, TipDecisionDeadline
+            FROM OrderSent WHERE Id = ? AND UserId = ? LIMIT 1
+        ");
+        $stmt->execute([$orderId, $userId]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$order) {
+            $response['error'] = "Order not found.";
+            return $response;
+        }
+
+        if (empty($order['TipPaymentIntentId'])) {
+            $response['error'] = "No pending tip to adjust.";
+            return $response;
+        }
+
+        if (!$order['TipDecisionDeadline'] || strtotime($order['TipDecisionDeadline']) <= time()) {
+            $response['error'] = "The window to change this tip has closed.";
+            return $response;
+        }
+
+        $heldAmount = (float)$order['TipAmount'];
+
+        $stmt = $db->prepare("
+            SELECT StripeCustomerId, PaymentMethod
+            FROM CustomerPaymentMethod WHERE UserId = ? LIMIT 1
+        ");
+        $stmt->execute([$userId]);
+        $paymentRow = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$paymentRow) {
+            $response['error'] = "Payment information not found.";
+            return $response;
+        }
+
+        $tipIntent = \Stripe\PaymentIntent::retrieve($order['TipPaymentIntentId']);
+
+        if ($newTipAmount <= $heldAmount) {
+            // Decrease (or unchanged) - capture at the new amount now;
+            // Stripe auto-releases whatever's left of the hold.
+            $tipIntent->capture([
+                'amount_to_capture' => (int)round($newTipAmount * 100),
+            ]);
+        } else {
+            // Increase - capture the full original hold, then a separate
+            // immediate charge for the delta (an existing hold can't be
+            // raised, only lowered).
+            $tipIntent->capture();
+
+            $delta = round($newTipAmount - $heldAmount, 2);
+            \Stripe\PaymentIntent::create([
+                'amount'               => (int)round($delta * 100),
+                'currency'             => 'usd',
+                'customer'             => $paymentRow['StripeCustomerId'],
+                'payment_method'       => $paymentRow['PaymentMethod'],
+                'payment_method_types' => ['card'],
+                'off_session'          => true,
+                'confirm'              => true,
+                'description'          => "HeyDaniel, LLC tip adjustment - OrderId: {$orderId}",
+            ]);
+        }
+
+        $stmt = $db->prepare("
+            UPDATE OrderSent
+            SET TipAmount = ?,
+                TipPaymentIntentId = NULL,
+                TipDecisionDeadline = NULL
+            WHERE Id = ? AND UserId = ?
+        ");
+        $stmt->execute([
+            $newTipAmount,
+            $orderId,
+            $userId
+        ]);
+
+        $response['success'] = true;
+    } catch (\Stripe\Exception\ApiErrorException $e) {
+        error_log("Stripe Error in adjustTip: " . $e->getMessage());
+        $response['error'] = "Payment processing failed.";
+    } catch (\PDOException $e) {
+        error_log("DB Error in adjustTip: " . $e->getMessage());
+        $response['error'] = "Internal server error during tip adjustment.";
+    }
+
+    return $response;
+}
+
+// Called by the scheduled sweep (Server/Cron/CaptureHeldTips.php), not by
+// any user-facing endpoint. Finds every tip hold whose 3-day decision
+// window (TipDecisionDeadline) has passed untouched and captures it as-is
+// at the full held amount. Each row gets its own try/catch so one Stripe
+// failure doesn't stop the rest of the sweep from running.
+function captureExpiredTipHolds(\PDO $db): array
+{
+    $result = ['captured' => 0, 'failed' => 0];
+
+    \Stripe\Stripe::setApiKey($_ENV['STRIPE_SECRET_KEY'] ?? '');
+
+    $stmt = $db->prepare("
+        SELECT Id, TipPaymentIntentId
+        FROM OrderSent
+        WHERE TipPaymentIntentId IS NOT NULL AND TipDecisionDeadline <= NOW()
+    ");
+    $stmt->execute();
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($rows as $row) {
+        try {
+            $tipIntent = \Stripe\PaymentIntent::retrieve($row['TipPaymentIntentId']);
+            $tipIntent->capture();
+
+            $update = $db->prepare("
+                UPDATE OrderSent
+                SET TipPaymentIntentId = NULL,
+                    TipDecisionDeadline = NULL
+                WHERE Id = ?
+            ");
+            $update->execute([$row['Id']]);
+
+            $result['captured']++;
+        } catch (\Stripe\Exception\ApiErrorException $e) {
+            error_log("Stripe Error in captureExpiredTipHolds for OrderId {$row['Id']}: " . $e->getMessage());
+            $result['failed']++;
+        } catch (\PDOException $e) {
+            error_log("DB Error in captureExpiredTipHolds for OrderId {$row['Id']}: " . $e->getMessage());
+            $result['failed']++;
+        }
+    }
+
+    return $result;
+}
+
 // Cancels the caller's active same-day order. Default caller (the manual
 // Cancel Order button) is scoped to Pending only — once a shopper has
 // started Processing/picking it, the UI offers Reschedule Delivery instead
@@ -2790,9 +3267,9 @@ function finalizeOrder(\PDO $db, int $userId, int $orderId, float $tipAmount): a
 // checkout() only authorizes the PaymentIntent (capture_method: manual,
 // captured later in finalizeOrder at delivery), so cancelling here means
 // voiding that hold via Stripe's PaymentIntent::cancel(), not issuing a
-// refund. Process/OrderTracking rows are left alone — they persist forever
-// as buy-again history regardless of the order's outcome (see
-// getActiveSameDayOrderId's comment).
+// refund. Process rows are left alone — they persist forever as buy-again
+// history regardless of the order's outcome (see getActiveSameDayOrderId's
+// comment).
 // Best-effort "check this order right now" ping to the order-status
 // WebSocket daemon (Server/WebSocket/run.php), so a write this request just
 // committed shows up for anyone watching that order immediately instead of
@@ -2819,7 +3296,109 @@ function notifyOrderStatusServer(int $orderId): void
     @fclose($socket);
 }
 
-function cancelOrder(\PDO $db, int $userId, array $allowedStatuses = ['Pending']): array
+// Ownership check for messaging deliberately isn't getActiveSameDayOrderId()
+// (Pending/Processing/Shipped only) - a customer should still be able to see
+// (and the history should still exist for) a conversation after the order's
+// delivered/closed, so this just checks the order belongs to this user at
+// all, regardless of status.
+function userOwnsOrder(\PDO $db, int $userId, int $orderId): bool
+{
+    $stmt = $db->prepare("SELECT 1 FROM OrderSent WHERE Id = ? AND UserId = ? LIMIT 1");
+    $stmt->execute([$orderId, $userId]);
+    return (bool)$stmt->fetchColumn();
+}
+
+function getOrderMessages(\PDO $db, int $userId, int $orderId): array
+{
+    $response = [
+        'messages' => [],
+        'error'    => null
+    ];
+
+    if (!userOwnsOrder($db, $userId, $orderId)) {
+        $response['error'] = "Order not found.";
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            SELECT m.Id, m.HandlerId, m.MessageText, m.DateSent, u.Name AS HandlerName
+            FROM Messages m
+            LEFT JOIN Employees e ON e.Id = m.HandlerId AND m.HandlerId > 0
+            LEFT JOIN Users u ON u.Id = e.UserId
+            WHERE m.OrderId = ?
+            ORDER BY m.DateSent ASC, m.Id ASC
+        ");
+        $stmt->execute([$orderId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as $row) {
+            $isEmployee = (int)$row['HandlerId'] > 0;
+            $response['messages'][] = [
+                'id'           => (int)$row['Id'],
+                'sender_type'  => $isEmployee ? 'employee' : 'customer',
+                'sender_name'  => $isEmployee ? ($row['HandlerName'] ?? 'Your shopper') : null,
+                'message'      => $row['MessageText'],
+                'date_sent'    => $row['DateSent'],
+            ];
+        }
+    } catch (\PDOException $e) {
+        error_log("DB Error in getOrderMessages: " . $e->getMessage());
+        $response['error'] = "Internal server error while loading messages.";
+    }
+
+    return $response;
+}
+
+function sendOrderMessage(\PDO $db, int $userId, int $orderId, string $messageText): array
+{
+    $response = [
+        'success' => false,
+        'error'   => null
+    ];
+
+    $messageText = trim($messageText);
+    if ($messageText === '') {
+        $response['error'] = "Message can't be empty.";
+        return $response;
+    }
+    if (mb_strlen($messageText) > 2000) {
+        $response['error'] = "Message is too long.";
+        return $response;
+    }
+
+    if (!userOwnsOrder($db, $userId, $orderId)) {
+        $response['error'] = "Order not found.";
+        return $response;
+    }
+
+    $stmt = $db->prepare("SELECT isClosed FROM OrderSent WHERE Id = ? LIMIT 1");
+    $stmt->execute([$orderId]);
+    if ((bool)$stmt->fetchColumn()) {
+        $response['error'] = "This order is closed. Messaging is no longer available.";
+        return $response;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            INSERT INTO Messages (OrderId, UserId, MessageText)
+            VALUES (?, ?, ?)
+        ");
+        $stmt->execute([$orderId, $userId, $messageText]);
+
+        $response['success'] = true;
+        $response['message_id'] = (int)$db->lastInsertId();
+
+        notifyOrderStatusServer($orderId);
+    } catch (\PDOException $e) {
+        error_log("DB Error in sendOrderMessage: " . $e->getMessage());
+        $response['error'] = "Internal server error while sending message.";
+    }
+
+    return $response;
+}
+
+function cancelOrder(\PDO $db, int $userId, array $allowedStatuses = ['pending']): array
 {
     $response = [
         'success' => false,
@@ -2861,7 +3440,7 @@ function cancelOrder(\PDO $db, int $userId, array $allowedStatuses = ['Pending']
         $placeholders = implode(',', array_fill(0, count($allowedStatuses), '?'));
         $stmt = $db->prepare("
             UPDATE OrderSent
-            SET OrderStatus = 'Cancelled', isClosed = 1
+            SET OrderStatus = 'cancelled', isClosed = 1
             WHERE Id = ? AND UserId = ? AND OrderStatus IN ($placeholders)
         ");
         $stmt->execute([$orderId, $userId, ...$allowedStatuses]);
@@ -3051,8 +3630,8 @@ function rescheduleDelivery(\PDO $db, int $userId, string $window): array
 
         $stmt = $db->prepare("
             UPDATE OrderSent
-            SET ScheduledDeliveryWindow = ?, ScheduledDeliveryStart = FROM_UNIXTIME(?), ScheduledDeliveryEnd = FROM_UNIXTIME(?), OrderStatus = 'Pending', WasRescheduled = 1
-            WHERE Id = ? AND UserId = ? AND OrderStatus = 'Processing'
+            SET ScheduledDeliveryWindow = ?, ScheduledDeliveryStart = FROM_UNIXTIME(?), ScheduledDeliveryEnd = FROM_UNIXTIME(?), OrderStatus = 'pending', WasRescheduled = 1
+            WHERE Id = ? AND UserId = ? AND OrderStatus = 'processing'
         ");
         $stmt->execute([$window, $matchedOption['start'], $matchedOption['end'], $orderId, $userId]);
 
@@ -3090,10 +3669,11 @@ function rescheduleDelivery(\PDO $db, int $userId, string $window): array
     return $response;
 }
 
-// Sum of CreditsEarned across orders delivered so far this calendar month —
-// powers the "You've saved $X this month" figure on the homepage member
-// banner. Scoped to TimeDelivered (when the credit was actually earned in
-// finalizeOrder()), not DateAdded (when the order was placed).
+// Sum of Saved across orders delivered so far this calendar month — powers
+// the "You've saved $X this month" figure on the homepage member banner.
+// Scoped to TimeDelivered (when the order was actually completed), not
+// DateAdded (when it was placed), so an order counts once it's done, not
+// the moment it's placed.
 function monthlySavings(\PDO $db, int $userId): float
 {
     if ($userId <= 0) {
@@ -3103,7 +3683,7 @@ function monthlySavings(\PDO $db, int $userId): float
     $monthStart = date('Y-m-01 00:00:00');
 
     $stmt = $db->prepare("
-        SELECT COALESCE(SUM(CreditsEarned), 0)
+        SELECT COALESCE(SUM(Saved), 0)
         FROM OrderSent
         WHERE UserId = ? AND isClosed = 1 AND TimeDelivered >= ?
     ");
@@ -3126,7 +3706,7 @@ function orderHistory(\PDO $db, int $userId, float $taxRate): array
     try {
         $stmt = $db->prepare("
             SELECT
-                Id, ItemQuantity, OrderRevenue, FinalOrderRevenue, OrderLiability,
+                Id, ItemQuantity, OrderRevenue, FinalOrderRevenue, TaxAmount,
                 TipAmount, isSameDay, OrderStatus, DateAdded, TimeDelivered, isClosed
             FROM OrderSent
             WHERE UserId = ?
@@ -3138,26 +3718,19 @@ function orderHistory(\PDO $db, int $userId, float $taxRate): array
         // Small preview of what was ordered — first few product pictures, plus
         // the total distinct line count so the row can show a "+N" overflow —
         // shown on the collapsed row before the full item list is expanded.
-        $processPicStmt = $db->prepare("
+        // Every order's items live in Process now, same-day or not.
+        $picStmt = $db->prepare("
             SELECT p.Picture FROM Process t JOIN Products p ON p.Id = t.ProductId
             WHERE t.OrderId = ? AND t.UserId = ? LIMIT 3
         ");
-        $trackingPicStmt = $db->prepare("
-            SELECT p.Picture FROM OrderTracking t JOIN Products p ON p.Id = t.ProductId
-            WHERE t.OrderId = ? AND t.UserId = ? LIMIT 3
-        ");
-        $processCountStmt = $db->prepare("SELECT COUNT(*) FROM Process WHERE OrderId = ? AND UserId = ?");
-        $trackingCountStmt = $db->prepare("SELECT COUNT(*) FROM OrderTracking WHERE OrderId = ? AND UserId = ?");
+        $countStmt = $db->prepare("SELECT COUNT(*) FROM Process WHERE OrderId = ? AND UserId = ?");
 
         foreach ($rows as $row) {
             $orderId = (int)$row['Id'];
-            $isSameDay = (bool)$row['isSameDay'];
 
-            $picStmt = $isSameDay ? $processPicStmt : $trackingPicStmt;
             $picStmt->execute([$orderId, $userId]);
             $pictures = $picStmt->fetchAll(PDO::FETCH_COLUMN);
 
-            $countStmt = $isSameDay ? $processCountStmt : $trackingCountStmt;
             $countStmt->execute([$orderId, $userId]);
             $lineCount = (int)$countStmt->fetchColumn();
 
@@ -3165,7 +3738,7 @@ function orderHistory(\PDO $db, int $userId, float $taxRate): array
                 'order_id'       => $orderId,
                 'item_count'     => (int)$row['ItemQuantity'],
                 'subtotal'       => (float)$row['OrderRevenue'],
-                'tax'            => (float)$row['OrderLiability'],
+                'tax'            => (float)$row['TaxAmount'],
                 'tip'            => (float)$row['TipAmount'],
                 'total'          => (float)$row['FinalOrderRevenue'],
                 'status'         => $row['OrderStatus'],
@@ -3199,10 +3772,13 @@ function orderDetails(\PDO $db, int $userId, int $orderId): array
     try {
         $stmt = $db->prepare("
             SELECT
-                Id, ItemQuantity, OrderRevenue, FinalOrderRevenue, OrderLiability,
-                TipAmount, isSameDay, OrderStatus, DateAdded, TimeDelivered, isClosed
-            FROM OrderSent
-            WHERE Id = ? AND UserId = ?
+                o.Id, o.ItemQuantity, o.OrderRevenue, o.FinalOrderRevenue, o.TaxAmount,
+                o.TipAmount, o.isSameDay, o.OrderStatus, o.DateAdded, o.TimeDelivered, o.isClosed,
+                o.ScheduledDeliveryStart, o.ScheduledDeliveryEnd, o.ScheduledDeliveryWindow,
+                u.Email
+            FROM OrderSent o
+            JOIN Users u ON u.Id = o.UserId
+            WHERE o.Id = ? AND o.UserId = ?
             LIMIT 1
         ");
         $stmt->execute([$orderId, $userId]);
@@ -3213,16 +3789,11 @@ function orderDetails(\PDO $db, int $userId, int $orderId): array
             return $response;
         }
 
-        // Process (same-day) uses `Quantity`; OrderTracking (standard) uses `ItemQuantity`.
-        // Process also tracks per-item isStocked; OrderTracking has no such column, so
-        // standard-shipping items are always reported as stocked.
-        $itemsTable = (bool)$order['isSameDay'] ? 'Process' : 'OrderTracking';
-        $quantityColumn = $itemsTable === 'Process' ? 'Quantity' : 'ItemQuantity';
-        $stockedColumn = $itemsTable === 'Process' ? 't.isStocked' : '1';
+        // Every order's items live in Process now, same-day or not.
         $stmt = $db->prepare("
-            SELECT t.ProductId, t.{$quantityColumn} AS Quantity, t.isMissing, {$stockedColumn} AS isStocked,
+            SELECT t.ProductId, t.Quantity, t.isMissing, t.isStocked,
                    p.Name, p.Brand, p.Picture, p.Price
-            FROM {$itemsTable} t
+            FROM Process t
             JOIN Products p ON p.Id = t.ProductId
             WHERE t.OrderId = ? AND t.UserId = ?
         ");
@@ -3244,17 +3815,23 @@ function orderDetails(\PDO $db, int $userId, int $orderId): array
         }
 
         $response['order'] = [
-            'order_id'       => (int)$order['Id'],
-            'item_count'     => (int)$order['ItemQuantity'],
-            'subtotal'       => (float)$order['OrderRevenue'],
-            'tax'            => (float)$order['OrderLiability'],
-            'tip'            => (float)$order['TipAmount'],
-            'total'          => (float)$order['FinalOrderRevenue'],
-            'status'         => $order['OrderStatus'],
-            'date_added'     => $order['DateAdded'],
-            'time_delivered' => $order['TimeDelivered'],
-            'is_closed'      => (bool)$order['isClosed'],
-            'items'          => $items
+            'order_id'            => (int)$order['Id'],
+            'item_count'          => (int)$order['ItemQuantity'],
+            'subtotal'            => (float)$order['OrderRevenue'],
+            'tax'                 => (float)$order['TaxAmount'],
+            'tip'                 => (float)$order['TipAmount'],
+            'total'               => (float)$order['FinalOrderRevenue'],
+            'status'              => $order['OrderStatus'],
+            'date_added'          => $order['DateAdded'],
+            'time_delivered'      => $order['TimeDelivered'],
+            'is_closed'           => (bool)$order['isClosed'],
+            'email'               => $order['Email'],
+            'estimated_delivery'  => formatScheduledDeliveryWindow(
+                $order['ScheduledDeliveryStart'] ?? null,
+                $order['ScheduledDeliveryEnd'] ?? null,
+                $order['ScheduledDeliveryWindow'] ?? null
+            ),
+            'items'               => $items
         ];
     } catch (\PDOException $e) {
         error_log("DB Error in orderDetails: " . $e->getMessage());
@@ -3759,10 +4336,18 @@ function listAddresses(\PDO $db, int $userId): array
     return $response;
 }
 
+// ShowSavedCard = 0 means the card is hidden from every frontend surface
+// that lists payment methods - the checkout/membership-modal "use your
+// saved card" shortcuts AND the account Payment Methods page - not just the
+// checkout shortcut. The card stays attached in Stripe regardless (that's
+// what makes billing/off-session reuse work, a Stripe requirement - see
+// PaymentMethod.sql), this function just never reports it back to the
+// frontend when the customer said not to save it for reuse.
 function listPaymentMethods(\PDO $db, int $userId): array
 {
     $response = [
         'payment_methods' => [],
+        'show_saved_card' => true,
         'error'           => null
     ];
 
@@ -3771,16 +4356,21 @@ function listPaymentMethods(\PDO $db, int $userId): array
     }
 
     try {
-        $stmt = $db->prepare("SELECT StripeCustomerId FROM CustomerPaymentMethod WHERE UserId = ? LIMIT 1");
+        $stmt = $db->prepare("SELECT StripeCustomerId, ShowSavedCard FROM CustomerPaymentMethod WHERE UserId = ? LIMIT 1");
         $stmt->execute([$userId]);
-        $stripeCustomerId = $stmt->fetchColumn();
+        $paymentRow = $stmt->fetch(PDO::FETCH_ASSOC);
 
         // No checkout yet means no Stripe customer, and therefore no cards
         // to list — an empty result here is a legitimate first-time state,
-        // not an error.
-        if (!$stripeCustomerId) {
+        // not an error. Same empty result if the customer opted out of
+        // having it saved/shown.
+        if (!$paymentRow || !$paymentRow['StripeCustomerId'] || !$paymentRow['ShowSavedCard']) {
+            $response['show_saved_card'] = (bool)($paymentRow['ShowSavedCard'] ?? true);
             return $response;
         }
+
+        $stripeCustomerId = $paymentRow['StripeCustomerId'];
+        $response['show_saved_card'] = true;
 
         \Stripe\Stripe::setApiKey($_ENV['STRIPE_SECRET_KEY'] ?? '');
         $cards = \Stripe\PaymentMethod::all(['customer' => $stripeCustomerId, 'type' => 'card']);

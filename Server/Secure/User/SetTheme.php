@@ -5,16 +5,17 @@ include_once __DIR__ . "/../../Function/Components.php";
 
 $userId = requireAuthenticatedUser($data);
 
-$result = listPaymentMethods($pdo, $userId);
+$theme = (string)($data['theme'] ?? '');
+
+$result = setUserTheme($pdo, $userId, $theme);
 
 if (!empty($result['error'])) {
-    http_response_code(400);
+    http_response_code($result['error'] === 'Invalid theme.' ? 400 : 500);
     echo json_encode(['error' => $result['error']]);
     exit;
 }
 
-echo json_encode([
-    'payment_methods' => $result['payment_methods'],
-    'show_saved_card' => $result['show_saved_card']
-]);
+$_SESSION['user_theme'] = $theme;
+
+echo json_encode(['success' => true]);
 exit;

@@ -23,15 +23,20 @@ function asset_v($relativePath, $path)
     // Applied before any stylesheet loads, so there's no flash of the wrong
     // theme on page load/navigation - every page in this app is a separate
     // full server render, not a SPA, so this has to re-run on every single
-    // page rather than once. Falls back to the OS-level preference when the
-    // user hasn't picked one explicitly yet; toggle button is in Header.php,
-    // click handler in Interaction.js.
+    // page rather than once. Logged-in users' saved preference (rendered
+    // server-side from Users.Theme via $_SESSION) always wins over
+    // localStorage, since that's the source of truth once an account has
+    // one; guests fall back to localStorage, then the OS-level preference.
+    // Toggle buttons are in Header.php/Settings.php, shared click handler
+    // in Interaction.js.
     (function () {
+      var accountTheme = <?= isset($_SESSION['user_theme']) ? json_encode($_SESSION['user_theme']) : 'null' ?>;
       var stored = localStorage.getItem("hd-theme");
-      var theme = stored || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      var theme = accountTheme || stored || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
       if (theme === "dark") {
         document.documentElement.setAttribute("data-theme", "dark");
       }
+      localStorage.setItem("hd-theme", theme);
     })();
   </script>
   <script>

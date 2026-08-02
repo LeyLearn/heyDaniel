@@ -113,11 +113,20 @@ function wsFingerprintForOrder(\PDO $db, int $orderId): ?string
         $stmt->execute([$orderId]);
         $itemsFingerprint = $stmt->fetchColumn();
 
+        // COUNT + MAX(Id) is enough to detect a new message without hashing
+        // every message body on every check - a message's content never
+        // changes after it's sent, so a new row is the only way this pair
+        // changes.
+        $stmt = $db->prepare("SELECT COUNT(*), COALESCE(MAX(Id), 0) FROM Messages WHERE OrderId = ?");
+        $stmt->execute([$orderId]);
+        $messagesFingerprint = implode(':', $stmt->fetch(\PDO::FETCH_NUM));
+
         return implode('|', [
             $order['OrderStatus'],
             $order['WasRescheduled'],
             $order['ScheduledDeliveryWindow'],
             $itemsFingerprint,
+            $messagesFingerprint,
         ]);
     } catch (\PDOException $e) {
         error_log("WebSocket fingerprint error: " . $e->getMessage());

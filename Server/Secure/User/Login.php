@@ -71,6 +71,7 @@ if ($userDeviceType === "Web") {
     $_SESSION['is_member']  = $user['user']['is_member'];
     $_SESSION['user_phone'] = $user['user']['user_phone'];
     $_SESSION['user_time_register'] = $user['user']['time_register'];
+    $_SESSION['user_theme'] = $user['user']['theme'];
     $_SESSION['redirectURL'] = $_SERVER['REQUEST_URI'];
     $response['success'] = true;
     echo json_encode($response);

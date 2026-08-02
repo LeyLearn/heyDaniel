@@ -26,16 +26,23 @@ if (!in_array($userDeviceType, $validDeviceTypes, true)) {
     exit;
 }
 
-$userId = 0;
-$isWeb  = ($userDeviceType === 'Web');
+$userId  = 0;
+$orderId = 0;
+$tip     = 0.00;
 
-if ($isWeb) {
-    session_start();
-    $userId = (int)($_SESSION['user_id'] ?? 0);
+if ($userDeviceType === 'iOS' || $userDeviceType === 'Android') {
+    $userId  = resolveMobileUserId($data);
+    $orderId = (int)($data['order_id'] ?? 0);
+    $tip     = (float)($data['tip_amount'] ?? 0.00);
 } else {
-    $userId = resolveMobileUserId($data);
+    session_start();
+    $userId  = (int)($_SESSION['user_id'] ?? 0);
+    $orderId = (int)($data['order_id'] ?? 0);
+    $tip     = (float)($data['tip_amount'] ?? 0.00);
 }
 
+// Release the session write lock before adjustTip()'s Stripe API calls,
+// same fix as Checkout.php/FinalizeOrder.php.
 if (session_status() === PHP_SESSION_ACTIVE) {
     session_write_close();
 }
@@ -47,19 +54,23 @@ if ($userId <= 0) {
     exit;
 }
 
-$result = cancelMembership($pdo, $userId);
-
-if (!empty($result['error'])) {
+if ($orderId <= 0) {
     http_response_code(400);
-    $response['error'] = $result['error'];
+    $response['message'] = "A valid order ID is required.";
     echo json_encode($response);
     exit;
 }
 
-// is_member deliberately NOT flipped here - cancelMembership() only sets
-// cancel_at_period_end now, the membership (and this session flag) stays
-// true until the period actually ends and the webhook revokes it for real.
+$adjust = adjustTip($pdo, $userId, $orderId, $tip);
+
+if (!empty($adjust['error'])) {
+    http_response_code(500);
+    $response['error'] = $adjust['error'];
+    echo json_encode($response);
+    exit;
+}
 
 $response['success'] = true;
+
 echo json_encode($response);
 exit;

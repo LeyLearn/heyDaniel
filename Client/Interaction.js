@@ -246,27 +246,44 @@ $(function () {
     // ============================
     // The actual theme is already applied before first paint by the inline
     // script in Head.php (avoids a flash of the wrong theme) - this just
-    // syncs the button's icon/state to whatever that script decided, and
-    // handles switching it afterward.
+    // syncs every toggle control's icon/state to whatever that script
+    // decided, and handles switching it afterward. There are two entry
+    // points for the same preference - the header icon button (every page)
+    // and the Settings page row (logged-in only) - so both funnel through
+    // one shared setTheme() instead of duplicating the apply/persist logic.
 
-    function syncThemeToggleIcon() {
+    function syncThemeControls() {
         const isDark = document.documentElement.getAttribute("data-theme") === "dark";
         $("#theme-toggle-icon").toggleClass("fa-moon", !isDark).toggleClass("fa-sun", isDark);
         $("#theme-toggle-btn").attr("aria-pressed", isDark ? "true" : "false");
+        $("#settings-theme-toggle").toggleClass("Toggle_On", isDark).attr("aria-pressed", isDark ? "true" : "false");
     }
 
-    syncThemeToggleIcon();
-
-    $("#theme-toggle-btn").on("click", function () {
-        const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-        if (isDark) {
-            document.documentElement.removeAttribute("data-theme");
-            localStorage.setItem("hd-theme", "light");
-        } else {
+    function setTheme(theme) {
+        if (theme === "dark") {
             document.documentElement.setAttribute("data-theme", "dark");
-            localStorage.setItem("hd-theme", "dark");
+        } else {
+            document.documentElement.removeAttribute("data-theme");
         }
-        syncThemeToggleIcon();
+        localStorage.setItem("hd-theme", theme);
+        syncThemeControls();
+
+        if (window.isLoggedIn) {
+            $.ajax({
+                method: "POST",
+                url: "/HeyDaniel/Server/index.php",
+                contentType: "application/json",
+                dataType: "json",
+                data: JSON.stringify({ action: "set_theme", device_type: "Web", theme: theme })
+            });
+        }
+    }
+
+    syncThemeControls();
+
+    $("#theme-toggle-btn, #settings-theme-toggle").on("click", function () {
+        const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+        setTheme(isDark ? "light" : "dark");
     });
 
     // ============================
@@ -524,8 +541,8 @@ $(function () {
             $btn.prop("disabled", true);
             $label.text("Subscribing...");
 
-            function finishSubscribe(paymentMethodId) {
-                subscribeMembership(paymentMethodId, function () {
+            function finishSubscribe(paymentMethodId, saveCard) {
+                subscribeMembership(paymentMethodId, saveCard, function () {
                     closeMembershipModal();
                     window.location.reload();
                 }, function (message) {
@@ -536,7 +553,9 @@ $(function () {
             }
 
             if (usingSavedCard) {
-                finishSubscribe(membershipSavedCardId);
+                // Already saved - the checkbox only applies to a
+                // freshly-entered card below.
+                finishSubscribe(membershipSavedCardId, true);
                 return;
             }
 
@@ -554,7 +573,7 @@ $(function () {
                     return;
                 }
 
-                finishSubscribe(result.paymentMethod.id);
+                finishSubscribe(result.paymentMethod.id, $("#membership-save-card").is(":checked"));
             });
         });
     }

@@ -160,14 +160,15 @@ $metaDescription = "Track your order as it's being picked and packed by HeyDanie
                         <span class="Order_Status_Updated" id="order-status-updated">Last updated: just now</span>
                     </div>
 
-                    <!-- Reserved spot for in-app messaging with your shopper -
-                         not built yet, this is just the placeholder. -->
                     <div class="Order_Status_Card Order_Message_Placeholder">
                         <div class="Order_Status_Detail_Row">
                             <span class="Icon_Circle Order_Status_Detail_Icon"><i class="fas fa-comment-dots" aria-hidden="true"></i></span>
                             <span class="Order_Status_Detail_Label">Messages</span>
                         </div>
-                        <p class="Order_Message_Placeholder_Text">Chatting with your shopper here is coming soon. For now, use the message or call button above to reach them.</p>
+                        <p class="Order_Message_Placeholder_Text" id="order-message-preview">Chat with your shopper about this order.</p>
+                        <button type="button" class="Secondary_Light_Btn Secondary_Light_Btn--full" id="order-message-open-btn">
+                            <i class="fas fa-comment-dots" aria-hidden="true"></i> Open chat
+                        </button>
                     </div>
 
                     <div class="Order_Status_Card">
@@ -337,6 +338,31 @@ $metaDescription = "Track your order as it's being picked and packed by HeyDanie
         </div>
     </div>
 
+    <!-- Chat modal - a slide-in drawer matching #side-bar (Header.php, the
+         zip-code-entry panel) exactly, per request: native <dialog>, same
+         showModal()/slide-transition/backdrop-click lifecycle (see the JS
+         below), same .box-title-style colored header. Not the centered
+         .Modal/.Zip_Conflict_Header popup used for the zip *conflict*
+         warning - that one's a different, unrelated pattern. -->
+    <dialog id="chat-modal">
+        <div class="box-title">
+            <button type="button" class="close-icon-location Btn_Icon_Ghost Btn_Icon_Ghost--inverse" id="chat-modal-close" aria-label="Close">
+                <img src="<?php echo $path ?>Assets/Icons/close.svg" alt="" />
+            </button>
+            <h1>Chat with your shopper</h1>
+        </div>
+        <div class="Chat_Modal_Body" id="chat-modal-messages">
+            <p class="Chat_Modal_Empty" id="chat-modal-empty" style="display:none;">No messages yet — say hello!</p>
+        </div>
+        <div class="Chat_Modal_Footer">
+            <input type="text" class="Chat_Modal_Input" id="chat-modal-input" placeholder="Type a message…" maxlength="2000" />
+            <button type="button" class="Chat_Modal_Send_Btn" id="chat-modal-send" aria-label="Send message">
+                <i class="fas fa-paper-plane" aria-hidden="true"></i>
+            </button>
+        </div>
+        <p class="credential-error" id="chat-modal-error" style="display:none;"></p>
+    </dialog>
+
     <?php require $path . "Interface/Sections/Footer.php"; ?>
 
     <script>
@@ -358,6 +384,16 @@ $metaDescription = "Track your order as it's being picked and packed by HeyDanie
             function refreshOrder() {
                 cartItem(false);
                 summary();
+                // The live-update signal (WebSocket push, or the polling
+                // fallback below) fires for any change to this order,
+                // messages included (the daemon's fingerprint covers the
+                // Messages table too) - only worth re-fetching the thread if
+                // the modal's actually open. loadChatMessages() is declared
+                // further down in this same ready() block, but function
+                // declarations are hoisted, so it's already callable here.
+                if ($("#chat-modal").hasClass("Sidebar_Open")) {
+                    loadChatMessages();
+                }
             }
             function startPollingFallback() {
                 if (liveUpdateFallbackTimer) {
@@ -478,9 +514,128 @@ $metaDescription = "Track your order as it's being picked and packed by HeyDanie
                 }
             });
 
-            $("#order-status-message-btn, #order-status-call-btn").on("click", function () {
-                showAppAlert("Messaging your shopper is coming soon.");
+            $("#order-status-call-btn").on("click", function () {
+                showAppAlert("Calling your shopper is coming soon.");
             });
+
+            // ---------- Chat modal ----------
+            function scrollChatToBottom() {
+                const $body = $("#chat-modal-messages");
+                $body.scrollTop($body[0].scrollHeight);
+            }
+
+            function renderChatMessages(messages) {
+                const $body = $("#chat-modal-messages");
+                $body.find(".Chat_Message").remove();
+                $("#chat-modal-empty").toggle(messages.length === 0);
+
+                messages.forEach(function (msg) {
+                    const isCustomer = msg.sender_type === "customer";
+                    const time = new Date(msg.date_sent.replace(" ", "T")).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+                    $("<div></div>")
+                        .addClass("Chat_Message")
+                        .addClass(isCustomer ? "Chat_Message_Customer" : "Chat_Message_Employee")
+                        .append(
+                            $("<span></span>").text(msg.message),
+                            $("<span></span>").addClass("Chat_Message_Time").text(time)
+                        )
+                        .appendTo($body);
+                });
+
+                scrollChatToBottom();
+            }
+
+            function loadChatMessages() {
+                if (!window.currentOrderId) {
+                    return;
+                }
+                fetchOrderMessages(window.currentOrderId, renderChatMessages, function (message) {
+                    $("#chat-modal-error").text(message).show();
+                });
+            }
+
+            // Slide-in lifecycle deliberately matches #side-bar's
+            // openSidebar()/closeSidebar() in Interaction.js exactly (see
+            // that file's comments for why each piece is needed) - native
+            // showModal(), a requestAnimationFrame before adding the
+            // slide-open class so the transition actually animates instead
+            // of snapping straight to open, and the dialog only formally
+            // close()s once its slide-out transition finishes (or
+            // immediately via the native "close" event, e.g. Escape).
+            const $chatModal = $("#chat-modal");
+
+            function openChatModal() {
+                if (!window.currentOrderId) {
+                    showAppAlert("Your order isn't ready yet — try again in a moment.");
+                    return;
+                }
+                $("#chat-modal-error").hide();
+                $chatModal.get(0).showModal();
+                $("html, body").addClass("No_Scroll");
+                requestAnimationFrame(function () {
+                    $chatModal.addClass("Sidebar_Open");
+                });
+                $("#chat-modal-input").val("").trigger("focus");
+                loadChatMessages();
+            }
+
+            function closeChatModal() {
+                $chatModal.removeClass("Sidebar_Open");
+            }
+
+            $chatModal.on("transitionend", function (e) {
+                if (e.originalEvent.propertyName === "right" && !$chatModal.hasClass("Sidebar_Open")) {
+                    this.close();
+                }
+            });
+
+            $chatModal.on("click", function (e) {
+                const rect = this.getBoundingClientRect();
+                const clickedInsidePanel = e.clientX >= rect.left && e.clientX <= rect.right
+                    && e.clientY >= rect.top && e.clientY <= rect.bottom;
+
+                if (!clickedInsidePanel) {
+                    closeChatModal();
+                }
+            });
+
+            $chatModal.on("close", function () {
+                $chatModal.removeClass("Sidebar_Open");
+                $("html, body").removeClass("No_Scroll");
+            });
+
+            $("#order-status-message-btn, #order-message-open-btn").on("click", openChatModal);
+
+            $("#chat-modal-close").on("click", closeChatModal);
+
+            function sendChatMessage() {
+                const $input = $("#chat-modal-input");
+                const message = $input.val().trim();
+                if (!message) {
+                    return;
+                }
+
+                $("#chat-modal-error").hide();
+                $("#chat-modal-send").prop("disabled", true);
+
+                sendOrderMessage(window.currentOrderId, message, function () {
+                    $input.val("");
+                    $("#chat-modal-send").prop("disabled", false);
+                    loadChatMessages();
+                }, function (errorMessage) {
+                    $("#chat-modal-send").prop("disabled", false);
+                    $("#chat-modal-error").text(errorMessage).show();
+                });
+            }
+
+            $("#chat-modal-send").on("click", sendChatMessage);
+
+            $("#chat-modal-input").on("keydown", function (e) {
+                if (e.key === "Enter") {
+                    sendChatMessage();
+                }
+            });
+
         });
     </script>
 

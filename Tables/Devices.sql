@@ -6,6 +6,5 @@ CREATE TABLE Devices (
   isSameDayEligible TINYINT(1) NOT NULL DEFAULT 0,
   isActive TINYINT(1) NOT NULL DEFAULT 1,
   DateAdded DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_device_sig (DeviceSignature),
   INDEX idx_zipcode (Zipcode)
 );
