@@ -920,6 +920,24 @@
   object-fit: cover;
 }
 
+@media (max-width: 768px) {
+  /* the fixed right padding only exists to clear the absolutely-positioned
+     scene image — with the image hidden the copy can use the full width */
+  .auth-promo,
+  .auth-promo-guest {
+    padding: 24px;
+    min-height: 0;
+  }
+
+  .auth-promo-scene {
+    display: none;
+  }
+
+  .auth-promo-actions {
+    flex-wrap: wrap;
+  }
+}
+
 /* PLUS PROMO (HeyDaniel+ subscribe banner, signed-in users) */
 .plus-promo {
   position: relative;
@@ -1403,7 +1421,7 @@
 
 @media (max-width: 900px) {
   .member-promo-main {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     min-height: 0;
     padding: 28px;
   }

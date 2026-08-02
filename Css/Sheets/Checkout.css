@@ -425,6 +425,7 @@
 
 .Payment_Method_Option {
   flex: 1;
+  min-width: 0;
   height: 52px;
   border: 1px solid rgba(var(--secondary-rgb), 0.15);
   border-radius: 12px;
@@ -663,5 +664,37 @@
 
   .Checkout_Step_Label {
     display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  /* three payment tiles side by side don't fit a phone — stack them */
+  .Payment_Method_Options {
+    flex-direction: column;
+  }
+
+  .Payment_Method_Option {
+    height: 48px;
+    justify-content: flex-start;
+    padding: 0 16px;
+  }
+
+  .Payment_Method_Option.Selected {
+    padding: 0 15px;
+  }
+
+  .Checkout_Form {
+    padding: 20px;
+  }
+
+  .Checkout_Steps {
+    margin: -20px -20px 20px;
+    padding: 16px 20px;
+  }
+
+  /* suggestion cards (saved address / saved card) wrap instead of pushing
+     the toggle button off-screen */
+  .Checkout_Suggestion_Card {
+    flex-wrap: wrap;
   }
 }

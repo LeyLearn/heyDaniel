@@ -22,7 +22,7 @@
    each card to squeeze more into a line. */
 #saved-items-container {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -33,6 +33,6 @@
 
 @media (max-width: 560px) {
   #saved-items-container {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }

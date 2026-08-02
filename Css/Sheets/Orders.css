@@ -36,6 +36,27 @@
   position: relative;
 }
 
+@media (max-width: 640px) {
+  .Orders_Page_Header_Actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .Orders_Search_Wrap {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .Order_Help_Banner {
+    flex-wrap: wrap;
+  }
+
+  .Orders_Pagination {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+}
+
 .Orders_Filter_Btn {
   height: 40px;
   padding: 0 16px;

@@ -137,10 +137,13 @@
     right: 0;
 }
 
+/* minmax(0, 1fr) instead of bare 1fr throughout these grids: 1fr floors at
+   the track's min-content size, and the tile images' intrinsic width would
+   otherwise force the whole card wider than the viewport on phones */
 .main-sale-cat-container{
     position: relative;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
     width: 84%;
     margin: 20px auto 60px;
@@ -148,7 +151,8 @@
 
 .main-sale-cat{
       background-color: var(--surface);
-      padding: 11px
+      padding: 11px;
+      min-width: 0;
 }
 
 .main-sale-cat-title{
@@ -160,13 +164,13 @@
 
 .main-sale-cat-grid{
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     margin-bottom: 12px;
 }
 
 .main-sale-cat-grid[data-count="3"]{
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .main-sale-cat-tile{
@@ -263,7 +267,7 @@
     }
 
     .main-sale-cat-container{
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 24px;
     }
 
@@ -279,7 +283,7 @@
 
 @media (max-width: 480px){
     .main-sale-cat-container{
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .main-circle-cat-img{

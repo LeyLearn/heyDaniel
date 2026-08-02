@@ -414,6 +414,7 @@ input{
 
 .Help_Search_Row input {
   flex: 1;
+  min-width: 0;
   height: 45px;
   font-family: inherit;
   font-size: var(--regular-text);
@@ -726,19 +727,32 @@ input{
    ========================================================================== */
 
 @media (max-width: 1024px) {
-  /* Header search bar */
+  /* Header search bar — .search-wrap is the flex child of .header-main
+     (Header.php wraps .search-bar in it), so the fixed calc() width has to
+     be relaxed on the wrapper itself or it overflows small screens */
+  .search-wrap {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0 20px;
+  }
+
   .search-bar {
     width: 100%;
-    margin: 0 20px;
   }
 }
 
 @media (max-width: 768px) {
-  /* Header search bar */
-  .search-bar {
+  /* Header search bar drops to its own full-width row under logo/actions */
+  .search-wrap {
     order: 3;
+    flex: 1 1 100%;
     width: 100%;
     margin: 10px 0;
+  }
+
+  .search-bar {
+    width: 100%;
   }
 
   /* Footer newsletter signup */
@@ -759,7 +773,7 @@ input{
 
   /* Profile -> Address modal field rows stack instead of a 3-column grid */
   .Address_Modal_Field_Row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

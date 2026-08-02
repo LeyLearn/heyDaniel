@@ -66,3 +66,15 @@
   border-radius: 8px;
   padding: 20px 24px;
 }
+
+@media (max-width: 560px) {
+  .Help_Contact_Row {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .Help_Search_Wrap {
+    padding: 18px 16px;
+  }
+}

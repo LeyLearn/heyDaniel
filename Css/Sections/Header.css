@@ -901,6 +901,24 @@ span {
     margin-left: auto;
   }
 
+  .user-actions {
+    width: auto;
+    height: auto;
+  }
+
+  /* skeleton mirrors the stacked summary bar below so nothing jumps or
+     overflows while the real header loads */
+  .sk-header-summary {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .sk-location,
+  .sk-order,
+  .sk-banner {
+    width: 100%;
+  }
+
   /* summary bar stacks */
   .header-summary {
     flex-direction: column;

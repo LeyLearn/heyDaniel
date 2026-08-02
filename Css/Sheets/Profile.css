@@ -392,7 +392,7 @@
 /* TWO-COLUMN GRID: Profile Info | Order History */
 .Profile_Grid {
   display: grid;
-  grid-template-columns: 1fr 1.3fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
   gap: 20px;
   align-items: start;
 }
@@ -1341,7 +1341,7 @@
 
 .Membership_Modal_Benefits {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   border: 1px solid rgba(var(--secondary-rgb), 0.08);
   box-shadow: 0 2px 10px rgba(var(--secondary-rgb), 0.05);
   border-radius: 12px;
@@ -1425,7 +1425,7 @@
   }
 
   .Membership_Modal_Benefits {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .Membership_Modal_Benefit:not(:last-child) {
@@ -1435,12 +1435,18 @@
 }
 
 @media (max-width: 768px) {
+  /* .Profile_Layout's base rule uses align-items: flex-start for the
+     desktop side-by-side nav/main columns — stacked to a column here, that
+     same flex-start leaves .Profile_Main sized to its own content instead
+     of the container width, so any wide-but-shrinkable child (e.g.
+     Help_Contact_Row) can push past the viewport edge uncontained. */
   .Profile_Layout {
     flex-direction: column;
+    align-items: stretch;
   }
 
   .Profile_Grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .Profile_Nav {
@@ -1471,9 +1477,21 @@
     border-top: none;
   }
 
+  .Profile_Welcome {
+    flex-wrap: wrap;
+  }
+
   .Profile_Stats {
     flex-wrap: wrap;
     row-gap: 20px;
+  }
+
+  /* explicit basis so the row actually wraps into a 2x2 grid — with the
+     default flex:1 (basis 0) the items shrink to min-content on one line
+     and overflow the viewport instead of wrapping */
+  .Stat_Item {
+    flex: 1 1 45%;
+    min-width: 0;
   }
 
   .Stat_Divider {

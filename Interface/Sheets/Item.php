@@ -11,7 +11,7 @@ $metaDescription = "View product details on HeyDaniel.";
 
     <section class="Container Item_Layout">
         <div id="item-loading" class="Item_Main">
-            <div class="Skeleton_Block" style="width:420px;height:420px;border-radius:8px;flex-shrink:0;"></div>
+            <div class="Skeleton_Block" style="width:420px;max-width:100%;height:420px;border-radius:8px;flex-shrink:0;"></div>
             <div style="flex:1;display:flex;flex-direction:column;gap:14px;">
                 <div class="Skeleton_Block" style="width:30%;height:10px;"></div>
                 <div class="Skeleton_Block" style="width:70%;height:28px;"></div>
